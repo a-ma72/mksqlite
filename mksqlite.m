@@ -1,6 +1,6 @@
 %MKSQLITE Eine MATLAB Schnittstelle zu SQLite
 %  SQLite ist eine Embedded SQL Engine, welche ohne Server SQL Datenbanken
-%  innerhalb von Dateien verwalten kann. MK_SQLITE bietet die Schnittstelle
+%  innerhalb von Dateien verwalten kann. MKSQLITE bietet die Schnittstelle
 %  zu dieser SQL Datenbank.
 %
 % Genereller Aufruf:
