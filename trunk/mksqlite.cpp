@@ -9,7 +9,7 @@
 #include "sqlite3.h"
 
 // Version
-#define VERSION "0.9"
+#define VERSION "1.0"
 
 // Revision aus SVN
 #include "svn_revision.h"
