@@ -1,36 +1,44 @@
 /*
- * MATLAB Schnittstelle zu SQLite
+ * mksqlite: A MATLAB Interface To SQLite
+ *
+ * (c) 2008 by M. Kortmann <mail@kortmann.de>
  */
 
-#include <stdio.h>
-#include <winsock.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 #include <mex.h>
 #include "sqlite3.h"
 
-// Version
+/* Versionnumber */
 #define VERSION "1.1 dev"
 
-// Revision aus SVN
+/* get the SVN Revisionnumber */
 #include "svn_revision.h"
 
-// #define Debug(s)    mexPrintf("mksqlite: "),mexPrintf(s), mexPrintf("\n")
-#define Debug(s)
 
-// Wir brauchen eine C-Schnittstelle, also 'extern "C"' das ganze
+/* declare the MEX Entry function as pure C */
 extern "C" void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[]);
 
-// Flag: Willkommensmeldung wurde ausgegeben
+/* Flag: Show the welcome message */
 static bool FirstStart = false;
-// Flag: NULL as NaN ausgeben
-static bool NULLasNaN  = false;
 
+/* Flag: return NULL as NaN  */
+static bool NULLasNaN  = false;
 static const double g_NaN = mxGetNaN();
 
+/*
+ * Table of used database ids.
+ */
 #define MaxNumOfDbs 5
 static sqlite3* g_dbs[MaxNumOfDbs] = { 0 };
 
-// Sprache: Index in Meldungen
+/*
+ * a poor man localization.
+ * every language have an table of messages.
+ */
+
+/* Number of message table to use */
 static int Language = -1;
 
 #define MSG_HELLO               messages[Language][ 0]
@@ -48,13 +56,11 @@ static int Language = -1;
 #define MSG_CANTCREATEOUTPUT	messages[Language][12]
 #define MSG_UNKNWNDBTYPE        messages[Language][13]
 
-#define NUM_MSGS                                   14
-
-// 0 = english
+/* 0 = english message table */
 static const char* messages_0[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008 by Martin Kortmann <email@kortmann.de>\n"
+    "(c) 2008 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n\n",
     
     "invalid database handle\n",
@@ -72,11 +78,11 @@ static const char* messages_0[] =
 	"unknown SQLITE data type"
 };
 
-// 1 = german
+/* 1 = german message table */
 static const char* messages_1[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008 by Martin Kortmann <email@kortmann.de>\n"
+    "(c) 2008 by Martin Kortmann <mail@kortmann.de>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n\n",
     
     "ungültiger Datenbankhandle\n",
@@ -94,138 +100,49 @@ static const char* messages_1[] =
     "unbek. SQLITE Datentyp"
 };
 
+/*
+ * Message Tables
+ */
 static const char **messages[] = 
 {
-    messages_0,
-    messages_1
+    messages_0,	/* English messages */
+    messages_1	/* German messages  */
 };
 
 /*
- * Eine simple String Klasse
+ * duplicate a string, 
  */
-
-class SimpleString
+static char* strnewdup(const char* s)
 {
-public:
-
-		 SimpleString ();
-		 SimpleString (const char* src);
-	 	 SimpleString (const SimpleString&);
-virtual ~SimpleString ();
-
-	operator const char* ()
-		{
-			return m_str;
-		}
-
-	SimpleString& operator = (const char*);
-	SimpleString& operator = (const SimpleString&);
-
-private:
-
-	char* m_str;
-	static const char* m_EmptyString;
-};
-
-const char * SimpleString::m_EmptyString = "";
-
-
-SimpleString::SimpleString()
-	:m_str (const_cast<char*> (m_EmptyString))
-{
-}
-
-SimpleString::SimpleString(const char* src)
-{
-	if (! src || ! *src)
+	char *newstr = 0;
+	
+	if (s)
 	{
-		m_str = const_cast<char*> (m_EmptyString);
-	}
-	else
-	{
-		int     len = (int) strlen(src);
-		m_str = new char [len +1];
-		memcpy (m_str, src, len +1);
-	}
-}
-
-SimpleString::SimpleString (const SimpleString& src)
-{
-	if (src.m_str == m_EmptyString)
-	{
-		m_str = const_cast<char*> (m_EmptyString);
-	}
-	else
-	{
-		int     len = (int) strlen(src.m_str);
-		m_str = new char [len +1];
-		memcpy (m_str, src.m_str, len +1);
-	}
-}
-
-SimpleString& SimpleString::operator = (const char* src)
-{
-	if (m_str && m_str != m_EmptyString)
-		delete [] m_str;
-
-	if (! src || ! *src)
-	{
-		m_str = const_cast<char*> (m_EmptyString);
-	}
-	else
-	{
-		int     len = (int) strlen(src);
-		m_str = new char [len +1];
-		memcpy (m_str, src, len +1);
+		newstr = new char [strlen(s) +1];
+		if (newstr)
+			strcpy(newstr, s);
 	}
 
-	return *this;
-}
-
-SimpleString& SimpleString::operator = (const SimpleString& src)
-{
-	if (&src != this)
-	{
-		if (m_str && m_str != m_EmptyString)
-			delete [] m_str;
-
-		if (src.m_str == m_EmptyString)
-		{
-			m_str = const_cast<char*> (m_EmptyString);
-		}
-		else
-		{
-			int     len = (int) strlen(src.m_str);
-			m_str = new char [len +1];
-			memcpy (m_str, src.m_str, len +1);
-		}
-	}
-
-	return *this;
-}
-
-SimpleString::~SimpleString()
-{
-	if (m_str && m_str != m_EmptyString)
-		delete [] m_str;
+	return newstr;
 }
 
 /*
- * Ein einzelner Wert mit Typinformation
+ * a single Value of an database row, including data type information
  */
 class Value
 {
 public:
-    int          m_Type;
+    int         m_Type;
 
-    SimpleString m_StringValue;
-    double       m_NumericValue;
+    char*		m_StringValue;
+    double      m_NumericValue;
     
-virtual    ~Value () {} 
+			Value () : m_StringValue(0) {}
+virtual    ~Value () { if (m_StringValue) delete [] m_StringValue; } 
 };
 
 /*
- * mehrere Werte...
+ * all values of an database row
  */
 class Values
 {
@@ -242,46 +159,62 @@ virtual ~Values()
             { delete [] m_Values; }
 };
 
-
-
 /*
- * Die DllMain wurd dazu verwendet, um zu erkennen ob die Library von 
- * MATLAB beendet wird. Dann wird eine evtl. bestehende Verbndung
- * ebenfalls beendet.
+ * DllMain is the last point to close left over databases.
  */
 BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
 	switch (ul_reason_for_call)
 	{
-	case DLL_PROCESS_ATTACH:
-		break;
-	case DLL_THREAD_ATTACH:
-		break;
-	case DLL_THREAD_DETACH:
-		break;
-	case DLL_PROCESS_DETACH:
-        {
-            bool dbsClosed = false;
-            for (int i = 0; i < MaxNumOfDbs; i++)
-            {
-                if (g_dbs[i])
-                {
-                    sqlite3_close(g_dbs[i]);
-                    g_dbs[i] = 0;
-                    dbsClosed = true;
-                }
-            }
-            if (dbsClosed)
-            {
-                mexWarnMsgTxt (MSG_CLOSINGFILES);
-            }
-        }
-		break;
+		case DLL_PROCESS_ATTACH:
+			break;
+			
+		case DLL_THREAD_ATTACH:
+			break;
+			
+		case DLL_THREAD_DETACH:
+			break;
+
+		case DLL_PROCESS_DETACH:
+    	    {
+				/*
+				 * Is there any database left?
+				 */
+        	    bool dbsClosed = false;
+            	for (int i = 0; i < MaxNumOfDbs; i++)
+	            {
+					/*
+					 * close it
+					 */
+    	            if (g_dbs[i])
+        	        {
+            	        sqlite3_close(g_dbs[i]);
+                	    g_dbs[i] = 0;
+	                    dbsClosed = true;
+    	            }
+        	    }
+	            if (dbsClosed)
+    	        {
+					/*
+					 * Set the language to english if something
+					 * goes wrong before the language could been set
+					 */
+					if (Language < 0)
+						Language = 0;
+					/*
+					 * and inform the user
+					 */
+        	        mexWarnMsgTxt (MSG_CLOSINGFILES);
+	            }
+    	    }
+			break;
 	}
 	return TRUE;
 }
 
-// Einen String von MATLAB holen
+/*
+ * Convert an String to char *
+ */
 static char *getstring(const mxArray *a)
 {
    int llen = mxGetM(a) * mxGetN(a) * sizeof(mxChar) + 1;
@@ -293,6 +226,9 @@ static char *getstring(const mxArray *a)
    return c;
 }
 
+/*
+ * This ist the Entry Function of this Mex-DLL
+ */
 void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 {
     /*
@@ -311,6 +247,9 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         }
     }
     
+	/*
+	 * Print Version Information
+	 */
 	if (! FirstStart)
     {
     	FirstStart = true;
@@ -319,14 +258,9 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     }
     
     /*
-     * Funktionsargumente überprüfen
-     *
-     * Wenn als erstes Argument eine Zahl übergeben wurde, so wird diese
-     * als Datenbank-ID verwendet. Ist das erste Argument ein String, wird
-     * Datenbank-ID 1 angenommen.
-     * Alle weiteren Argumente müssen Strings sein.
+     * Check if the first argument is a number, then we have to use
+	 * this number as an database id.
      */
-
     int db_id = 0;
     int FirstArg = 0;
     int NumArgs = nrhs;
@@ -343,8 +277,10 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         FirstArg ++;
         NumArgs --;
     }
-    
-    // Alle Argumente müssen Strings sein
+
+	/*
+	 * All remaining arguments have to be strings
+	 */
     bool isNotOK = false;
     int  i;
     
@@ -361,34 +297,43 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         mexPrintf(MSG_USAGE);
         mexErrMsgTxt(MSG_INVALIDARG);
     }
-    
+
+	/*
+	 * Get the first string argument, this is the command string
+	 */
     char *command = getstring(prhs[FirstArg]);
-    SimpleString query(command);
-    mxFree(command);
     
-    Debug(query);
- 
-    if (! strcmp(query, "open"))
+    if (! strcmp(command, "open"))
     {
+		/*
+		 * open a database. There have to be two string arguments.
+		 * The command 'open' and the database filename
+		 */
         if (NumArgs != 2)
         {
             mexPrintf(MSG_NOOPENARG, mexFunctionName());
+			mxFree(command);
             mexErrMsgTxt(MSG_INVALIDARG);
         }
         
+		// TODO: Memoryleak 'command not freed' when getstring fails
         char* dbname = getstring(prhs[FirstArg +1]);
 
-        // Wurde eine db-id angegeben, dann die entsprechende db schliessen
+		/*
+		 * Is there an database ID? The close the database with the same id 
+		 */
         if (db_id > 0 && g_dbs[db_id])
         {
             sqlite3_close(g_dbs[db_id]);
             g_dbs[db_id] = 0;
         }
-        
-        // bei db-id -1 neue id bestimmen
+
+		/*
+		 * If there isn't an database id, then try to get one
+		 */
         if (db_id < 0)
         {
-            for (int i = 0; i < MaxNumOfDbs; i++)
+            for (i = 0; i < MaxNumOfDbs; i++)
             {
                 if (g_dbs[i] == 0)
                 {
@@ -397,17 +342,28 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 }
             }
         }
+		/*
+		 * no database id? sorry, database id table full
+		 */
         if (db_id < 0)
         {
             plhs[0] = mxCreateScalarDouble((double) 0);
             mexPrintf(MSG_NOFREESLOT);
+			mxFree(command);
+        	mxFree(dbname);
             mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
-        
+       
+		/*
+		 * Open the database
+		 */
         int rc = sqlite3_open(dbname, &g_dbs[db_id]);
         
         if (rc)
         {
+			/*
+			 * Anything wrong? free the database id and inform the user
+			 */
             sqlite3_close(g_dbs[db_id]);
             
             mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
@@ -415,17 +371,29 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateScalarDouble((double) 0);
             
+			mxFree(command);
+	        mxFree(dbname);
             mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         
+		/*
+		 * return value will be the used database id
+		 */
         plhs[0] = mxCreateScalarDouble((double) db_id +1);
         mxFree(dbname);
     }
-    else if (! strcmp(query, "close"))
+    else if (! strcmp(command, "close"))
     {
+		/*
+		 * close a database
+		 */
+
+		/*
+		 * if the database id is < 0 than close all open databases
+		 */
         if (db_id < 0)
         {
-            for (int i = 0; i < MaxNumOfDbs; i++)
+            for (i = 0; i < MaxNumOfDbs; i++)
             {
                 if (g_dbs[i])
                 {
@@ -436,8 +404,13 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         }
         else
         {
+			/*
+			 * If the database is open, then close it. Otherwise
+			 * inform the user
+			 */
             if (! g_dbs[db_id])
             {
+				mxFree(command);
                 mexErrMsgTxt(MSG_DBNOTOPEN);
             }
             else
@@ -449,17 +422,34 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     }
     else
     {
+		/*
+		 * Every unknown command is treated as an sql query string
+		 */
+
+		/*
+		 * database id < 0? Thats an error...
+		 */
         if (db_id < 0)
         {
             mexPrintf(MSG_INVALIDDBHANDLE);
+			mxFree(command);
             mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         
+		/*
+		 * database not open? -> error
+		 */
         if (!g_dbs[db_id])
         {
+			mxFree(command);
             mexErrMsgTxt(MSG_DBNOTOPEN);
         }
 
+		const char* query = command;
+
+		/*
+		 * emulate the "show tables" sql query
+		 */
         if (! strcmpi(query, "show tables"))
         {
             query = "SELECT name as tablename FROM sqlite_master "
@@ -470,36 +460,54 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                     "ORDER BY 1";
         }
 
+		/*
+		 * complete the query
+		 */
         if (sqlite3_complete(query))
         {
+			mxFree(command);
             mexErrMsgTxt(MSG_INVQUERY);
         }
         
         sqlite3_stmt *st;
         
+		/*
+		 * and prepare it
+		 * if anything is wrong with the query, than complain about it.
+		 */
         if (sqlite3_prepare_v2(g_dbs[db_id], query, -1, &st, 0))
         {
             if (st)
                 sqlite3_finalize(st);
             
+			mxFree(command);
             mexErrMsgTxt(sqlite3_errmsg(g_dbs[db_id]));
         }
 
+		/*
+		 * Any results?
+		 */
         int ncol = sqlite3_column_count(st);
         if (ncol > 0)
         {
-            char **fieldnames = new char *[ncol];   // Die Feldnamen
-            Values* allrows = 0;                    // Die Records
-            Values* lastrow = 0;
-            int rowcount = 0;
+            char **fieldnames = new char *[ncol];   /* Column names */
+            Values* allrows = 0;                    /* All query results */
+            Values* lastrow = 0;					/* pointer to the last result row */
+            int rowcount = 0;						/* number of result rows */
             
-            for(int i=0; i<ncol; i++)
+			/*
+			 * Get the column names of the result set
+			 */
+            for(i=0; i<ncol; i++)
             {
                 const char *cname = sqlite3_column_name(st, i);
                 
                 fieldnames[i] = new char [strlen(cname) +1];
                 strcpy (fieldnames[i], cname);
-                // ungültige Zeichen gegen _ ersetzen
+				/*
+				 * replace invalid chars by '_', so we can build
+				 * valid MATLAB structs
+				 */
                 char *mk_c = fieldnames[i];
                 while (*mk_c)
                 {
@@ -509,14 +517,31 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 }
             }
             
-            // Daten einsammeln
+            /*
+			 * get the result rows from the engine
+			 *
+			 * We cannot get the number of result lines, so we must
+			 * read them in a loop and save them into an temporary list.
+			 * Later, we can transfer this List into an MATLAB array of structs.
+			 * This way, we must allocate enough memory for two result sets,
+			 * but we save time by allocating the MATLAB Array at once.
+			 */
             for(;;)
             {
+				/*
+				 * Advance to teh next row
+				 */
                 int step_res = sqlite3_step(st);
 
+				/*
+				 * no row left? break out of the loop
+				 */
                 if (step_res != SQLITE_ROW)
                     break;
-               
+
+				/*
+				 * get new memory for the result
+				 */
                 Values* RecordValues = new Values(ncol);
                 
                 Value *v = RecordValues->m_Values;
@@ -531,11 +556,16 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                          case SQLITE_NULL:      v->m_NumericValue = g_NaN;                                   break;
                          case SQLITE_INTEGER:	v->m_NumericValue = (double) sqlite3_column_int(st, j);      break;
                          case SQLITE_FLOAT:     v->m_NumericValue = (double) sqlite3_column_double(st, j);	 break;
-                         case SQLITE_TEXT:      v->m_StringValue  = (const char*)sqlite3_column_text(st, j); break;
+                         case SQLITE_TEXT:      v->m_StringValue  = strnewdup((const char*) sqlite3_column_text(st, j));   break;
                                 
-                         default:	mexErrMsgTxt(MSG_UNKNWNDBTYPE);
+                         default:	
+							mxFree(command);
+							mexErrMsgTxt(MSG_UNKNWNDBTYPE);
                      }
                 }
+				/*
+				 * and add this row to the list of all result rows
+				 */
                 if (! lastrow)
                 {
                     allrows = lastrow = RecordValues;
@@ -545,30 +575,49 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                     lastrow->m_NextValues = RecordValues;
                     lastrow = lastrow->m_NextValues;
                 }
+				/*
+				 * we have one more...
+				 */
                 rowcount ++;
             }
             
+			/*
+			 * end the sql engine
+			 */
             sqlite3_finalize(st);
 
+			/*
+			 * got nothing? return an empty result to MATLAB
+			 */
             if (rowcount == 0 || ! allrows)
             {
                 if (!( plhs[0] = mxCreateDoubleMatrix(0,0,mxREAL) ))
+				{
+					mxFree(command);
                     mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
+				}
             }
             else
             {
+				/*
+				 * Allocate an array of MATLAB structs to return as result
+				 */
                 int ndims[2];
                 
                 ndims[0] = rowcount;
                 ndims[1] = 1;
                 
-                if (!( plhs[0] = mxCreateStructArray (2, ndims, ncol, (const char**)fieldnames)))
+                if (( plhs[0] = mxCreateStructArray (2, ndims, ncol, (const char**)fieldnames)) == 0)
                 {
+					mxFree(command);
                     mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
                 }
                 
+				/*
+				 * transfer the result rows from the temporary list into the result array
+				 */
                 lastrow = allrows;
-                int i = 0;
+                i = 0;
                 while(lastrow)
                 {
                     Value* recordvalue = lastrow->m_Values;
@@ -599,21 +648,24 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             }
             for(int i=0; i<ncol; i++)
                 delete [] fieldnames[i];
-            delete fieldnames;
+            delete [] fieldnames;
         }
         else
         {
+			/*
+			 * no result, cleanup the sqlite engine
+			 */
             int res = sqlite3_step(st);
             sqlite3_finalize(st);
 
             if (res != SQLITE_DONE)
             {
+				mxFree(command);
                 mexErrMsgTxt(sqlite3_errmsg(g_dbs[db_id]));
             }            
         }
     }
-    
-    Debug("fertig");
+	mxFree(command);
 }
 
 /*
