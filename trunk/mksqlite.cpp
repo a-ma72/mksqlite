@@ -9,7 +9,7 @@
 #include "sqlite3.h"
 
 // Version
-#define VERSION "1.0"
+#define VERSION "1.1 dev"
 
 // Revision aus SVN
 #include "svn_revision.h"
@@ -29,6 +29,76 @@ static const double g_NaN = mxGetNaN();
 
 #define MaxNumOfDbs 5
 static sqlite3* g_dbs[MaxNumOfDbs] = { 0 };
+
+// Sprache: Index in Meldungen
+static int Language = -1;
+
+#define MSG_HELLO               messages[Language][ 0]
+#define MSG_INVALIDDBHANDLE     messages[Language][ 1]
+#define MSG_IMPOSSIBLE          messages[Language][ 2]
+#define MSG_USAGE               messages[Language][ 3]
+#define MSG_INVALIDARG          messages[Language][ 4]
+#define MSG_CLOSINGFILES        messages[Language][ 5]
+#define MSG_CANTCOPYSTRING      messages[Language][ 6]
+#define MSG_NOOPENARG           messages[Language][ 7]
+#define MSG_NOFREESLOT          messages[Language][ 8]
+#define MSG_CANTOPEN            messages[Language][ 9]
+#define MSG_DBNOTOPEN           messages[Language][10]
+#define MSG_INVQUERY            messages[Language][11]
+#define MSG_CANTCREATEOUTPUT	messages[Language][12]
+#define MSG_UNKNWNDBTYPE        messages[Language][13]
+
+#define NUM_MSGS                                   14
+
+// 0 = english
+static const char* messages_0[] = 
+{
+	"mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
+    "(c) 2008 by Martin Kortmann <email@kortmann.de>\n"
+    "based on SQLite Version %s - http://www.sqlite.org\n\n",
+    
+    "invalid database handle\n",
+	"function not possible",
+	"Usage: %s([dbid,] command [, databasefile])\n",
+	"no or wrong argument",
+	"mksqlite: closing open databases.\n",
+	"Can\'t copy string in getstring()",
+    "Open without Databasename\n",
+    "No free databasehandle available\n",
+    "cannot open database\n%s, ",
+	"database not open",
+	"invalid query string (Semicolon?)",
+	"cannot create output matrix",
+	"unknown SQLITE data type"
+};
+
+// 1 = german
+static const char* messages_1[] = 
+{
+	"mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
+    "(c) 2008 by Martin Kortmann <email@kortmann.de>\n"
+    "basierend auf SQLite Version %s - http://www.sqlite.org\n\n",
+    
+    "ungültiger Datenbankhandle\n",
+    "Funktion nicht möglich",
+	"Verwendung: %s([dbid,] Befehl [, datenbankdatei])\n",
+	"kein oder falsches Argument übergeben",
+	"mksqlite: Die noch geöffneten Datenbanken wurden geschlossen.\n",
+    "getstring() kann keine neue zeichenkette erstellen",
+    "Open Befehl ohne Datenbanknamen\n",
+    "Kein freier Datenbankhandle verfügbar\n",
+	"Datenbank konnte nicht geöffnet werden\n%s, ",
+	"Datenbank nicht geöffnet",
+    "ungültiger query String (Semikolon?)",
+    "Kann Ausgabematrix nicht erstellen",
+    "unbek. SQLITE Datentyp"
+};
+
+static const char **messages[] = 
+{
+    messages_0,
+    messages_1
+};
 
 /*
  * Eine simple String Klasse
@@ -203,7 +273,7 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserve
             }
             if (dbsClosed)
             {
-                mexWarnMsgTxt ("mksqlite: Die noch geöffneten Datenbanken wurden geschlossen.\n");
+                mexWarnMsgTxt (MSG_CLOSINGFILES);
             }
         }
 		break;
@@ -218,21 +288,34 @@ static char *getstring(const mxArray *a)
    char *c = (char *) mxCalloc(llen,sizeof(char));
 
    if (mxGetString(a,c,llen))
-      mexErrMsgTxt("Can\'t copy string in getstring()");
+      mexErrMsgTxt(MSG_CANTCOPYSTRING);
    
    return c;
 }
 
 void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 {
+    /*
+     * Get the current Language
+     */
+    if (Language == -1)
     {
-        if (! FirstStart)
+        switch(PRIMARYLANGID(GetUserDefaultLangID()))
         {
-            FirstStart = true;
-            mexPrintf ("mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-                       "(c) 2008 by Martin Kortmann <email@kortmann.de>\n"
-                       "basierend auf SQLite Version %s - http://www.sqlite.org\n\n", sqlite3_libversion());
+            case LANG_GERMAN:
+                Language = 1;
+                break;
+                
+            default:
+                Language = 0;
         }
+    }
+    
+	if (! FirstStart)
+    {
+    	FirstStart = true;
+
+        mexPrintf (MSG_HELLO, sqlite3_libversion());
     }
     
     /*
@@ -253,8 +336,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         db_id = (int) *mxGetPr(prhs[0]);
         if (db_id < 0 || db_id > MaxNumOfDbs)
         {
-            mexPrintf("ungültiger Datenbankhandle\n");
-            mexErrMsgTxt("Funktion nicht möglich");
+            mexPrintf(MSG_INVALIDDBHANDLE);
+            mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         db_id --;
         FirstArg ++;
@@ -275,8 +358,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     }
     if (NumArgs < 1 || isNotOK)
     {
-        mexPrintf("Verwendung: %s([dbid,] Befehl [, datenbankdatei])\n", mexFunctionName());
-        mexErrMsgTxt("kein oder falsches Argument übergeben");
+        mexPrintf(MSG_USAGE);
+        mexErrMsgTxt(MSG_INVALIDARG);
     }
     
     char *command = getstring(prhs[FirstArg]);
@@ -289,8 +372,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     {
         if (NumArgs != 2)
         {
-            mexPrintf("Open ohne Datenbanknamen\n", mexFunctionName());
-            mexErrMsgTxt("kein oder falsches Argument übergeben");
+            mexPrintf(MSG_NOOPENARG, mexFunctionName());
+            mexErrMsgTxt(MSG_INVALIDARG);
         }
         
         char* dbname = getstring(prhs[FirstArg +1]);
@@ -317,8 +400,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         if (db_id < 0)
         {
             plhs[0] = mxCreateScalarDouble((double) 0);
-            mexPrintf("Kein freier Datenbankhandle verfügbar\n");
-            mexErrMsgTxt("Funktion nicht möglich");
+            mexPrintf(MSG_NOFREESLOT);
+            mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         
         int rc = sqlite3_open(dbname, &g_dbs[db_id]);
@@ -327,12 +410,12 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         {
             sqlite3_close(g_dbs[db_id]);
             
-            mexPrintf("Datenbank konnte nicht geöffnet werden\n%s, ", sqlite3_errmsg(g_dbs[db_id]));
+            mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
 
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateScalarDouble((double) 0);
             
-            mexErrMsgTxt("Funktion nicht möglich");
+            mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         
         plhs[0] = mxCreateScalarDouble((double) db_id +1);
@@ -355,7 +438,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         {
             if (! g_dbs[db_id])
             {
-                mexErrMsgTxt("Datenbank nicht geöffnet");
+                mexErrMsgTxt(MSG_DBNOTOPEN);
             }
             else
             {
@@ -368,13 +451,13 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     {
         if (db_id < 0)
         {
-            mexPrintf("Ungültiger Datenbankhandle\n");
-            mexErrMsgTxt("Funktion nicht möglich");
+            mexPrintf(MSG_INVALIDDBHANDLE);
+            mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         
         if (!g_dbs[db_id])
         {
-            mexErrMsgTxt("Datenbank nicht geöffnet");
+            mexErrMsgTxt(MSG_DBNOTOPEN);
         }
 
         if (! strcmpi(query, "show tables"))
@@ -389,7 +472,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 
         if (sqlite3_complete(query))
         {
-            mexErrMsgTxt("ungültiger query String (Semicolon?)");
+            mexErrMsgTxt(MSG_INVQUERY);
         }
         
         sqlite3_stmt *st;
@@ -450,7 +533,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                          case SQLITE_FLOAT:     v->m_NumericValue = (double) sqlite3_column_double(st, j);	 break;
                          case SQLITE_TEXT:      v->m_StringValue  = (const char*)sqlite3_column_text(st, j); break;
                                 
-                         default:	mexErrMsgTxt("unbek. SQLITE Datentyp");
+                         default:	mexErrMsgTxt(MSG_UNKNWNDBTYPE);
                      }
                 }
                 if (! lastrow)
@@ -470,7 +553,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             if (rowcount == 0 || ! allrows)
             {
                 if (!( plhs[0] = mxCreateDoubleMatrix(0,0,mxREAL) ))
-                    mexErrMsgTxt("Kann Ausgabematrix nicht erstellen");
+                    mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
             }
             else
             {
@@ -481,7 +564,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 
                 if (!( plhs[0] = mxCreateStructArray (2, ndims, ncol, (const char**)fieldnames)))
                 {
-                    mexErrMsgTxt("Kann Ausgabematrix nicht erstellen");
+                    mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
                 }
                 
                 lastrow = allrows;
