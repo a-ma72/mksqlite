@@ -46,6 +46,6 @@
 %  mksqlite('close')
 % Zeigt alle Tabellen in der Datenbank "testdb.db3" an.
 %
-% (c) 2008 by Martin Kortmann <email@kortmann.de>
+% (c) 2008 by Martin Kortmann <mail@kortmann.de>
 %
 
