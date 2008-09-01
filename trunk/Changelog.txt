@@ -1,4 +1,4 @@
-Version 1.1 (Build 7 - 01. Sep 2008)
+Version 1.1 (Build 8 - 01. Sep 2008)
 - Sourcecode cleanup 
 - Sourcecode comments in english
 - inserted the website contents as documentation
