@@ -1,3 +1,7 @@
+Version 1.1 (Build 7 - 01. Sep 2008)
+- Sourcecode cleanup 
+- Sourcecode comments in english
+- inserted the website contents as documentation
 
 Version 1.0 (Build 3 - 14. Aug 2008)
 - erstes Release
