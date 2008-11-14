@@ -11,7 +11,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.1"
+#define VERSION "1.2"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -213,6 +213,53 @@ BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserve
 }
 
 /*
+ * Get the last SQLite Error Code as an Error Identifier
+ */
+static char* TransErrToIdent(sqlite3 *db)
+{
+    static char dummy[32];
+
+    int errorcode = sqlite3_errcode(db);
+    
+    switch(errorcode)
+	 {    
+		case 0:   return ("SQLITE:OK");
+		case 1:   return ("SQLITE:ERROR");
+		case 2:   return ("SQLITE:INTERNAL");
+		case 3:   return ("SQLITE:PERM");
+		case 4:   return ("SQLITE:ABORT");
+		case 5:   return ("SQLITE:BUSY");
+		case 6:   return ("SQLITE:LOCKED");
+		case 7:   return ("SQLITE:NOMEM");
+		case 8:   return ("SQLITE:READONLY");
+		case 9:   return ("SQLITE:INTERRUPT");
+		case 10:  return ("SQLITE:IOERR");
+		case 11:  return ("SQLITE:CORRUPT");
+		case 12:  return ("SQLITE:NOTFOUND");
+		case 13:  return ("SQLITE:FULL");
+		case 14:  return ("SQLITE:CANTOPEN");
+		case 15:  return ("SQLITE:PROTOCOL");
+		case 16:  return ("SQLITE:EMPTY");
+		case 17:  return ("SQLITE:SCHEMA");
+		case 18:  return ("SQLITE:TOOBIG");
+		case 19:  return ("SQLITE:CONSTRAINT");
+		case 20:  return ("SQLITE:MISMATCH");
+		case 21:  return ("SQLITE:MISUSE");
+		case 22:  return ("SQLITE:NOLFS");
+		case 23:  return ("SQLITE:AUTH");
+		case 24:  return ("SQLITE:FORMAT");
+		case 25:  return ("SQLITE:RANGE");
+		case 26:  return ("SQLITE:NOTADB");
+		case 100: return ("SQLITE:ROW");
+		case 101: return ("SQLITE:DONE");
+
+		default:
+			sprintf (dummy, "SQLITE:%d", errorcode);
+			return dummy;
+	 }
+}
+
+/*
  * Convert an String to char *
  */
 static char *getstring(const mxArray *a)
@@ -364,9 +411,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 			/*
 			 * Anything wrong? free the database id and inform the user
 			 */
-            sqlite3_close(g_dbs[db_id]);
-            
             mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
+            sqlite3_close(g_dbs[db_id]);
 
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateScalarDouble((double) 0);
@@ -418,6 +464,13 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 sqlite3_close(g_dbs[db_id]);
                 g_dbs[db_id] = 0;
             }
+        }
+    }
+    else if (! strcmp(command, "status"))
+    {
+    	for (i = 0; i < MaxNumOfDbs; i++)
+        {
+            mexPrintf("DB Handle %d: %s\n", i, g_dbs[i] ? "OPEN" : "CLOSED");
         }
     }
     else
@@ -481,7 +534,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 sqlite3_finalize(st);
             
 			mxFree(command);
-            mexErrMsgTxt(sqlite3_errmsg(g_dbs[db_id]));
+            mexErrMsgIdAndTxt(TransErrToIdent(g_dbs[db_id]), sqlite3_errmsg(g_dbs[db_id]));
         }
 
 		/*
@@ -661,7 +714,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             if (res != SQLITE_DONE)
             {
 				mxFree(command);
-                mexErrMsgTxt(sqlite3_errmsg(g_dbs[db_id]));
+                mexErrMsgIdAndTxt(TransErrToIdent(g_dbs[db_id]), sqlite3_errmsg(g_dbs[db_id]));
             }            
         }
     }
