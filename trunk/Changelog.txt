@@ -1,4 +1,4 @@
-Version 1.2 (Build 9 - 14. Nov 2008)
+Version 1.2 (Build 11 - 14. Nov 2008)
 - SQLite Engine updated to Version 3.6.5
 
 Version 1.1 (Build 8 - 01. Sep 2008)
