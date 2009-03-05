@@ -16,7 +16,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.4"
+#define VERSION "1.4.1"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -497,7 +497,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 		/*
 		 * emulate the "show tables" sql query
 		 */
-        if (! strcmpi(query, "show tables"))
+        if (! _strcmpi(query, "show tables"))
         {
             query = "SELECT name as tablename FROM sqlite_master "
                     "WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' "
@@ -704,6 +704,11 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 			 */
             int res = sqlite3_step(st);
             sqlite3_finalize(st);
+
+			if (!( plhs[0] = mxCreateDoubleMatrix(0, 0, mxREAL) )) 
+			{
+                mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
+            }
 
             if (res != SQLITE_DONE)
             {
