@@ -1,17 +1,22 @@
 /*
  * mksqlite: A MATLAB Interface To SQLite
  *
- * (c) 2008 by M. Kortmann <mail@kortmann.de>
+ * (c) 2008/2009 by M. Kortmann <mail@kortmann.de>
  */
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <string.h>
+#define _strcmpi strcasecmp
+#endif
 
 #include <mex.h>
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.3"
+#define VERSION "1.4"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -60,7 +65,7 @@ static int Language = -1;
 static const char* messages_0[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008/2009 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n\n",
     
     "invalid database handle\n",
@@ -82,7 +87,7 @@ static const char* messages_0[] =
 static const char* messages_1[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008/2009 by Martin Kortmann <mail@kortmann.de>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n\n",
     
     "ungültiger Datenbankhandle\n",
@@ -160,56 +165,39 @@ virtual ~Values()
 };
 
 /*
- * DllMain is the last point to close left over databases.
+ * close left over databases.
  */
-BOOL APIENTRY DllMain(HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
+static void CloseDBs(void)
 {
-	switch (ul_reason_for_call)
+    /*
+	 * Is there any database left?
+	 */
+    bool dbsClosed = false;
+    for (int i = 0; i < MaxNumOfDbs; i++)
 	{
-		case DLL_PROCESS_ATTACH:
-			break;
-			
-		case DLL_THREAD_ATTACH:
-			break;
-			
-		case DLL_THREAD_DETACH:
-			break;
-
-		case DLL_PROCESS_DETACH:
-    	    {
-				/*
-				 * Is there any database left?
-				 */
-        	    bool dbsClosed = false;
-            	for (int i = 0; i < MaxNumOfDbs; i++)
-	            {
-					/*
-					 * close it
-					 */
-    	            if (g_dbs[i])
-        	        {
-            	        sqlite3_close(g_dbs[i]);
-                	    g_dbs[i] = 0;
-	                    dbsClosed = true;
-    	            }
-        	    }
-	            if (dbsClosed)
-    	        {
-					/*
-					 * Set the language to english if something
-					 * goes wrong before the language could been set
-					 */
-					if (Language < 0)
-						Language = 0;
-					/*
-					 * and inform the user
-					 */
-        	        mexWarnMsgTxt (MSG_CLOSINGFILES);
-	            }
-    	    }
-			break;
-	}
-	return TRUE;
+		/*
+		 * close it
+		 */
+        if (g_dbs[i])
+        {
+            sqlite3_close(g_dbs[i]);
+       	    g_dbs[i] = 0;
+	        dbsClosed = true;
+        }
+    }
+	if (dbsClosed)
+    {
+		/*
+		 * Set the language to english if something
+		 * goes wrong before the language could been set
+		 */
+		if (Language < 0)
+            Language = 0;
+		/*
+		 * and inform the user
+		 */
+        mexWarnMsgTxt (MSG_CLOSINGFILES);
+    }
 }
 
 /*
@@ -278,11 +266,14 @@ static char *getstring(const mxArray *a)
  */
 void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 {
+    mexAtExit(CloseDBs);
+    
     /*
      * Get the current Language
      */
     if (Language == -1)
     {
+#ifdef _WIN32        
         switch(PRIMARYLANGID(GetUserDefaultLangID()))
         {
             case LANG_GERMAN:
@@ -292,6 +283,9 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             default:
                 Language = 0;
         }
+#else
+        Language = 0;
+#endif
     }
     
 	/*
