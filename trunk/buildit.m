@@ -13,7 +13,12 @@ else
         copyfile('svn_revision.dummy','svn_revision.h');
     end
 end
-mex -output mksqlite -DNDEBUG#1 -O mksqlite.cpp sqlite3.c user32.lib advapi32.lib
+
+if ispc
+  mex -output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -O mksqlite.cpp sqlite3.c user32.lib advapi32.lib
+else
+  mex -output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -O mksqlite.cpp sqlite3.c -ldl
+end
 
 cd (mksqlite_compile_currdir);
 
