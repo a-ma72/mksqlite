@@ -1,3 +1,7 @@
+Version 1.7 (Build 22 - 21. Nov 2009)
+- SQLite Engine updated to Version 3.6.20
+- a little FAQ
+
 Version 1.6 (Build 20 - 08. Aug 2009)
 - SQLite Engine updated to Version 3.6.16
 
