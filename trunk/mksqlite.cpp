@@ -16,7 +16,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.8pre"
+#define VERSION "1.8"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
