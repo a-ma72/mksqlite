@@ -1,3 +1,8 @@
+Verion 1.8 (Build 26 - 05. Oct 2010)
+- SQLite Engine updated to Verison 3.7.2
+- it is now poosible to read simple BLOBs into an MATLAB Byte Array
+- Changed the License from GPL to LGPL
+
 Version 1.7 (Build 22 - 21. Nov 2009)
 - SQLite Engine updated to Version 3.6.20
 - a little FAQ
