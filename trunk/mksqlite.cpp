@@ -1,7 +1,7 @@
 /*
  * mksqlite: A MATLAB Interface To SQLite
  *
- * (c) 2008/2009 by M. Kortmann <mail@kortmann.de>
+ * (c) 2008-2010 by M. Kortmann <mail@kortmann.de>
  */
 
 #ifdef _WIN32
@@ -16,7 +16,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.7"
+#define VERSION "1.8pre"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -138,6 +138,7 @@ class Value
 {
 public:
     int         m_Type;
+    int         m_Size;
 
     char*		m_StringValue;
     double      m_NumericValue;
@@ -597,14 +598,28 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                      int fieldtype = sqlite3_column_type(st,j);
 
                      v->m_Type = fieldtype;
-                        
+                     v->m_Size = 0;
+                     
                      switch (fieldtype)
                      {
                          case SQLITE_NULL:      v->m_NumericValue = g_NaN;                                   break;
                          case SQLITE_INTEGER:	v->m_NumericValue = (double) sqlite3_column_int(st, j);      break;
                          case SQLITE_FLOAT:     v->m_NumericValue = (double) sqlite3_column_double(st, j);	 break;
                          case SQLITE_TEXT:      v->m_StringValue  = strnewdup((const char*) sqlite3_column_text(st, j));   break;
-                                
+                         case SQLITE_BLOB:      
+                            {
+                                v->m_Size = sqlite3_column_bytes(st,j);
+                                if (v->m_Size > 0)
+                                {
+                                    v->m_StringValue = new char[v->m_Size];
+                                    memcpy(v->m_StringValue, sqlite3_column_blob(st,j), v->m_Size);
+                                }
+                                else
+                                {
+                                    v->m_Size = 0;
+                                }
+                            }
+                            break;
                          default:	
 							mxFree(command);
 							mexErrMsgTxt(MSG_UNKNWNDBTYPE);
@@ -680,6 +695,27 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                         {
                             mxArray* out_double = mxCreateDoubleMatrix(0,0,mxREAL);
                             mxSetFieldByNumber(plhs[0], i, j, out_double);
+                        }
+                        else if (recordvalue -> m_Type == SQLITE_BLOB)
+                        {
+                            if (recordvalue->m_Size > 0)
+                            {
+                                int BytePos;
+                                int NumDims[2]={1,1};
+                                NumDims[1]=recordvalue->m_Size;
+                                mxArray*out_uchar8=mxCreateNumericArray(2, NumDims, mxUINT8_CLASS, mxREAL);
+                                unsigned char *v = (unsigned char *) mxGetData(out_uchar8);
+                                
+                                memcpy(v, recordvalue->m_StringValue, recordvalue->m_Size);
+                                    
+                                mxSetFieldByNumber(plhs[0], i, j, out_uchar8);
+                            }
+                            else
+                            {
+                                // empty BLOB
+                                mxArray* out_double = mxCreateDoubleMatrix(0,0,mxREAL);
+                                mxSetFieldByNumber(plhs[0], i, j, out_double);
+                            }
                         }
                         else
                         {
