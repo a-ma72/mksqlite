@@ -1,7 +1,7 @@
 /*
  * mksqlite: A MATLAB Interface To SQLite
  *
- * (c) 2008-2010 by M. Kortmann <mail@kortmann.de>
+ * (c) 2008-2011 by M. Kortmann <mail@kortmann.de>
  */
 
 #ifdef _WIN32
@@ -16,7 +16,10 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.8"
+#define VERSION "1.9"
+
+/* Default Busy Timeout */
+#define DEFAULT_BUSYTIMEOUT 1000
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -60,6 +63,7 @@ static int Language = -1;
 #define MSG_INVQUERY            messages[Language][11]
 #define MSG_CANTCREATEOUTPUT	messages[Language][12]
 #define MSG_UNKNWNDBTYPE        messages[Language][13]
+#define MSG_BUSYTIMEOUTFAIL     messages[Language][14]
 
 /* 0 = english message table */
 static const char* messages_0[] = 
@@ -80,7 +84,8 @@ static const char* messages_0[] =
 	"database not open",
 	"invalid query string (Semicolon?)",
 	"cannot create output matrix",
-	"unknown SQLITE data type"
+	"unknown SQLITE data type",
+    "cannot set busytimeout"
 };
 
 /* 1 = german message table */
@@ -102,7 +107,8 @@ static const char* messages_1[] =
 	"Datenbank nicht geöffnet",
     "ungültiger query String (Semikolon?)",
     "Kann Ausgabematrix nicht erstellen",
-    "unbek. SQLITE Datentyp"
+    "unbek. SQLITE Datentyp",
+    "busytimeout konnte nicht gesetzt werden"
 };
 
 /*
@@ -263,6 +269,26 @@ static char *getstring(const mxArray *a)
 }
 
 /*
+ * get an integer value from an numeric
+ */
+static int getinteger(const mxArray* a)
+{
+    switch (mxGetClassID(a))
+    {
+        case mxINT8_CLASS  : return (int) *((char*) mxGetData(a));
+        case mxUINT8_CLASS : return (int) *((unsigned char*) mxGetData(a));
+        case mxINT16_CLASS : return (int) *((short*) mxGetData(a));
+        case mxUINT16_CLASS: return (int) *((unsigned short*) mxGetData(a));
+        case mxINT32_CLASS : return (int) *((int*) mxGetData(a));
+        case mxUINT32_CLASS: return (int) *((unsigned int*) mxGetData(a));
+        case mxSINGLE_CLASS: return (int) *((float*) mxGetData(a));
+        case mxDOUBLE_CLASS: return (int) *((double*) mxGetData(a));
+    }
+    
+    return 0;
+}
+
+/*
  * This ist the Entry Function of this Mex-DLL
  */
 void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
@@ -299,67 +325,75 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         mexPrintf (MSG_HELLO, sqlite3_libversion());
     }
     
+    int db_id = 0;
+    int CommandPos = 0;
+    int NumArgs = nrhs;
+    int i;
+    
     /*
      * Check if the first argument is a number, then we have to use
 	 * this number as an database id.
      */
-    int db_id = 0;
-    int FirstArg = 0;
-    int NumArgs = nrhs;
-    
     if (nrhs >= 1 && mxIsNumeric(prhs[0]))
     {
-        db_id = (int) *mxGetPr(prhs[0]);
+        db_id = getinteger(prhs[0]);
         if (db_id < 0 || db_id > MaxNumOfDbs)
         {
             mexPrintf(MSG_INVALIDDBHANDLE);
             mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         db_id --;
-        FirstArg ++;
+        CommandPos ++;
         NumArgs --;
     }
 
-	/*
-	 * All remaining arguments have to be strings
-	 */
-    bool isNotOK = false;
-    int  i;
-    
-    for (i = FirstArg; i < nrhs; i++)
-    {
-        if (! mxIsChar(prhs[i]))
-        {
-            isNotOK = true;
-            break;
-        }
-    }
-    if (NumArgs < 1 || isNotOK)
+    /*
+     * no argument -> fail
+     */
+    if (NumArgs < 1)
     {
         mexPrintf(MSG_USAGE);
         mexErrMsgTxt(MSG_INVALIDARG);
     }
-
+    
+    /*
+     * The next (or first if no db number available) is the command,
+     * it has to be a string.
+     * This fails also, if the first arg is a db-id and there is no 
+     * further argument
+     */
+    if (! mxIsChar(prhs[CommandPos]))
+    {
+        mexPrintf(MSG_USAGE);
+        mexErrMsgTxt(MSG_INVALIDARG);
+    }
+    
 	/*
-	 * Get the first string argument, this is the command string
+	 * Get the command string
 	 */
-    char *command = getstring(prhs[FirstArg]);
+    char *command = getstring(prhs[CommandPos]);
+    
+    /*
+     * Adjust the Argument pointer and counter
+     */
+    int FirstArg = CommandPos +1;
+    NumArgs --;
     
     if (! strcmp(command, "open"))
     {
 		/*
-		 * open a database. There have to be two string arguments.
-		 * The command 'open' and the database filename
+		 * open a database. There has to be one string argument,
+		 * the database filename
 		 */
-        if (NumArgs != 2)
+        if (NumArgs != 1 || !mxIsChar(prhs[FirstArg]))
         {
             mexPrintf(MSG_NOOPENARG, mexFunctionName());
 			mxFree(command);
             mexErrMsgTxt(MSG_INVALIDARG);
         }
         
-		// TODO: Memoryleak 'command not freed' when getstring fails
-        char* dbname = getstring(prhs[FirstArg +1]);
+		// TODO: possible Memoryleak 'command not freed' when getstring fails
+        char* dbname = getstring(prhs[FirstArg]);
 
 		/*
 		 * Is there an database ID? The close the database with the same id 
@@ -417,6 +451,26 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             mexErrMsgTxt(MSG_IMPOSSIBLE);
         }
         
+        /*
+         * Set Default Busytimeout
+         */
+        rc = sqlite3_busy_timeout(g_dbs[db_id], DEFAULT_BUSYTIMEOUT);
+        if (rc)
+        {
+			/*
+			 * Anything wrong? free the database id and inform the user
+			 */
+            mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
+            sqlite3_close(g_dbs[db_id]);
+
+            g_dbs[db_id] = 0;
+            plhs[0] = mxCreateScalarDouble((double) 0);
+            
+			mxFree(command);
+	        mxFree(dbname);
+            mexErrMsgTxt(MSG_BUSYTIMEOUTFAIL);
+        }
+        
 		/*
 		 * return value will be the used database id
 		 */
@@ -429,6 +483,15 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 		 * close a database
 		 */
 
+        /*
+         * There should be no Argument to close
+         */
+        if (NumArgs > 0)
+        {
+			mxFree(command);
+            mexErrMsgTxt(MSG_INVALIDARG);
+        }
+        
 		/*
 		 * if the database id is < 0 than close all open databases
 		 */
@@ -463,17 +526,62 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     }
     else if (! strcmp(command, "status"))
     {
+        /*
+         * There should be no Argument to status
+         */
+        if (NumArgs > 0)
+        {
+			mxFree(command);
+            mexErrMsgTxt(MSG_INVALIDARG);
+        }
+        
     	for (i = 0; i < MaxNumOfDbs; i++)
         {
             mexPrintf("DB Handle %d: %s\n", i, g_dbs[i] ? "OPEN" : "CLOSED");
         }
     }
+    else if (! _strcmpi(command, "setbusytimeout"))
+    {
+        /*
+         * There should be one Argument, the Timeout in ms
+         */
+        if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
+        {
+			mxFree(command);
+            mexErrMsgTxt(MSG_INVALIDARG);
+        }
+
+        if (! g_dbs[db_id])
+        {
+            mxFree(command);
+            mexErrMsgTxt(MSG_DBNOTOPEN);
+        }
+        else
+        {
+            /*
+             * Set Busytimeout
+             */
+            int TimeoutValue = getinteger(prhs[FirstArg]);
+    
+            int rc = sqlite3_busy_timeout(g_dbs[db_id], TimeoutValue);
+            if (rc)
+            {
+                /*
+                 * Anything wrong? free the database id and inform the user
+                 */
+                mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
+                sqlite3_close(g_dbs[db_id]);
+
+                g_dbs[db_id] = 0;
+                plhs[0] = mxCreateScalarDouble((double) 0);
+
+                mxFree(command);
+                mexErrMsgTxt(MSG_BUSYTIMEOUTFAIL);
+            }
+        }
+    }
     else
     {
-		/*
-		 * Every unknown command is treated as an sql query string
-		 */
-
 		/*
 		 * database id < 0? Thats an error...
 		 */
@@ -492,9 +600,21 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 			mxFree(command);
             mexErrMsgTxt(MSG_DBNOTOPEN);
         }
-
+        
+		/*
+		 * Every unknown command is treated as an sql query string
+		 */
 		const char* query = command;
 
+        /*
+         * a query shuld have no arguments
+         */
+        if (NumArgs > 0)
+        {
+			mxFree(command);
+            mexErrMsgTxt(MSG_INVALIDARG);
+        }
+        
 		/*
 		 * emulate the "show tables" sql query
 		 */
