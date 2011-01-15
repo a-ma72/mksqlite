@@ -1,3 +1,8 @@
+Version 1.9 (Build 28 - 15. Jan 2011)
+- SQLite Engine updated to Version 3.7.4
+- adding busy timeout (command: mksqlite('SETBUSYTIMEOUT', 1000);)
+  defaults to 1000ms
+
 Verion 1.8 (Build 26 - 05. Oct 2010)
 - SQLite Engine updated to Verison 3.7.2
 - it is now poosible to read simple BLOBs into an MATLAB Byte Array
