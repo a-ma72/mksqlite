@@ -2,6 +2,7 @@
  * mksqlite: A MATLAB Interface To SQLite
  *
  * (c) 2008-2011 by M. Kortmann <mail@kortmann.de>
+ * ditributed under LGPL
  */
 
 #ifdef _WIN32
@@ -16,7 +17,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.9"
+#define VERSION "1.10"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000
@@ -69,7 +70,7 @@ static int Language = -1;
 static const char* messages_0[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008/2009 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n\n",
     
     "invalid database handle\n",
@@ -92,7 +93,7 @@ static const char* messages_0[] =
 static const char* messages_1[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008/2009 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n\n",
     
     "ungültiger Datenbankhandle\n",

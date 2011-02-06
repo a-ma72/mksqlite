@@ -1,3 +1,6 @@
+Version 1.10 (Build 30 - 06. Feb 2011)
+- SQLite Engine updated to Version 3.7.5
+
 Version 1.9 (Build 28 - 15. Jan 2011)
 - SQLite Engine updated to Version 3.7.4
 - adding busy timeout (command: mksqlite('SETBUSYTIMEOUT', 1000);)
