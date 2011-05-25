@@ -1,3 +1,9 @@
+Version 1.11 (Build 32 - 25. Mai 2011)
+- SQLite Engine updated to Version 3.7.6.3
+- mxCreateScalarDouble changed to mxCreateDoubleSalar
+  so it runs under MATLAB 2011a again
+  (thanks to Gerald Grabner and Peter Li)
+
 Version 1.10 (Build 30 - 06. Feb 2011)
 - SQLite Engine updated to Version 3.7.5
 
