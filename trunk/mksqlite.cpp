@@ -17,7 +17,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.10"
+#define VERSION "1.11"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000
@@ -424,7 +424,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 		 */
         if (db_id < 0)
         {
-            plhs[0] = mxCreateScalarDouble((double) 0);
+            plhs[0] = mxCreateDoubleScalar((double) 0);
             mexPrintf(MSG_NOFREESLOT);
 			mxFree(command);
         	mxFree(dbname);
@@ -445,7 +445,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             sqlite3_close(g_dbs[db_id]);
 
             g_dbs[db_id] = 0;
-            plhs[0] = mxCreateScalarDouble((double) 0);
+            plhs[0] = mxCreateDoubleScalar((double) 0);
             
 			mxFree(command);
 	        mxFree(dbname);
@@ -465,7 +465,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             sqlite3_close(g_dbs[db_id]);
 
             g_dbs[db_id] = 0;
-            plhs[0] = mxCreateScalarDouble((double) 0);
+            plhs[0] = mxCreateDoubleScalar((double) 0);
             
 			mxFree(command);
 	        mxFree(dbname);
@@ -475,7 +475,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 		/*
 		 * return value will be the used database id
 		 */
-        plhs[0] = mxCreateScalarDouble((double) db_id +1);
+        plhs[0] = mxCreateDoubleScalar((double) db_id +1);
         mxFree(dbname);
     }
     else if (! strcmp(command, "close"))
@@ -574,7 +574,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 sqlite3_close(g_dbs[db_id]);
 
                 g_dbs[db_id] = 0;
-                plhs[0] = mxCreateScalarDouble((double) 0);
+                plhs[0] = mxCreateDoubleScalar((double) 0);
 
                 mxFree(command);
                 mexErrMsgTxt(MSG_BUSYTIMEOUTFAIL);
