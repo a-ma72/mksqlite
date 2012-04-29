@@ -1,3 +1,10 @@
+Version 1.12 (Build 34 - 29. Apr 2012)
+- SQLite Engine updated to Version 3.7.11
+- Unique field names for duplicate database fields (eg JOINed Databases)
+  Behavior can be changed by switch mksqlite('check4uniquefields', 0|1)
+- UTF8 to Latin1 conversion
+  Behavior can be changed by switch mksqlite('convertUTF8', 0|1)
+
 Version 1.11 (Build 32 - 25. Mai 2011)
 - SQLite Engine updated to Version 3.7.6.3
 - mxCreateScalarDouble changed to mxCreateDoubleSalar
