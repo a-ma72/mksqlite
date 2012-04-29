@@ -1,7 +1,7 @@
 /*
  * mksqlite: A MATLAB Interface To SQLite
  *
- * (c) 2008-2011 by M. Kortmann <mail@kortmann.de>
+ * (c) 2008-2012 by M. Kortmann <mail@kortmann.de>
  * ditributed under LGPL
  */
 
@@ -17,7 +17,7 @@
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.11"
+#define VERSION "1.12"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000
@@ -35,6 +35,12 @@ static bool FirstStart = false;
 /* Flag: return NULL as NaN  */
 static bool NULLasNaN  = false;
 static const double g_NaN = mxGetNaN();
+
+/* Flag: Check for unique fieldnames */
+static bool check4uniquefields = true;
+
+/* Convert UTF-8 to ascii, otherwise set slCharacterEncoding('UTF-8') */
+static bool convertUTF8 = true;
 
 /*
  * Table of used database ids.
@@ -65,13 +71,15 @@ static int Language = -1;
 #define MSG_CANTCREATEOUTPUT	messages[Language][12]
 #define MSG_UNKNWNDBTYPE        messages[Language][13]
 #define MSG_BUSYTIMEOUTFAIL     messages[Language][14]
+#define MSG_MSGUNIQUEWARN       messages[Language][15]
 
 /* 0 = english message table */
 static const char* messages_0[] = 
 {
 	"mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
     "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
-    "based on SQLite Version %s - http://www.sqlite.org\n\n",
+    "based on SQLite Version %s - http://www.sqlite.org\n"
+    "UTF-8 extension: A.Martin, 2012-02-10, Volkswagen AG\n\n",
     
     "invalid database handle\n",
 	"function not possible",
@@ -86,7 +94,8 @@ static const char* messages_0[] =
 	"invalid query string (Semicolon?)",
 	"cannot create output matrix",
 	"unknown SQLITE data type",
-    "cannot set busytimeout"
+    "cannot set busytimeout",
+    "could not build unique fieldname for %s"
 };
 
 /* 1 = german message table */
@@ -94,7 +103,8 @@ static const char* messages_1[] =
 {
 	"mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
     "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
-    "basierend auf SQLite Version %s - http://www.sqlite.org\n\n",
+    "basierend auf SQLite Version %s - http://www.sqlite.org\n"
+    "UTF-8 extension: A.Martin, 2012-02-10, Volkswagen AG\n\n",
     
     "ungültiger Datenbankhandle\n",
     "Funktion nicht möglich",
@@ -109,7 +119,8 @@ static const char* messages_1[] =
     "ungültiger query String (Semikolon?)",
     "Kann Ausgabematrix nicht erstellen",
     "unbek. SQLITE Datentyp",
-    "busytimeout konnte nicht gesetzt werden"
+    "busytimeout konnte nicht gesetzt werden",
+    "konnte keinen eindeutigen Bezeichner für Feld %s bilden"
 };
 
 /*
@@ -122,20 +133,105 @@ static const char **messages[] =
 };
 
 /*
+ * Converto UTF-8 Strings to 8Bit and vice versa
+ */
+static int utf2latin( const unsigned char *s, unsigned char *buffer )
+{
+    int cnt = 0;
+    unsigned char ch, *p = buffer ? buffer : &ch;
+
+    if( s ) 
+    {
+        while( *s ) 
+        {
+            if( *s < 128 ) 
+            {
+                *p = *s++;
+            }
+            else 
+            {
+                *p = ( s[0] << 6 ) | ( s[1] & 63 );
+                s += 2;
+            }
+            if( buffer ) 
+            {
+                p++;
+            }
+            cnt++;
+        }
+        *p = 0;
+        cnt++;
+    }
+
+    return cnt;
+}
+
+static int latin2utf( const unsigned char *s, unsigned char *buffer )
+{
+    int cnt = 0;
+    unsigned char ch[2], *p = buffer ? buffer : ch;
+
+    if( s ) 
+    {
+        while( *s ) 
+        {
+            if( *s < 128 ) 
+            {
+                *p++ = *s++;
+                cnt++;
+            }
+            else 
+            {
+                *p++ = 128 + 64 + ( *s >> 6 );
+                *p++ = 128 + ( *s++ & 63 );
+                cnt += 2;
+            }
+            if( !buffer ) 
+            {
+                p = ch;
+            }
+        }
+        *p = 0;
+        cnt++;
+    }
+
+    return cnt;
+}
+
+/*
  * duplicate a string, 
  */
 static char* strnewdup(const char* s)
 {
-	char *newstr = 0;
-	
-	if (s)
-	{
-		newstr = new char [strlen(s) +1];
-		if (newstr)
-			strcpy(newstr, s);
-	}
+    char *newstr = 0;
+    
+    if (convertUTF8)
+    {
+        char *p;
 
-	return newstr;
+    	if (s)
+        {
+            int buflen = utf2latin( (unsigned char*)s, NULL );
+
+    		newstr = new char [buflen];
+            if( newstr ) {
+                utf2latin( (unsigned char*)s, (unsigned char*)newstr );
+            }
+        }
+    }
+    else
+    {
+
+        if (s)
+        {
+            newstr = new char [strlen(s) +1];
+            if (newstr)
+                strcpy(newstr, s);
+        }
+
+    }
+    
+    return newstr;
 }
 
 /*
@@ -150,7 +246,7 @@ public:
     char*		m_StringValue;
     double      m_NumericValue;
     
-			Value () : m_StringValue(0) {}
+			Value () : m_Type(0), m_Size(0), m_StringValue(0), m_NumericValue(0.0) {}
 virtual    ~Value () { if (m_StringValue) delete [] m_StringValue; } 
 };
 
@@ -211,7 +307,7 @@ static void CloseDBs(void)
 /*
  * Get the last SQLite Error Code as an Error Identifier
  */
-static char* TransErrToIdent(sqlite3 *db)
+static const char* TransErrToIdent(sqlite3 *db)
 {
     static char dummy[32];
 
@@ -265,6 +361,25 @@ static char *getstring(const mxArray *a)
 
    if (mxGetString(a,c,llen))
       mexErrMsgTxt(MSG_CANTCOPYSTRING);
+
+   if (convertUTF8)
+   {
+        char *buffer = NULL;
+        int buflen;
+
+       buflen = latin2utf( (unsigned char*)c, (unsigned char*)buffer );
+       buffer = (char *) mxCalloc( buflen, sizeof(char) );
+
+       if( !buffer ) {
+          mexErrMsgTxt(MSG_CANTCOPYSTRING);
+       }
+
+       latin2utf( (unsigned char*)c, (unsigned char*)buffer );
+
+       mxFree( c );
+
+       return buffer;
+   }
    
    return c;
 }
@@ -581,6 +696,38 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             }
         }
     }
+    else if (! _strcmpi(command, "check4uniquefields"))
+    {
+        if (NumArgs == 0)
+        {
+            plhs[0] = mxCreateDoubleScalar((double) check4uniquefields);
+        }
+        else if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
+        {
+			mxFree(command);
+            mexErrMsgTxt(MSG_INVALIDARG);
+        }
+        else
+        {
+            check4uniquefields = (getinteger(prhs[FirstArg])) ? true : false;
+        }
+    }
+    else if (! _strcmpi(command, "convertUTF8"))
+    {
+        if (NumArgs == 0)
+        {
+            plhs[0] = mxCreateDoubleScalar((double) convertUTF8);
+        }
+        else if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
+        {
+			mxFree(command);
+            mexErrMsgTxt(MSG_INVALIDARG);
+        }
+        else
+        {
+            convertUTF8 = (getinteger(prhs[FirstArg])) ? true : false;
+        }
+    }
     else
     {
 		/*
@@ -680,12 +827,68 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 char *mk_c = fieldnames[i];
                 while (*mk_c)
                 {
-                	if ((*mk_c == ' ') || (*mk_c == '*') || (*mk_c == '?'))
+                	if ((*mk_c == ' ') || (*mk_c == '*') || (*mk_c == '?') || !isprint(*mk_c))
                     	*mk_c = '_';
                     mk_c++;
                 }
             }
-            
+            /*
+             * Check for duplicate colum names
+             */
+            if (check4uniquefields)
+            {
+                for (i = 0; i < (ncol -1); i++)
+                {
+                    int j;
+                    for (j = i+1; j < ncol; j++)
+                    {
+                        if (! strcmp(fieldnames[i], fieldnames[j]))
+                        {
+                            /*
+                             * Change the duplicate colum name to be unique
+                             * by adding _x to it. x counts from 1 to 99
+                             */
+                            char *newcolumnname = new char [strlen(fieldnames[j]) + 4];
+                            int k;
+
+                            for (k = 1; k < 100; k++)
+                            {
+                                /*
+                                 * Build new name
+                                 */
+                                sprintf(newcolumnname, "%s_%d", fieldnames[j], k);
+
+                                /*
+                                 * is it already unique? */
+                                bool unique = true;
+                                int l;
+                                for (l = 0; l < ncol; l++)
+                                {
+                                    if (! strcmp(fieldnames[l], newcolumnname))
+                                    {
+                                        unique = false;
+                                        break;
+                                    }
+                                }
+                                if (unique)
+                                    break;
+                            }
+                            if (k == 100)
+                            {
+                                mexWarnMsgTxt(MSG_MSGUNIQUEWARN);
+                            }
+                            else
+                            {
+                                /*
+                                 * New uniqe Identifier found, assign it
+                                 */
+                                delete [] fieldnames[j];
+                                fieldnames[j] = newcolumnname;
+                            }
+                        }
+                    }
+                }
+            }
             /*
 			 * get the result rows from the engine
 			 *
@@ -821,7 +1024,6 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                         {
                             if (recordvalue->m_Size > 0)
                             {
-                                int BytePos;
                                 int NumDims[2]={1,1};
                                 NumDims[1]=recordvalue->m_Size;
                                 mxArray*out_uchar8=mxCreateNumericArray(2, NumDims, mxUINT8_CLASS, mxREAL);
