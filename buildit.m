@@ -167,6 +167,7 @@ end
 copyfile('README.TXT', reldir);
 copyfile('sqlite_test.m', reldir);
 copyfile('sqlite_test_bind.m', reldir);
+copyfile('sqlite_test_bind_typed.m', reldir);
 mkdir ([reldir filesep 'docu']);
 copyfile(['docu' filesep 'index.html'], [reldir filesep 'docu']);
 copyfile(['docu' filesep 'mksqlite_eng.html'], [reldir filesep 'docu']);
@@ -199,6 +200,7 @@ copyfile('sqlite3.h', srcdir);
 copyfile('sqlite3ext.h', srcdir);
 copyfile('sqlite_test.m', srcdir);
 copyfile('sqlite_test_bind.m', srcdir);
+copyfile('sqlite_test_bind_typed.m', srcdir);
 copyfile('svn_revision.dummy', srcdir);
 copyfile('svn_revision.h', srcdir);
 copyfile('svn_revision.tmpl', srcdir);

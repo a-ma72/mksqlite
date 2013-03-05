@@ -1,11 +1,12 @@
-function sqlite_test_bind ()
+function sqlite_test_bind_typed ()
   
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % Datenbank und Inhalt erzeugen  %
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   mksqlite( 'open', ':memory:' ); % "in-memory"-Datenbank
-  
+  mksqlite( 'typedBLOBs', 1 ); % Typisierung der BLOBs einschalten
+
   %          |Vorname   |Name         |Ort          |Testdaten
   mydata = { ...
              'Gunther', 'Meyer',      'München',    []; ...
@@ -42,7 +43,7 @@ function sqlite_test_bind ()
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
   
   clc
-  fprintf( 'BLOB Datentypen in urspüngliche Typen zurückführen...\n\n' )
+  fprintf( 'BLOB Datentypen mit ursprünglichen Datentypen aus der Datenbank holen...\n\n' )
   
   query = mksqlite( 'select * from demo' );
   
@@ -55,10 +56,10 @@ function sqlite_test_bind ()
   fprintf( '---> Text: ' ), ...
            cast( query(3).Data, 'char' )
          
-  fprintf( '---> Image: (s.Figure) \n\n' )
+  fprintf('---> Image: (s.Figure) \n\n')
   
   % Vektor in mehrdimensionale RGB Matrix zurückwandeln:
-  img = reshape( query(4).Data, query(4).Col_1, query(4).Col_2, query(4).Col_3 );
+  img = query(4).Data;
   
   h = image( img );
   axis off
