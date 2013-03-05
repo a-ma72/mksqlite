@@ -1,8 +1,8 @@
 /*
  * mksqlite: A MATLAB Interface To SQLite
  *
- * (c) 2008-2012 by M. Kortmann <mail@kortmann.de>
- * ditributed under LGPL
+ * (c) 2008-2013 by M. Kortmann <mail@kortmann.de>
+ * distributed under LGPL
  */
 
 #ifdef _WIN32
@@ -11,13 +11,14 @@
 #else
 #include <string.h>
 #define _strcmpi strcasecmp
+#include <cctype>
 #endif
 
 #include <mex.h>
 #include "sqlite3.h"
 
 /* Versionnumber */
-#define VERSION "1.12"
+#define VERSION "1.13"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000
@@ -49,6 +50,34 @@ static bool convertUTF8 = true;
 static sqlite3* g_dbs[MaxNumOfDbs] = { 0 };
 
 /*
+ * Minimal structured "exception" handling with goto's, hence
+ * a finally-block is missed to use try-catch-blocks here efficiently.
+ * pseudo-code:
+ **** %< ****
+ * try-block
+ * 
+ * catch ( e )
+ *  ->free local variables<-
+ *  exit mex function and report error
+ * 
+ * catch (...)
+ *  ->free local variables<-
+ *  rethrow exception
+ * 
+ * ->free local variables<-
+ * exit normally
+ **** >% ****
+ * 
+ * Here, exception handling is done with goto's. Goto's are ugly and 
+ * should be avoided in modern art of programming.
+ * error handling is the lonely reason to use them: try-catch mechanism 
+ * does the same but encapsulated and in a friendly and safe manner...
+ */
+static const char *g_finalize_msg = NULL;  // if assigned, function returns with an appropriate error message
+static const char* SQL_ERR = "SQL_ERR";    // if attached to g_finalize_msg, function returns with least SQL error message
+#define FINALIZE( msg ) { g_finalize_msg = msg; goto finalize; }
+
+/*
  * a poor man localization.
  * every language have an table of messages.
  */
@@ -68,59 +97,65 @@ static int Language = -1;
 #define MSG_CANTOPEN            messages[Language][ 9]
 #define MSG_DBNOTOPEN           messages[Language][10]
 #define MSG_INVQUERY            messages[Language][11]
-#define MSG_CANTCREATEOUTPUT	messages[Language][12]
+#define MSG_CANTCREATEOUTPUT    messages[Language][12]
 #define MSG_UNKNWNDBTYPE        messages[Language][13]
 #define MSG_BUSYTIMEOUTFAIL     messages[Language][14]
 #define MSG_MSGUNIQUEWARN       messages[Language][15]
+#define MSG_UNEXPECTEDARG       messages[Language][16]
+#define MSG_MISSINGARG          messages[Language][17]
 
 /* 0 = english message table */
 static const char* messages_0[] = 
 {
-	"mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
+    "mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
     "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
-    "UTF-8 extension: A.Martin, 2012-02-10, Volkswagen AG\n\n",
+    "UTF-8 and parameter binding extension: A.Martin, 2012-02-10, Volkswagen AG\n\n",
     
     "invalid database handle\n",
-	"function not possible",
-	"Usage: %s([dbid,] command [, databasefile])\n",
-	"no or wrong argument",
-	"mksqlite: closing open databases.\n",
-	"Can\'t copy string in getstring()",
+    "function not possible",
+    "Usage: %s([dbid,] command [, databasefile])\n",
+    "no or wrong argument",
+    "mksqlite: closing open databases.\n",
+    "Can\'t copy string in getstring()",
     "Open without Databasename\n",
     "No free databasehandle available\n",
     "cannot open database\n%s, ",
-	"database not open",
-	"invalid query string (Semicolon?)",
-	"cannot create output matrix",
-	"unknown SQLITE data type",
+    "database not open",
+    "invalid query string (Semicolon?)",
+    "cannot create output matrix",
+    "unknown SQLITE data type",
     "cannot set busytimeout",
-    "could not build unique fieldname for %s"
+    "could not build unique fieldname for %s",
+    "unexpected arguments passed",
+    "missing argument list"
 };
 
 /* 1 = german message table */
 static const char* messages_1[] = 
 {
-	"mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
+    "mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
     "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
-    "UTF-8 extension: A.Martin, 2012-02-10, Volkswagen AG\n\n",
+    "UTF-8 and parameter binding extension: A.Martin, 2013-01-28, Volkswagen AG\n\n",
     
     "ungültiger Datenbankhandle\n",
     "Funktion nicht möglich",
-	"Verwendung: %s([dbid,] Befehl [, datenbankdatei])\n",
-	"kein oder falsches Argument übergeben",
-	"mksqlite: Die noch geöffneten Datenbanken wurden geschlossen.\n",
+    "Verwendung: %s([dbid,] Befehl [, datenbankdatei])\n",
+    "kein oder falsches Argument übergeben",
+    "mksqlite: Die noch geöffneten Datenbanken wurden geschlossen.\n",
     "getstring() kann keine neue zeichenkette erstellen",
     "Open Befehl ohne Datenbanknamen\n",
     "Kein freier Datenbankhandle verfügbar\n",
-	"Datenbank konnte nicht geöffnet werden\n%s, ",
-	"Datenbank nicht geöffnet",
+    "Datenbank konnte nicht geöffnet werden\n%s, ",
+    "Datenbank nicht geöffnet",
     "ungültiger query String (Semikolon?)",
     "Kann Ausgabematrix nicht erstellen",
     "unbek. SQLITE Datentyp",
     "busytimeout konnte nicht gesetzt werden",
-    "konnte keinen eindeutigen Bezeichner für Feld %s bilden"
+    "konnte keinen eindeutigen Bezeichner für Feld %s bilden",
+    "Argumentliste zu lang",
+    "keine Argumentliste angegeben"
 };
 
 /*
@@ -128,8 +163,8 @@ static const char* messages_1[] =
  */
 static const char **messages[] = 
 {
-    messages_0,	/* English messages */
-    messages_1	/* German messages  */
+    messages_0,   /* English messages */
+    messages_1    /* German messages  */
 };
 
 /*
@@ -207,21 +242,19 @@ static char* strnewdup(const char* s)
     
     if (convertUTF8)
     {
-        char *p;
-
-    	if (s)
+        if (s)
         {
             int buflen = utf2latin( (unsigned char*)s, NULL );
 
-    		newstr = new char [buflen];
-            if( newstr ) {
+            newstr = new char [buflen];
+            if( newstr ) 
+            {
                 utf2latin( (unsigned char*)s, (unsigned char*)newstr );
             }
         }
     }
     else
     {
-
         if (s)
         {
             newstr = new char [strlen(s) +1];
@@ -243,11 +276,12 @@ public:
     int         m_Type;
     int         m_Size;
 
-    char*		m_StringValue;
+    char*       m_StringValue;
     double      m_NumericValue;
     
-			Value () : m_Type(0), m_Size(0), m_StringValue(0), m_NumericValue(0.0) {}
-virtual    ~Value () { if (m_StringValue) delete [] m_StringValue; } 
+                Value ()  : m_Type(0), m_Size(0), 
+                            m_StringValue(0), m_NumericValue(0.0) {}
+    virtual    ~Value ()    { if (m_StringValue) delete [] m_StringValue; } 
 };
 
 /*
@@ -256,16 +290,15 @@ virtual    ~Value () { if (m_StringValue) delete [] m_StringValue; }
 class Values
 {
 public:
-	int     m_Count;
-    Value*	m_Values;
+    int         m_Count;
+    Value*      m_Values;
     
-    Values* m_NextValues;
+    Values*     m_NextValues;
     
-         Values(int n) : m_Count(n), m_NextValues(0)
-            { m_Values = new Value[n]; }
+                Values(int n)   : m_Count(n), m_NextValues(0)
+                                  { m_Values = new Value[n]; }
             
-virtual ~Values() 
-            { delete [] m_Values; }
+    virtual    ~Values()          { delete [] m_Values; }
 };
 
 /*
@@ -274,32 +307,32 @@ virtual ~Values()
 static void CloseDBs(void)
 {
     /*
-	 * Is there any database left?
-	 */
+     * Is there any database left?
+     */
     bool dbsClosed = false;
     for (int i = 0; i < MaxNumOfDbs; i++)
-	{
-		/*
-		 * close it
-		 */
+    {
+        /*
+         * close it
+         */
         if (g_dbs[i])
         {
             sqlite3_close(g_dbs[i]);
-       	    g_dbs[i] = 0;
-	        dbsClosed = true;
+            g_dbs[i] = 0;
+            dbsClosed = true;
         }
     }
-	if (dbsClosed)
+    if (dbsClosed)
     {
-		/*
-		 * Set the language to english if something
-		 * goes wrong before the language could been set
-		 */
-		if (Language < 0)
+        /*
+         * Set the language to english if something
+         * goes wrong before the language could been set
+         */
+        if (Language < 0)
             Language = 0;
-		/*
-		 * and inform the user
-		 */
+        /*
+         * and inform the user
+         */
         mexWarnMsgTxt (MSG_CLOSINGFILES);
     }
 }
@@ -314,41 +347,41 @@ static const char* TransErrToIdent(sqlite3 *db)
     int errorcode = sqlite3_errcode(db);
     
     switch(errorcode)
-	 {    
-		case 0:   return ("SQLITE:OK");
-		case 1:   return ("SQLITE:ERROR");
-		case 2:   return ("SQLITE:INTERNAL");
-		case 3:   return ("SQLITE:PERM");
-		case 4:   return ("SQLITE:ABORT");
-		case 5:   return ("SQLITE:BUSY");
-		case 6:   return ("SQLITE:LOCKED");
-		case 7:   return ("SQLITE:NOMEM");
-		case 8:   return ("SQLITE:READONLY");
-		case 9:   return ("SQLITE:INTERRUPT");
-		case 10:  return ("SQLITE:IOERR");
-		case 11:  return ("SQLITE:CORRUPT");
-		case 12:  return ("SQLITE:NOTFOUND");
-		case 13:  return ("SQLITE:FULL");
-		case 14:  return ("SQLITE:CANTOPEN");
-		case 15:  return ("SQLITE:PROTOCOL");
-		case 16:  return ("SQLITE:EMPTY");
-		case 17:  return ("SQLITE:SCHEMA");
-		case 18:  return ("SQLITE:TOOBIG");
-		case 19:  return ("SQLITE:CONSTRAINT");
-		case 20:  return ("SQLITE:MISMATCH");
-		case 21:  return ("SQLITE:MISUSE");
-		case 22:  return ("SQLITE:NOLFS");
-		case 23:  return ("SQLITE:AUTH");
-		case 24:  return ("SQLITE:FORMAT");
-		case 25:  return ("SQLITE:RANGE");
-		case 26:  return ("SQLITE:NOTADB");
-		case 100: return ("SQLITE:ROW");
-		case 101: return ("SQLITE:DONE");
+     {    
+        case 0:   return ("SQLITE:OK");
+        case 1:   return ("SQLITE:ERROR");
+        case 2:   return ("SQLITE:INTERNAL");
+        case 3:   return ("SQLITE:PERM");
+        case 4:   return ("SQLITE:ABORT");
+        case 5:   return ("SQLITE:BUSY");
+        case 6:   return ("SQLITE:LOCKED");
+        case 7:   return ("SQLITE:NOMEM");
+        case 8:   return ("SQLITE:READONLY");
+        case 9:   return ("SQLITE:INTERRUPT");
+        case 10:  return ("SQLITE:IOERR");
+        case 11:  return ("SQLITE:CORRUPT");
+        case 12:  return ("SQLITE:NOTFOUND");
+        case 13:  return ("SQLITE:FULL");
+        case 14:  return ("SQLITE:CANTOPEN");
+        case 15:  return ("SQLITE:PROTOCOL");
+        case 16:  return ("SQLITE:EMPTY");
+        case 17:  return ("SQLITE:SCHEMA");
+        case 18:  return ("SQLITE:TOOBIG");
+        case 19:  return ("SQLITE:CONSTRAINT");
+        case 20:  return ("SQLITE:MISMATCH");
+        case 21:  return ("SQLITE:MISUSE");
+        case 22:  return ("SQLITE:NOLFS");
+        case 23:  return ("SQLITE:AUTH");
+        case 24:  return ("SQLITE:FORMAT");
+        case 25:  return ("SQLITE:RANGE");
+        case 26:  return ("SQLITE:NOTADB");
+        case 100: return ("SQLITE:ROW");
+        case 101: return ("SQLITE:DONE");
 
-		default:
-			sprintf (dummy, "SQLITE:%d", errorcode);
-			return dummy;
-	 }
+        default:
+            sprintf (dummy, "SQLITE:%d", errorcode);
+            return dummy;
+     }
 }
 
 /*
@@ -356,32 +389,34 @@ static const char* TransErrToIdent(sqlite3 *db)
  */
 static char *getstring(const mxArray *a)
 {
-   int llen = mxGetM(a) * mxGetN(a) * sizeof(mxChar) + 1;
-   char *c = (char *) mxCalloc(llen,sizeof(char));
+    size_t count = mxGetM(a) * mxGetN(a) + 1;
+    char *c = (char *) mxCalloc(count,sizeof(char));
 
-   if (mxGetString(a,c,llen))
-      mexErrMsgTxt(MSG_CANTCOPYSTRING);
+    if (!c || mxGetString(a,c,(int)count))
+        mexErrMsgTxt(MSG_CANTCOPYSTRING);
 
-   if (convertUTF8)
-   {
+    if (convertUTF8)
+    {
         char *buffer = NULL;
         int buflen;
 
-       buflen = latin2utf( (unsigned char*)c, (unsigned char*)buffer );
-       buffer = (char *) mxCalloc( buflen, sizeof(char) );
+        buflen = latin2utf( (unsigned char*)c, (unsigned char*)buffer );
+        buffer = (char *) mxCalloc( buflen, sizeof(char) );
 
-       if( !buffer ) {
-          mexErrMsgTxt(MSG_CANTCOPYSTRING);
-       }
+        if( !buffer )
+        {
+            mxFree( c ); // Needless due to mexErrMsgTxt(), but clean
+            mexErrMsgTxt(MSG_CANTCOPYSTRING);
+        }
 
-       latin2utf( (unsigned char*)c, (unsigned char*)buffer );
+        latin2utf( (unsigned char*)c, (unsigned char*)buffer );
 
-       mxFree( c );
+        mxFree( c );
 
-       return buffer;
-   }
+        return buffer;
+    }
    
-   return c;
+    return c;
 }
 
 /*
@@ -409,6 +444,12 @@ static int getinteger(const mxArray* a)
  */
 void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 {
+    mxArray* pArgs       = NULL;  // Cell array of parameters behind command, in case of an SQL command only
+    sqlite3_stmt *st     = NULL;  // SQL statement (sqlite bridge)
+    char *command        = NULL;  // the SQL command (superseeded by query)
+    g_finalize_msg       = NULL;  // pointer to actual error message
+    int FirstArg         = 0;
+    
     mexAtExit(CloseDBs);
     
     /*
@@ -431,12 +472,12 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 #endif
     }
     
-	/*
-	 * Print Version Information
-	 */
-	if (! FirstStart)
+    /*
+     * Print Version Information
+     */
+    if (! FirstStart)
     {
-    	FirstStart = true;
+        FirstStart = true;
 
         mexPrintf (MSG_HELLO, sqlite3_libversion());
     }
@@ -448,7 +489,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     
     /*
      * Check if the first argument is a number, then we have to use
-	 * this number as an database id.
+     * this number as an database id.
      */
     if (nrhs >= 1 && mxIsNumeric(prhs[0]))
     {
@@ -456,7 +497,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         if (db_id < 0 || db_id > MaxNumOfDbs)
         {
             mexPrintf(MSG_INVALIDDBHANDLE);
-            mexErrMsgTxt(MSG_IMPOSSIBLE);
+            FINALIZE( MSG_IMPOSSIBLE );
         }
         db_id --;
         CommandPos ++;
@@ -469,7 +510,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     if (NumArgs < 1)
     {
         mexPrintf(MSG_USAGE);
-        mexErrMsgTxt(MSG_INVALIDARG);
+        FINALIZE( MSG_INVALIDARG );
     }
     
     /*
@@ -481,48 +522,51 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     if (! mxIsChar(prhs[CommandPos]))
     {
         mexPrintf(MSG_USAGE);
-        mexErrMsgTxt(MSG_INVALIDARG);
+        FINALIZE( MSG_INVALIDARG );
     }
     
-	/*
-	 * Get the command string
-	 */
-    char *command = getstring(prhs[CommandPos]);
+    /*
+     * Get the command string
+     */
+    command = getstring(prhs[CommandPos]);
     
     /*
      * Adjust the Argument pointer and counter
      */
-    int FirstArg = CommandPos +1;
+    FirstArg = CommandPos +1;
     NumArgs --;
     
     if (! strcmp(command, "open"))
     {
-		/*
-		 * open a database. There has to be one string argument,
-		 * the database filename
-		 */
+        /*
+         * open a database. There has to be one string argument,
+         * the database filename
+         */
         if (NumArgs != 1 || !mxIsChar(prhs[FirstArg]))
         {
             mexPrintf(MSG_NOOPENARG, mexFunctionName());
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
+            FINALIZE( MSG_INVALIDARG );
         }
         
-		// TODO: possible Memoryleak 'command not freed' when getstring fails
+        // No Memoryleak 'command not freed' when getstring fails
+        // Matlab Help:
+        // "If your application called mxCalloc or one of the 
+        // mxCreate* routines to allocate memory, mexErrMsgTxt 
+        // automatically frees the allocated memory."
         char* dbname = getstring(prhs[FirstArg]);
 
-		/*
-		 * Is there an database ID? The close the database with the same id 
-		 */
+        /*
+         * Is there an database ID? The close the database with the same id 
+         */
         if (db_id > 0 && g_dbs[db_id])
         {
             sqlite3_close(g_dbs[db_id]);
             g_dbs[db_id] = 0;
         }
 
-		/*
-		 * If there isn't an database id, then try to get one
-		 */
+        /*
+         * If there isn't an database id, then try to get one
+         */
         if (db_id < 0)
         {
             for (i = 0; i < MaxNumOfDbs; i++)
@@ -534,37 +578,37 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 }
             }
         }
-		/*
-		 * no database id? sorry, database id table full
-		 */
+        /*
+         * no database id? sorry, database id table full
+         */
         if (db_id < 0)
         {
             plhs[0] = mxCreateDoubleScalar((double) 0);
             mexPrintf(MSG_NOFREESLOT);
-			mxFree(command);
-        	mxFree(dbname);
-            mexErrMsgTxt(MSG_IMPOSSIBLE);
+            mxFree(dbname);  // Needless due to mexErrMsgTxt(), but clean
+            
+            FINALIZE( MSG_IMPOSSIBLE );
         }
        
-		/*
-		 * Open the database
-		 */
+        /*
+         * Open the database
+         */
         int rc = sqlite3_open(dbname, &g_dbs[db_id]);
         
         if (rc)
         {
-			/*
-			 * Anything wrong? free the database id and inform the user
-			 */
+            /*
+             * Anything wrong? free the database id and inform the user
+             */
             mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
             sqlite3_close(g_dbs[db_id]);
 
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateDoubleScalar((double) 0);
             
-			mxFree(command);
-	        mxFree(dbname);
-            mexErrMsgTxt(MSG_IMPOSSIBLE);
+            mxFree(dbname);   // Needless due to mexErrMsgTxt(), but clean
+            
+            FINALIZE( MSG_IMPOSSIBLE );
         }
         
         /*
@@ -573,44 +617,43 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         rc = sqlite3_busy_timeout(g_dbs[db_id], DEFAULT_BUSYTIMEOUT);
         if (rc)
         {
-			/*
-			 * Anything wrong? free the database id and inform the user
-			 */
+            /*
+             * Anything wrong? free the database id and inform the user
+             */
             mexPrintf(MSG_CANTOPEN, sqlite3_errmsg(g_dbs[db_id]));
             sqlite3_close(g_dbs[db_id]);
 
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateDoubleScalar((double) 0);
             
-			mxFree(command);
-	        mxFree(dbname);
-            mexErrMsgTxt(MSG_BUSYTIMEOUTFAIL);
+            mxFree(dbname);   // Needless due to mexErrMsgTxt(), but clean
+            
+            FINALIZE( MSG_BUSYTIMEOUTFAIL );
         }
         
-		/*
-		 * return value will be the used database id
-		 */
+        /*
+         * return value will be the used database id
+         */
         plhs[0] = mxCreateDoubleScalar((double) db_id +1);
         mxFree(dbname);
     }
     else if (! strcmp(command, "close"))
     {
-		/*
-		 * close a database
-		 */
+        /*
+         * close a database
+         */
 
         /*
          * There should be no Argument to close
          */
         if (NumArgs > 0)
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
+            FINALIZE( MSG_INVALIDARG );
         }
         
-		/*
-		 * if the database id is < 0 than close all open databases
-		 */
+        /*
+         * if the database id is < 0 than close all open databases
+         */
         if (db_id < 0)
         {
             for (i = 0; i < MaxNumOfDbs; i++)
@@ -624,14 +667,13 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         }
         else
         {
-			/*
-			 * If the database is open, then close it. Otherwise
-			 * inform the user
-			 */
+            /*
+             * If the database is open, then close it. Otherwise
+             * inform the user
+             */
             if (! g_dbs[db_id])
             {
-				mxFree(command);
-                mexErrMsgTxt(MSG_DBNOTOPEN);
+                FINALIZE( MSG_DBNOTOPEN );
             }
             else
             {
@@ -647,11 +689,10 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
          */
         if (NumArgs > 0)
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
+            FINALIZE( MSG_INVALIDARG );
         }
         
-    	for (i = 0; i < MaxNumOfDbs; i++)
+        for (i = 0; i < MaxNumOfDbs; i++)
         {
             mexPrintf("DB Handle %d: %s\n", i, g_dbs[i] ? "OPEN" : "CLOSED");
         }
@@ -663,14 +704,12 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
          */
         if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
+            FINALIZE( MSG_INVALIDARG );
         }
 
         if (! g_dbs[db_id])
         {
-            mxFree(command);
-            mexErrMsgTxt(MSG_DBNOTOPEN);
+            FINALIZE( MSG_DBNOTOPEN );
         }
         else
         {
@@ -691,8 +730,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 g_dbs[db_id] = 0;
                 plhs[0] = mxCreateDoubleScalar((double) 0);
 
-                mxFree(command);
-                mexErrMsgTxt(MSG_BUSYTIMEOUTFAIL);
+                FINALIZE( MSG_BUSYTIMEOUTFAIL );
             }
         }
     }
@@ -704,8 +742,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         }
         else if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
+            FINALIZE( MSG_INVALIDARG );
         }
         else
         {
@@ -720,8 +757,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         }
         else if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
+            FINALIZE( MSG_INVALIDARG );
         }
         else
         {
@@ -730,42 +766,31 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     }
     else
     {
-		/*
-		 * database id < 0? Thats an error...
-		 */
+        /*
+         * database id < 0? That's an error...
+         */
         if (db_id < 0)
         {
             mexPrintf(MSG_INVALIDDBHANDLE);
-			mxFree(command);
-            mexErrMsgTxt(MSG_IMPOSSIBLE);
+            FINALIZE( MSG_IMPOSSIBLE );
         }
         
-		/*
-		 * database not open? -> error
-		 */
+        /*
+         * database not open? -> error
+         */
         if (!g_dbs[db_id])
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_DBNOTOPEN);
+            FINALIZE( MSG_DBNOTOPEN );
         }
         
-		/*
-		 * Every unknown command is treated as an sql query string
-		 */
-		const char* query = command;
+        /*
+         * Every unknown command is treated as an sql query string
+         */
+        const char* query = command;
 
         /*
-         * a query shuld have no arguments
+         * emulate the "show tables" sql query
          */
-        if (NumArgs > 0)
-        {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVALIDARG);
-        }
-        
-		/*
-		 * emulate the "show tables" sql query
-		 */
         if (! _strcmpi(query, "show tables"))
         {
             query = "SELECT name as tablename FROM sqlite_master "
@@ -776,59 +801,205 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                     "ORDER BY 1";
         }
 
-		/*
-		 * complete the query
-		 */
+        /*
+         * complete the query
+         */
         if (sqlite3_complete(query))
         {
-			mxFree(command);
-            mexErrMsgTxt(MSG_INVQUERY);
+            FINALIZE( MSG_INVQUERY );
         }
         
-        sqlite3_stmt *st;
-        
-		/*
-		 * and prepare it
-		 * if anything is wrong with the query, than complain about it.
-		 */
+        /*
+         * and prepare it
+         * if anything is wrong with the query, than complain about it.
+         */
         if (sqlite3_prepare_v2(g_dbs[db_id], query, -1, &st, 0))
         {
-            if (st)
-                sqlite3_finalize(st);
-            
-			mxFree(command);
-            mexErrMsgIdAndTxt(TransErrToIdent(g_dbs[db_id]), sqlite3_errmsg(g_dbs[db_id]));
+            FINALIZE( SQL_ERR );
+        }
+        
+        /*
+         * Parameter binding 
+         */
+        mwSize bind_names_count = sqlite3_bind_parameter_count( st );
+        
+        if (!bind_names_count)
+        {
+            // If there are no placeholdes in the SQL statement, no
+            // arguments are allowed. There must be at least one
+            // placeholder.
+            if (NumArgs > 0)
+            {
+                // arguments passed, where no ones needed
+                FINALIZE( MSG_UNEXPECTEDARG );
+            }
+        }
+        else
+        {
+            if ( !NumArgs || !mxIsCell( prhs[FirstArg] ))  // mxIsCell() not called when NumArgs==0 !
+            {
+                // Arguments passed as list, or no arguments
+                pArgs = mxCreateCellMatrix( bind_names_count, 1 );
+                for ( int i = 0; pArgs && i < bind_names_count; i++ )
+                {
+                    if ( i < NumArgs )
+                    {
+                        // deep copy into cell array
+                        mxSetCell( pArgs, i, mxDuplicateArray( prhs[FirstArg+i] ) );
+                    }
+                    else
+                    {
+                        // not passed arguments result in empty arrays
+                        mxSetCell( pArgs, i, mxCreateLogicalMatrix( 0, 0 ) );
+                    }
+                }
+            }
+            else
+            {
+                // Parameters may be (and are) packed in only one single 
+                // cell array
+                if (NumArgs > 1)
+                {
+                    FINALIZE( MSG_UNEXPECTEDARG );
+                }
+                
+                // Make a deep copy
+                pArgs = mxDuplicateArray( prhs[FirstArg] );
+            }
+                               
+            if ( !pArgs )
+            {
+                // if parameters needed for parameter binding, 
+                // at least one parameter has to be passed 
+                FINALIZE( MSG_MISSINGARG );
+            }
+                
+            if ( mxGetNumberOfElements( pArgs ) > (mwSize) bind_names_count )
+            {
+                // more parameters than needed is not allowed
+                FINALIZE( MSG_UNEXPECTEDARG );
+            }
+                
+            for ( int i = 0; i < bind_names_count; i++ )
+            {
+                mxArray*  item        = mxGetCell( pArgs, i );
+
+                if ( !item || mxIsEmpty( item ) )
+                    continue; // Empty parameters are omitted as NULL by sqlite
+
+                size_t    szElement   = mxGetElementSize( item );      // size of one element in bytes
+                size_t    cntElements = mxGetNumberOfElements( item ); // numer of elements in cell array
+                mxClassID clsid       = mxGetClassID( item );
+                char*     str_value   = NULL;
+                
+                if ( mxIsComplex( item ) || mxIsCell( item ) )
+                {
+                    // No complex values or nested cells allowed
+                    FINALIZE( MSG_INVALIDARG );
+                }
+                
+                if ( cntElements > 1 && clsid != mxCHAR_CLASS )
+                {
+                    // matrix arguments are omitted as blobs, except string arguments
+                    void* blob = mxGetData( item );
+                    // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
+                    if ( SQLITE_OK != sqlite3_bind_blob( st, i+1, blob, cntElements * szElement, SQLITE_TRANSIENT ) )
+                    {
+                        FINALIZE( SQL_ERR );
+                    }
+                }
+                else
+                {
+                    switch ( clsid )
+                    {
+                        case mxLOGICAL_CLASS:
+                        case mxINT8_CLASS:
+                        case mxUINT8_CLASS:
+                        case mxINT16_CLASS:
+                        case mxINT32_CLASS:
+                        case mxUINT16_CLASS:
+                        case mxUINT32_CLASS:
+                            // scalar integer value
+                            if ( SQLITE_OK != sqlite3_bind_int( st, i+1, (int)mxGetScalar( item ) ) )
+                            {
+                                FINALIZE( SQL_ERR );
+                            }
+                            break;
+                        case mxDOUBLE_CLASS:
+                        case mxSINGLE_CLASS:
+                            // scalar floating point value
+                            if ( SQLITE_OK != sqlite3_bind_double( st, i+1, mxGetScalar( item ) ) )
+                            {
+                                FINALIZE( SQL_ERR );
+                            }
+                            break;
+                        case mxCHAR_CLASS:
+                        {
+                            // string argument
+                            char* str_value = mxArrayToString( item );
+                            if ( str_value && convertUTF8 )
+                            {
+                                int len = latin2utf( (unsigned char*)str_value, NULL ); // get the size only
+                                unsigned char *temp = (unsigned char*)mxCalloc( len, sizeof(char) ); // allocate memory
+                                if ( temp )
+                                {
+                                    latin2utf( (unsigned char*)str_value, temp );
+                                    mxFree( str_value );
+                                    str_value = (char*)temp;
+                                }
+                                else
+                                {
+                                    mxFree ( str_value );
+                                    FINALIZE( MSG_INVALIDARG );
+                                }
+                            }
+                            // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
+                            if ( SQLITE_OK != sqlite3_bind_text( st, i+1, str_value, -1, SQLITE_TRANSIENT ) )
+                            {
+                                mxFree( str_value );
+                                FINALIZE( SQL_ERR );
+                            }
+                            mxFree( str_value );
+                            break;
+                        }
+                        default:
+                            // other variable classed are invalid here
+                            FINALIZE( MSG_INVALIDARG );
+                    }
+                }
+            }
         }
 
-		/*
-		 * Any results?
-		 */
+        /*
+         * Any results?
+         */
         int ncol = sqlite3_column_count(st);
         if (ncol > 0)
         {
             char **fieldnames = new char *[ncol];   /* Column names */
             Values* allrows = 0;                    /* All query results */
-            Values* lastrow = 0;					/* pointer to the last result row */
-            int rowcount = 0;						/* number of result rows */
+            Values* lastrow = 0;                    /* pointer to the last result row */
+            int rowcount = 0;                       /* number of result rows */
             
-			/*
-			 * Get the column names of the result set
-			 */
+            /*
+             * Get the column names of the result set
+             */
             for(i=0; i<ncol; i++)
             {
                 const char *cname = sqlite3_column_name(st, i);
                 
                 fieldnames[i] = new char [strlen(cname) +1];
                 strcpy (fieldnames[i], cname);
-				/*
-				 * replace invalid chars by '_', so we can build
-				 * valid MATLAB structs
-				 */
+                /*
+                 * replace invalid chars by '_', so we can build
+                 * valid MATLAB structs
+                 */
                 char *mk_c = fieldnames[i];
                 while (*mk_c)
                 {
-                	if ((*mk_c == ' ') || (*mk_c == '*') || (*mk_c == '?') || !isprint(*mk_c))
-                    	*mk_c = '_';
+//                    if ((*mk_c == ' ') || (*mk_c == '*') || (*mk_c == '?') || !isprint(*mk_c))
+                    if ( !isalnum(*mk_c) )
+                        *mk_c = '_';
                     mk_c++;
                 }
             }
@@ -890,30 +1061,30 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 }
             }
             /*
-			 * get the result rows from the engine
-			 *
-			 * We cannot get the number of result lines, so we must
-			 * read them in a loop and save them into an temporary list.
-			 * Later, we can transfer this List into an MATLAB array of structs.
-			 * This way, we must allocate enough memory for two result sets,
-			 * but we save time by allocating the MATLAB Array at once.
-			 */
+             * get the result rows from the engine
+             *
+             * We cannot get the number of result lines, so we must
+             * read them in a loop and save them into an temporary list.
+             * Later, we can transfer this List into an MATLAB array of structs.
+             * This way, we must allocate enough memory for two result sets,
+             * but we save time by allocating the MATLAB Array at once.
+             */
             for(;;)
             {
-				/*
-				 * Advance to teh next row
-				 */
+                /*
+                 * Advance to teh next row
+                 */
                 int step_res = sqlite3_step(st);
 
-				/*
-				 * no row left? break out of the loop
-				 */
+                /*
+                 * no row left? break out of the loop
+                 */
                 if (step_res != SQLITE_ROW)
                     break;
 
-				/*
-				 * get new memory for the result
-				 */
+                /*
+                 * get new memory for the result
+                 */
                 Values* RecordValues = new Values(ncol);
                 
                 Value *v = RecordValues->m_Values;
@@ -927,8 +1098,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                      switch (fieldtype)
                      {
                          case SQLITE_NULL:      v->m_NumericValue = g_NaN;                                   break;
-                         case SQLITE_INTEGER:	v->m_NumericValue = (double) sqlite3_column_int(st, j);      break;
-                         case SQLITE_FLOAT:     v->m_NumericValue = (double) sqlite3_column_double(st, j);	 break;
+                         case SQLITE_INTEGER:   v->m_NumericValue = (double) sqlite3_column_int(st, j);      break;
+                         case SQLITE_FLOAT:     v->m_NumericValue = (double) sqlite3_column_double(st, j);     break;
                          case SQLITE_TEXT:      v->m_StringValue  = strnewdup((const char*) sqlite3_column_text(st, j));   break;
                          case SQLITE_BLOB:      
                             {
@@ -944,14 +1115,13 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                 }
                             }
                             break;
-                         default:	
-							mxFree(command);
-							mexErrMsgTxt(MSG_UNKNWNDBTYPE);
+                         default:
+                            FINALIZE( MSG_UNKNWNDBTYPE );
                      }
                 }
-				/*
-				 * and add this row to the list of all result rows
-				 */
+                /*
+                 * and add this row to the list of all result rows
+                 */
                 if (! lastrow)
                 {
                     allrows = lastrow = RecordValues;
@@ -961,33 +1131,33 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                     lastrow->m_NextValues = RecordValues;
                     lastrow = lastrow->m_NextValues;
                 }
-				/*
-				 * we have one more...
-				 */
+                /*
+                 * we have one more...
+                 */
                 rowcount ++;
             }
             
-			/*
-			 * end the sql engine
-			 */
+            /*
+             * end the sql engine
+             */
             sqlite3_finalize(st);
+            st = NULL;
 
-			/*
-			 * got nothing? return an empty result to MATLAB
-			 */
+            /*
+             * got nothing? return an empty result to MATLAB
+             */
             if (rowcount == 0 || ! allrows)
             {
                 if (!( plhs[0] = mxCreateDoubleMatrix(0,0,mxREAL) ))
-				{
-					mxFree(command);
-                    mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
-				}
+                {
+                    FINALIZE( MSG_CANTCREATEOUTPUT );
+                }
             }
             else
             {
-				/*
-				 * Allocate an array of MATLAB structs to return as result
-				 */
+                /*
+                 * Allocate an array of MATLAB structs to return as result
+                 */
                 int ndims[2];
                 
                 ndims[0] = rowcount;
@@ -995,13 +1165,12 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 
                 if (( plhs[0] = mxCreateStructArray (2, ndims, ncol, (const char**)fieldnames)) == 0)
                 {
-					mxFree(command);
-                    mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
+                    FINALIZE( MSG_CANTCREATEOUTPUT );
                 }
                 
-				/*
-				 * transfer the result rows from the temporary list into the result array
-				 */
+                /*
+                 * transfer the result rows from the temporary list into the result array
+                 */
                 lastrow = allrows;
                 i = 0;
                 while(lastrow)
@@ -1058,25 +1227,54 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         }
         else
         {
-			/*
-			 * no result, cleanup the sqlite engine
-			 */
+            /*
+             * no result, cleanup the sqlite engine
+             */
             int res = sqlite3_step(st);
             sqlite3_finalize(st);
+            st = NULL;
 
-			if (!( plhs[0] = mxCreateDoubleMatrix(0, 0, mxREAL) )) 
-			{
-                mexErrMsgTxt(MSG_CANTCREATEOUTPUT);
+            if (!( plhs[0] = mxCreateDoubleMatrix(0, 0, mxREAL) )) 
+            {
+                FINALIZE( MSG_CANTCREATEOUTPUT );
             }
 
             if (res != SQLITE_DONE)
             {
-				mxFree(command);
-                mexErrMsgIdAndTxt(TransErrToIdent(g_dbs[db_id]), sqlite3_errmsg(g_dbs[db_id]));
+                FINALIZE( SQL_ERR );
             }            
         }
     }
-	mxFree(command);
+        
+finalize:        
+    if( command )
+    {
+        mxFree( command );  
+    }
+
+    if ( st )
+    {
+        sqlite3_clear_bindings( st );
+        sqlite3_finalize( st );
+    }
+    
+    if( pArgs )
+    {
+        mxDestroyArray( pArgs );
+    }
+
+    // mexErrMsg*() functions automatically free all 
+    // allocated memory by mxCalloc() ans mxCreate*() functions.
+
+    if( g_finalize_msg == SQL_ERR )
+    {
+        mexErrMsgIdAndTxt(TransErrToIdent(g_dbs[db_id]), sqlite3_errmsg(g_dbs[db_id]));
+    }
+    
+    if( g_finalize_msg )
+    {
+        mexErrMsgTxt( g_finalize_msg );
+    }
 }
 
 /*

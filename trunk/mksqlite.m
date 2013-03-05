@@ -46,6 +46,34 @@
 %  mksqlite('close')
 % Zeigt alle Tabellen in der Datenbank "testdb.db3" an.
 %
+% Parameter binding:
+% Die SQL Syntax erlaubt die Verwendung von Parametern, die vorerst nur
+% durch Platzhalter gekennzeichnet und durch nachträgliche Argumente
+% mit Inhalten gefüllt werden.
+% Erlaubte Platzhalter in SQLlite sind: ?, ?NNN, :NNN, $NAME, @NAME
+% Ein Platzhalter kann nur für einen Wert (value) stehen, nicht für
+% einen Befehl, Spaltennamen, Tabelle, usw.
+%
+% Beispiel:
+%  mksqlite( 'insert vorname, nachname, ort into Adressbuch values (?,?,?)', ...
+%            'Gunther', 'Meyer', 'München' );
+%
+% Statt einer Auflistung von Argumenten, darf auch ein CellArray übergeben
+% werden, dass die Argumente enthält.
+% Werden weniger Argumente übergeben als benötigt, werden die verbleibenden
+% Parameter mit NULL belegt. Werden mehr Argumente übergeben als
+% benötigt, bricht die Funktion mit einer Fehlermeldung ab.
+% Ein Argument darf ein realer numerischer Wert (Skalar oder Array)
+% oder ein String sein. Nichtskalare Werte werden als Vektor vom Datentyp
+% BLOB (uint8) verarbeitet.
+%
+% Beispiel:
+%  data = rand(10,15);
+%  mksqlite( 'insert data into MyTable values (?)', data );
+%  query = mksqlite( 'select data from MyTable' );
+%  data_sql = typecast( query(1).data, 'double' );
+%  data_sql = reshape( data_sql, 10, 15 );
+%
 % (c) 2008 by Martin Kortmann <mail@kortmann.de>
 %
 

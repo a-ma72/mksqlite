@@ -149,9 +149,24 @@ fprintf ('packing mksqlite release files\n');
 % release
 copyfile('Changelog.txt', reldir);
 copyfile('mksqlite.m', reldir);
-copyfile('mksqlite.mexw32', reldir);
+
+% x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
+copyfile('mksqlite.mexw32', reldir); 
+
+% x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
+if exist('mksqlite.mexw64', 'file' )
+  copyfile('mksqlite.mexw64', reldir); 
+end
+
+% x86 64-bit version (gcc 4.1.2 20080704 / Red Hat 4.1.2-52)
+% MATLAB Version 7.13.0.564 (R2011b)
+if exist('mksqlite.mexa64', 'file' )
+  copyfile('mksqlite.mexa64', reldir); 
+end
+
 copyfile('README.TXT', reldir);
 copyfile('sqlite_test.m', reldir);
+copyfile('sqlite_test_bind.m', reldir);
 mkdir ([reldir filesep 'docu']);
 copyfile(['docu' filesep 'index.html'], [reldir filesep 'docu']);
 copyfile(['docu' filesep 'mksqlite_eng.html'], [reldir filesep 'docu']);
@@ -162,12 +177,28 @@ copyfile('buildit.m', srcdir);
 copyfile('Changelog.txt', srcdir);
 copyfile('mksqlite.cpp', srcdir);
 copyfile('mksqlite.m', srcdir);
+
+% x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 copyfile('mksqlite.mexw32', srcdir);
+
+% x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
+if exist('mksqlite.mexw64', 'file' )
+  copyfile('mksqlite.mexw64', srcdir);
+end
+
+% x86 64-bit version (gcc 4.1.2 20080704 / Red Hat 4.1.2-52)
+% MATLAB Version 7.13.0.564 (R2011b)
+if exist('mksqlite.mexa64', 'file' )
+  copyfile('mksqlite.mexa64', srcdir);
+end
+
 copyfile('README.TXT', srcdir);
+copyfile('shell.c', srcdir);
 copyfile('sqlite3.c', srcdir);
 copyfile('sqlite3.h', srcdir);
 copyfile('sqlite3ext.h', srcdir);
 copyfile('sqlite_test.m', srcdir);
+copyfile('sqlite_test_bind.m', srcdir);
 copyfile('svn_revision.dummy', srcdir);
 copyfile('svn_revision.h', srcdir);
 copyfile('svn_revision.tmpl', srcdir);
