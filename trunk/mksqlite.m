@@ -28,6 +28,18 @@
 % geschlossen. Bei Angabe der dbid 0 werden alle offenen Datenbanken
 % geschlossen.
 %
+%  mksqlite('version mex')                 (1
+% oder
+%  version = mksqlite('version mex')       (2
+% Gibt die Version von mksqlite in der Ausgabe (1), oder als String (2) zurück.
+%
+%
+%  mksqlite('version sql')                 (1
+% oder
+%  version = mksqlite('version sql')       (2
+% Gibt die Version der verwendeten SQLite Engine in der Ausgabe (1), 
+% oder als String (2) zurück.
+%
 %  mksqlite('SQL-Befehl')
 % oder
 %  mksqlite(dbid, 'SQL-Befehl')
@@ -73,6 +85,22 @@
 %  query = mksqlite( 'select data from MyTable' );
 %  data_sql = typecast( query(1).data, 'double' );
 %  data_sql = reshape( data_sql, 10, 15 );
+%
+% BLOBs werden immer als Vektor aus uint8 Werten in der Datenbank abgelegt.
+% Um wieder ursprüngliche Datenformate (z.B. double) und Dimensionen 
+% der Matrix zu erhalten muss explizit typecast() und reshape() aufgerufen werden.
+% (Siehe hierzu auch das Beispiel "sqlite_test_bind.m")
+% Wahlweise kann diese Information (Typisierung) im BLOB hinterlegt werden. 
+% Die geschilderte Nachbearbeitung ist dann zwar nicht mehr nötig, u.U. ist die 
+% Datenbank jedoch nicht mehr kompatibel zu anderer Software!
+% Die Typisierung kann mit folgendem Befehl aktiviert/deaktiviert werden:
+%
+%   mksqlite( 'typedBLOBs', 1 ); % Aktivieren
+%   mksqlite( 'typedBLOBs', 0 ); % Deaktivieren
+%
+% (Siehe auch Beispiel "sqlite_test_bind_typed.m")
+% Typisiert werden nur numerische Arrays und Vektoren. Strukturen, Cellarrays
+% und komplexe Daten sind nicht zulässig und müssen vorher konvertiert werden.
 %
 % (c) 2008 by Martin Kortmann <mail@kortmann.de>
 %

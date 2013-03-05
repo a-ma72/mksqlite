@@ -43,6 +43,18 @@ static bool check4uniquefields = true;
 /* Convert UTF-8 to ascii, otherwise set slCharacterEncoding('UTF-8') */
 static bool convertUTF8 = true;
 
+/* Store type and dimensions of MATLAB vectors/arrays in BLOBs */
+static bool use_typed_blobs = false;
+static const char TBH_MAGIC[] = "mkSQLite.tbh";
+typedef struct { 
+  char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
+  mxClassID clsid;                // Matlab ClassID of variable
+  mwSize sizeDims[1];             // Number of dimensions, followed by sizes of each dimension
+                                  // First byte after header at &tbh->sizeDims[tbh->sizeDims[0]+1]
+} typed_BLOB_header;
+#define TBH_DATA(tbh)            (void*)&tbh->sizeDims[tbh->sizeDims[0]+1]
+#define TBH_DATA_OFFSET(nDims)   (size_t)&((typed_BLOB_header*) 0)->sizeDims[nDims+1]
+
 /*
  * Table of used database ids.
  */
@@ -103,6 +115,9 @@ static int Language = -1;
 #define MSG_MSGUNIQUEWARN       messages[Language][15]
 #define MSG_UNEXPECTEDARG       messages[Language][16]
 #define MSG_MISSINGARG          messages[Language][17]
+#define MSG_MEMERROR            messages[Language][18]
+#define MSG_UNSUPPVARTYPE       messages[Language][19]
+#define MSG_UNSUPPTBH           messages[Language][20]
 
 /* 0 = english message table */
 static const char* messages_0[] = 
@@ -110,7 +125,7 @@ static const char* messages_0[] =
     "mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
     "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
-    "UTF-8 and parameter binding extension: A.Martin, 2012-02-10, Volkswagen AG\n\n",
+    "UTF-8, parameter binding extension and typed BLOBs: A.Martin, 2013-02-25, Volkswagen AG\n\n",
     
     "invalid database handle\n",
     "function not possible",
@@ -128,7 +143,10 @@ static const char* messages_0[] =
     "cannot set busytimeout",
     "could not build unique fieldname for %s",
     "unexpected arguments passed",
-    "missing argument list"
+    "missing argument list",
+    "memory allocation error",
+    "unsupported variable type",
+    "unknown/unsupported typed blob header"
 };
 
 /* 1 = german message table */
@@ -155,7 +173,10 @@ static const char* messages_1[] =
     "busytimeout konnte nicht gesetzt werden",
     "konnte keinen eindeutigen Bezeichner für Feld %s bilden",
     "Argumentliste zu lang",
-    "keine Argumentliste angegeben"
+    "keine Argumentliste angegeben",
+    "Fehler bei Speichermanagement", 
+    "Nicht unterstützter Variablentyp",
+    "Unbekannter oder nicht unterstützter typisierter BLOB Header"
 };
 
 /*
@@ -536,7 +557,24 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     FirstArg = CommandPos +1;
     NumArgs --;
     
-    if (! strcmp(command, "open"))
+    if (! strcmp(command, "version mex"))
+    {
+      if ( nlhs == 0 )
+      {
+        mexPrintf( "mksqlite Version %s\n", VERSION );
+      } else {
+        plhs[0] = mxCreateString( VERSION );
+      }
+    } else if (! strcmp(command, "version sql"))
+    {
+      if ( nlhs == 0 )
+      {
+        mexPrintf( "SQLite Version %s\n", SQLITE_VERSION );
+      } else {
+        plhs[0] = mxCreateString( SQLITE_VERSION );
+      }
+    } 
+	else if (! strcmp(command, "open"))
     {
         /*
          * open a database. There has to be one string argument,
@@ -764,6 +802,21 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             convertUTF8 = (getinteger(prhs[FirstArg])) ? true : false;
         }
     }
+    else if (! _strcmpi(command, "typedBLOBs"))
+    {
+        if (NumArgs == 0)
+        {
+            plhs[0] = mxCreateDoubleScalar((double) use_typed_blobs);
+        }
+        else if (NumArgs != 1 || !mxIsNumeric(prhs[FirstArg]))
+        {
+            FINALIZE( MSG_INVALIDARG );
+        }
+        else
+        {
+            use_typed_blobs = (getinteger(prhs[FirstArg])) ? true : false;
+        }
+    }
     else
     {
         /*
@@ -900,12 +953,71 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 
                 if ( cntElements > 1 && clsid != mxCHAR_CLASS )
                 {
-                    // matrix arguments are omitted as blobs, except string arguments
-                    void* blob = mxGetData( item );
-                    // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
-                    if ( SQLITE_OK != sqlite3_bind_blob( st, i+1, blob, cntElements * szElement, SQLITE_TRANSIENT ) )
-                    {
-                        FINALIZE( SQL_ERR );
+                    if( !use_typed_blobs ){
+                        // matrix arguments are omitted as blobs, except string arguments
+                        void* blob = mxGetData( item );
+                        // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
+                        if ( SQLITE_OK != sqlite3_bind_blob( st, i+1, blob, 
+                                                             (mwSize) (cntElements * szElement), 
+                                                             SQLITE_TRANSIENT ) )
+                        {
+                            FINALIZE( SQL_ERR );
+                        }
+                    }
+					else
+					{
+                        if( mxIsComplex( item ) )
+                        {
+                            // Complex data not supported
+                            FINALIZE( MSG_UNSUPPVARTYPE );
+                        }
+
+                        mwSize item_nDims        = mxGetNumberOfDimensions( item );
+                        const mwSize *pitem_dims = mxGetDimensions( item );
+                        mwSize sizeBlob          = (mwSize) TBH_DATA_OFFSET( item_nDims ) +
+                                                   (mwSize) (cntElements * szElement);
+
+                        switch( clsid )
+                        {
+                          case mxCHAR_CLASS:
+                          case mxDOUBLE_CLASS:
+                          case mxSINGLE_CLASS:
+                          case mxINT8_CLASS:
+                          case mxUINT8_CLASS:
+                          case mxINT16_CLASS:
+                          case mxUINT16_CLASS:
+                          case mxINT32_CLASS:
+                          case mxUINT32_CLASS:
+                          case mxINT64_CLASS:
+                          case mxUINT64_CLASS:
+                            break;
+                          default:
+                            FINALIZE( MSG_UNSUPPVARTYPE );
+                        }
+
+                        void *blob = sqlite3_malloc( sizeBlob );
+                        if( NULL == blob )
+                        {
+                            FINALIZE( MSG_MEMERROR );
+                        }
+                        
+                        typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
+                        tbh->clsid             = clsid;
+                        tbh->sizeDims[0]       = item_nDims;
+                        strcpy( tbh->magic, TBH_MAGIC );
+                        
+                        for( mwSize j = 0; j < item_nDims; j++ )
+                        {
+                            tbh->sizeDims[j+1] = pitem_dims[j];
+                        }
+                        
+                        memcpy( TBH_DATA( tbh ), mxGetData( item ), (mwSize) (cntElements * szElement) );
+                        
+                        // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
+                        if ( SQLITE_OK != sqlite3_bind_blob( st, i+1, blob, sizeBlob, sqlite3_free ) )
+                        {
+                            FINALIZE( SQL_ERR );
+                        }
                     }
                 }
                 else
@@ -1193,14 +1305,63 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                         {
                             if (recordvalue->m_Size > 0)
                             {
-                                int NumDims[2]={1,1};
-                                NumDims[1]=recordvalue->m_Size;
-                                mxArray*out_uchar8=mxCreateNumericArray(2, NumDims, mxUINT8_CLASS, mxREAL);
-                                unsigned char *v = (unsigned char *) mxGetData(out_uchar8);
-                                
-                                memcpy(v, recordvalue->m_StringValue, recordvalue->m_Size);
+                                if( !use_typed_blobs )
+                                {
+                                    int NumDims[2]={1,1};
+                                    NumDims[1]=recordvalue->m_Size;
+                                    mxArray*out_uchar8=mxCreateNumericArray(2, NumDims, mxUINT8_CLASS, mxREAL);
+                                    unsigned char *v = (unsigned char *) mxGetData(out_uchar8);
+
+                                    memcpy(v, recordvalue->m_StringValue, recordvalue->m_Size);
+
+                                    mxSetFieldByNumber(plhs[0], i, j, out_uchar8);
+                                }
+								else
+								{
+                                    void* blob             = (void*)recordvalue->m_StringValue;
+                                    typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
+                                    mxClassID clsid        = tbh->clsid;
+                                    mwSize item_nDims      = tbh->sizeDims[0];
+                                    mwSize* pSize          = &tbh->sizeDims[1];
+                                    mwSize sizeBlob        = recordvalue->m_Size - (mwSize)TBH_DATA_OFFSET( item_nDims );
                                     
-                                mxSetFieldByNumber(plhs[0], i, j, out_uchar8);
+                                    if ( strncmp( tbh->magic, TBH_MAGIC, strlen( TBH_MAGIC ) ) != 0 )
+                                    {
+                                        FINALIZE( MSG_UNSUPPTBH );
+                                    }
+                                    
+                                    switch( clsid )
+                                    {
+                                        case mxCHAR_CLASS:
+                                        case mxDOUBLE_CLASS:
+                                        case mxSINGLE_CLASS:
+                                        case mxINT8_CLASS:
+                                        case mxUINT8_CLASS:
+                                        case mxINT16_CLASS:
+                                        case mxUINT16_CLASS:
+                                        case mxINT32_CLASS:
+                                        case mxUINT32_CLASS:
+                                        case mxINT64_CLASS:
+                                        case mxUINT64_CLASS:
+                                        break;
+                                      default:
+                                        FINALIZE( MSG_UNSUPPVARTYPE );
+                                    }
+                                    
+                                    mxArray *array = mxCreateNumericArray( item_nDims, pSize, clsid, mxREAL );
+                                    if( !array )
+                                    {
+                                        FINALIZE( MSG_MEMERROR );
+                                    }
+                                    
+                                    if( sizeBlob != mxGetNumberOfElements( array ) * mxGetElementSize( array ) )
+                                    {
+                                        FINALIZE( MSG_INVALIDARG );
+                                    }
+                                    
+                                    memcpy( (void*)mxGetData( array ), TBH_DATA( tbh ), sizeBlob );
+                                    mxSetFieldByNumber(plhs[0], i, j, array);
+                                }
                             }
                             else
                             {

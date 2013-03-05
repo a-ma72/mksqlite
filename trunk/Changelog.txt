@@ -3,6 +3,12 @@ Version 1.13pre
 - Strict field names: Only alphanumeric chars and '_' are allowed
 - Parameter binding extension
 - Tiny exception handling implementation
+- Introducing "typed BLOBs"
+  Behaviour can be changed by switch mksqlite('typedBLOBs', 0|1)
+  (Default is OFF)
+- Added two new commands:
+  mksqlite('version mex'): Returns the release version of mksqlite
+  mksqlite('version sql'): Returns the version of the used SQLite engine
 
 Version 1.12 (Build 34 - 29. Apr 2012)
 - SQLite Engine updated to Version 3.7.11
