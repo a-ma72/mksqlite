@@ -129,7 +129,7 @@ static const char* messages_0[] =
     
     "invalid database handle\n",
     "function not possible",
-    "Usage: %s([dbid,] command [, databasefile])\n",
+    "Usage: mksqlite([dbid,] command [, databasefile])\n",
     "no or wrong argument",
     "mksqlite: closing open databases.\n",
     "Can\'t copy string in getstring()",
@@ -159,7 +159,7 @@ static const char* messages_1[] =
     
     "ungültiger Datenbankhandle\n",
     "Funktion nicht möglich",
-    "Verwendung: %s([dbid,] Befehl [, datenbankdatei])\n",
+    "Verwendung: mksqlite([dbid,] Befehl [, datenbankdatei])\n",
     "kein oder falsches Argument übergeben",
     "mksqlite: Die noch geöffneten Datenbanken wurden geschlossen.\n",
     "getstring() kann keine neue zeichenkette erstellen",
@@ -574,7 +574,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         plhs[0] = mxCreateString( SQLITE_VERSION );
       }
     } 
-	else if (! strcmp(command, "open"))
+    else if (! strcmp(command, "open"))
     {
         /*
          * open a database. There has to be one string argument,
@@ -964,8 +964,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                             FINALIZE( SQL_ERR );
                         }
                     }
-					else
-					{
+                    else
+                    {
                         if( mxIsComplex( item ) )
                         {
                             // Complex data not supported
@@ -1316,8 +1316,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
 
                                     mxSetFieldByNumber(plhs[0], i, j, out_uchar8);
                                 }
-								else
-								{
+                                else
+                                {
                                     void* blob             = (void*)recordvalue->m_StringValue;
                                     typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
                                     mxClassID clsid        = tbh->clsid;
