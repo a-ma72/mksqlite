@@ -13,6 +13,7 @@ Version 1.13pre
   * pow(x,y): power function x**y
   * regex(str,pattern,<repstr>): Regular expression pattern on str, replacements
     by optional parameter repstr definition. (See www.regexlab.com)  
+  Including example file "test_regex.m"
 - Bugfix: matlab crash when no arguments passed to mksqlite
 - Insertion of svn revision number into source code for linux too, now  
 
