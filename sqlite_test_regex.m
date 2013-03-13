@@ -1,6 +1,37 @@
 function sqlite_test_regex
-  db_name = 'tracklist.db';
-  root = getenv('ProgramFiles');
+  clc
+
+  db = mksqlite( 0, 'open', ':memory:' );
+  email = 'Günther.Mayer@domain.de';
+  
+  fprintf( 'Some examples on regular expressions (email="%s"):\n\n', email );
+
+  % some regex examples (only some ideas, you'll find your specific needs...)
+  fprintf( '%s\n', 'Find matching string: mksqlite( ''SELECT REGEX(?,"M...r") as result'', email )' );
+  disp( mksqlite( 'SELECT REGEX(?,"M...r") as result', email ) )
+
+  fprintf( '%s\n', 'Parse entire email: mksqlite( ''SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result'', email )' );
+  disp( mksqlite( 'SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result', email ) )
+
+  fprintf( '%s\n', 'Omit name only (3rd argument is replacement string): mksqlite( ''SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result'', email )' );
+  disp( mksqlite( 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result', email ) )
+
+  fprintf( '%s\n', 'Replace domain: mksqlite( ''SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result'', email )' );
+  disp( mksqlite( 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result', email ) )
+
+
+  mksqlite( db, 'close' );
+  
+  input('Press <return> ' );
+  
+  clc
+  db_name = 'winsys32.db';
+  root = fullfile( getenv('windir'), 'system32' );
+  fprintf( 'For the next example the path "%s" will be scanned for files (bat,exe,dll).\n', root );
+  fprintf( 'After the scan SQLite will be used to show summaries on catched files...\n' );
+  input( 'Press <return> to progress, Ctrl+C otherwise...' );
+
+  fprintf( '\nScan in progress...' );
   if exist( db_name, 'file' )
       mksqlite( 'open', db_name ); % open existing dbase
   else
@@ -12,37 +43,16 @@ function sqlite_test_regex
   end
 
   clc
-
-  fprintf( 'Some examples on regular expressions...\n\n' );
-
-  % some regex examples (only some ideas, you'll find your specific needs...)
-  email = 'Günther.Mayer@domain.de';
-
-  %
-  fprintf( '%s\n', 'Find matching string: mksqlite( ''SELECT REGEX(?,"M...r") as result'', email )' );
-  mksqlite( 'SELECT REGEX(?,"M...r") as result', email )
-
-  fprintf( '%s\n', 'Parse entire email: mksqlite( ''SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result'', email )' );
-  mksqlite( 'SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result', email )
-
-  fprintf( '%s\n', 'Omit name only (3rd argument is replacement string): mksqlite( ''SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result'', email )' );
-  mksqlite( 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result', email )
-
-  fprintf( '%s\n', 'Replace domain: mksqlite( ''SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result'', email )' );
-  mksqlite( 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result', email )
-
-
   fprintf( '\n\n%s\n', 'Analyse HD scan: count files and file sizes, grouped by extension' );
-  query = mksqlite( ['SELECT SUM(size) as sum, COUNT(*) as count, REGEX(lower(name),"^.*\.(.*)$","$1") as ext ', ...
+  query = mksqlite( ['SELECT SUM(CAST(size AS REAL)) as sum, COUNT(*) as count, REGEX(lower(name),"^.*\.(.*)$","$1") as ext ', ...
                      'from files where size not null group by ext'] );
 
   for i = 1:numel(query)
       disp( query(i) )
   end
 
-
   fprintf( '\n\n%s\n', 'Display filenames of all found DLLs' );
-  input('Press <return> ' );
+  input('Press <return> to continue with last step...' );
 
   query = mksqlite( 'SELECT * from files WHERE REGEX(lower(name),"^.*\.(.*)$","$1")="dll" ORDER BY date' );
 
