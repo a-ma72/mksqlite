@@ -1,4 +1,4 @@
-Version 1.13 (Build 38 - 06. Mar 2013)
+Version 1.13pre
 - SQLite Engine updated to Version 3.7.15.2
 - Strict field names: Only alphanumeric chars and '_' are allowed
 - Parameter binding extension
@@ -9,6 +9,10 @@ Version 1.13 (Build 38 - 06. Mar 2013)
 - Added two new commands:
   mksqlite('version mex'): Returns the release version of mksqlite
   mksqlite('version sql'): Returns the version of the used SQLite engine
+- Added two SQL functions:
+  * pow(x,y): power function x**y
+  * regex(str,pattern,<repstr>): Regular expression pattern on str, replacements
+    by optional parameter repstr definition. (See www.regexlab.com)  
 - Bugfix: matlab crash when no arguments passed to mksqlite
 - Insertion of svn revision number into source code for linux too, now  
 

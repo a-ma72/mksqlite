@@ -14,8 +14,11 @@
 #include <cctype>
 #endif
 
+#include <math.h>
+#include <assert.h>
 #include <mex.h>
 #include "sqlite3.h"
+#include "deelx.h"
 
 /* Versionnumber */
 #define VERSION "1.13"
@@ -44,11 +47,15 @@ static bool check4uniquefields = true;
 static bool convertUTF8 = true;
 
 /* Store type and dimensions of MATLAB vectors/arrays in BLOBs */
-static bool use_typed_blobs = false;
+static bool use_typed_blobs   = false;
 static const char TBH_MAGIC[] = "mkSQLite.tbh";
+static char g_platform[11]    = {0};
+static char g_endian[2]       = {0};
 typedef struct { 
   char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
   mxClassID clsid;                // Matlab ClassID of variable
+  char platform[11];              // Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
+  char endian;                    // Byte order: 'L'ittle endian or 'B'ig endian
   mwSize sizeDims[1];             // Number of dimensions, followed by sizes of each dimension
                                   // First byte after header at &tbh->sizeDims[tbh->sizeDims[0]+1]
 } typed_BLOB_header;
@@ -89,6 +96,15 @@ static const char *g_finalize_msg = NULL;  // if assigned, function returns with
 static const char* SQL_ERR = "SQL_ERR";    // if attached to g_finalize_msg, function returns with least SQL error message
 #define FINALIZE( msg ) { g_finalize_msg = msg; goto finalize; }
 
+void regexFunc(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+void powFunc(sqlite3_context *ctx, int argc, sqlite3_value **argv);
+
+// memory freeing functions
+void DestroyArray( mxArray *&pmxarr );
+template <class T>
+void Free( T *&pmxarr );
+
+
 /*
  * a poor man localization.
  * every language have an table of messages.
@@ -117,15 +133,18 @@ static int Language = -1;
 #define MSG_MISSINGARG          messages[Language][17]
 #define MSG_MEMERROR            messages[Language][18]
 #define MSG_UNSUPPVARTYPE       messages[Language][19]
-#define MSG_UNSUPPTBH           messages[Language][20]
+#define MSG_UNSUPPTBH           messages[Language][20]   
+#define MSG_ERRPLATFORMDETECT   messages[Language][21]
+#define MSG_WARNDIFFARCH        messages[Language][22]
 
 /* 0 = english message table */
 static const char* messages_0[] = 
 {
     "mksqlite Version " VERSION " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2013 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
-    "UTF-8, parameter binding extension and typed BLOBs: A.Martin, 2013-02-25, Volkswagen AG\n\n",
+    "mksqlite uses the perl compatible regex engine DEELX Version 1.2 - http://www.regexlab.com (Sswater@gmail.com)\n"
+    "UTF-8, parameter binding, regex and typed BLOBs: A.Martin, 2013-02-25, Volkswagen AG\n\n",
     
     "invalid database handle\n",
     "function not possible",
@@ -146,16 +165,19 @@ static const char* messages_0[] =
     "missing argument list",
     "memory allocation error",
     "unsupported variable type",
-    "unknown/unsupported typed blob header"
+    "unknown/unsupported typed blob header",
+    "error while detecting platform",
+    "BLOB stored on different platform"
 };
 
 /* 1 = german message table */
 static const char* messages_1[] = 
 {
     "mksqlite Version " VERSION " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008-2011 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2013 by Martin Kortmann <mail@kortmann.de>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
-    "UTF-8 and parameter binding extension: A.Martin, 2013-01-28, Volkswagen AG\n\n",
+    "mksqlite verwendet die Perl kompatible regex engine DEELX Version 1.2 - http://www.regexlab.com (Sswater@gmail.com)\n"
+    "UTF-8, parameter binding, regex und typisierte BLOBs: A.Martin, 2013-02-25, Volkswagen AG\n\n",
     
     "ungültiger Datenbankhandle\n",
     "Funktion nicht möglich",
@@ -176,7 +198,9 @@ static const char* messages_1[] =
     "keine Argumentliste angegeben",
     "Fehler bei Speichermanagement", 
     "Nicht unterstützter Variablentyp",
-    "Unbekannter oder nicht unterstützter typisierter BLOB Header"
+    "Unbekannter oder nicht unterstützter typisierter BLOB Header",
+    "Fehler beim Identifizieren der Platform",
+    "BLOB wurde unter abweichender Platform erstellt"
 };
 
 /*
@@ -426,13 +450,13 @@ static char *getstring(const mxArray *a)
 
         if( !buffer )
         {
-            mxFree( c ); // Needless due to mexErrMsgTxt(), but clean
+            Free( c ); // Needless due to mexErrMsgTxt(), but clean
             mexErrMsgTxt(MSG_CANTCOPYSTRING);
         }
 
         latin2utf( (unsigned char*)c, (unsigned char*)buffer );
 
-        mxFree( c );
+        Free( c );
 
         return buffer;
     }
@@ -501,6 +525,25 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         FirstStart = true;
 
         mexPrintf (MSG_HELLO, sqlite3_libversion());
+        
+        mxArray *plhs[3] = {0};
+        
+        if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
+        {
+            mxGetString( plhs[0], g_platform, sizeof( g_platform ) );
+            mxGetString( plhs[2], g_endian, 2 );
+
+            mexPrintf( "Platform: %s, %s\n\n", g_platform, g_endian[0] == 'L' ? "little endian" : "big endian" );
+            
+            DestroyArray( plhs[0] );
+            DestroyArray( plhs[1] );
+            DestroyArray( plhs[2] );
+        }
+        else
+        {
+            FirstStart = false;
+            mexErrMsgTxt( MSG_ERRPLATFORMDETECT );
+        }
     }
     
     int db_id = 0;
@@ -623,7 +666,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
         {
             plhs[0] = mxCreateDoubleScalar((double) 0);
             mexPrintf(MSG_NOFREESLOT);
-            mxFree(dbname);  // Needless due to mexErrMsgTxt(), but clean
+            Free(dbname);  // Needless due to mexErrMsgTxt(), but clean
             
             FINALIZE( MSG_IMPOSSIBLE );
         }
@@ -644,7 +687,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateDoubleScalar((double) 0);
             
-            mxFree(dbname);   // Needless due to mexErrMsgTxt(), but clean
+            Free(dbname);   // Needless due to mexErrMsgTxt(), but clean
             
             FINALIZE( MSG_IMPOSSIBLE );
         }
@@ -664,16 +707,21 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             g_dbs[db_id] = 0;
             plhs[0] = mxCreateDoubleScalar((double) 0);
             
-            mxFree(dbname);   // Needless due to mexErrMsgTxt(), but clean
+            Free(dbname);   // Needless due to mexErrMsgTxt(), but clean
             
             FINALIZE( MSG_BUSYTIMEOUTFAIL );
         }
+        
+        // attach new SQL commands to opened database
+        sqlite3_create_function( g_dbs[db_id], "pow", 2, SQLITE_UTF8, NULL, powFunc, NULL, NULL );     // power function (math)
+        sqlite3_create_function( g_dbs[db_id], "regex", 2, SQLITE_UTF8, NULL, regexFunc, NULL, NULL ); // regular expressions (MATCH mode)
+        sqlite3_create_function( g_dbs[db_id], "regex", 3, SQLITE_UTF8, NULL, regexFunc, NULL, NULL ); // regular expressions (REPLACE mode)
         
         /*
          * return value will be the used database id
          */
         plhs[0] = mxCreateDoubleScalar((double) db_id +1);
-        mxFree(dbname);
+        Free(dbname);
     }
     else if (! strcmp(command, "close"))
     {
@@ -935,7 +983,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 
             for ( int i = 0; i < bind_names_count; i++ )
             {
-                mxArray*  item        = mxGetCell( pArgs, i );
+                // item must not be destroyed! (Matlab crashes)
+                mxArray *item = mxGetCell( pArgs, i );
 
                 if ( !item || mxIsEmpty( item ) )
                     continue; // Empty parameters are omitted as NULL by sqlite
@@ -945,9 +994,9 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 mxClassID clsid       = mxGetClassID( item );
                 char*     str_value   = NULL;
                 
-                if ( mxIsComplex( item ) || mxIsCell( item ) )
+                if ( mxIsComplex( item ) || mxIsCell( item ) || mxIsStruct( item ) )
                 {
-                    // No complex values or nested cells allowed
+                    // No complex values, nested cells or structs allowed
                     FINALIZE( MSG_INVALIDARG );
                 }
                 
@@ -1003,8 +1052,10 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                         
                         typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
                         tbh->clsid             = clsid;
+                        tbh->endian            = g_endian[0];
                         tbh->sizeDims[0]       = item_nDims;
                         strcpy( tbh->magic, TBH_MAGIC );
+                        strncpy( tbh->platform, g_platform, sizeof( g_platform ) - 1 );
                         
                         for( mwSize j = 0; j < item_nDims; j++ )
                         {
@@ -1056,22 +1107,22 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                 if ( temp )
                                 {
                                     latin2utf( (unsigned char*)str_value, temp );
-                                    mxFree( str_value );
+                                    Free( str_value );
                                     str_value = (char*)temp;
                                 }
                                 else
                                 {
-                                    mxFree ( str_value );
-                                    FINALIZE( MSG_INVALIDARG );
+                                    Free ( str_value );
+                                    FINALIZE( MSG_MEMERROR );
                                 }
                             }
                             // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
                             if ( SQLITE_OK != sqlite3_bind_text( st, i+1, str_value, -1, SQLITE_TRANSIENT ) )
                             {
-                                mxFree( str_value );
+                                Free( str_value );
                                 FINALIZE( SQL_ERR );
                             }
-                            mxFree( str_value );
+                            Free( str_value );
                             break;
                         }
                         default:
@@ -1321,9 +1372,20 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                     void* blob             = (void*)recordvalue->m_StringValue;
                                     typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
                                     mxClassID clsid        = tbh->clsid;
+                                    char* platform         = tbh->platform;
+                                    char endian            = tbh->endian;
                                     mwSize item_nDims      = tbh->sizeDims[0];
                                     mwSize* pSize          = &tbh->sizeDims[1];
                                     mwSize sizeBlob        = recordvalue->m_Size - (mwSize)TBH_DATA_OFFSET( item_nDims );
+                                    
+                                    if( g_endian[0] != endian || !strncmp( g_platform, platform, sizeof( g_platform ) - 1 ) )
+                                    {
+                                        mexWarnMsgTxt( MSG_WARNDIFFARCH );
+                                        // TODO: warning, error or automatic conversion..?
+                                        // since mostly platforms (except SunOS) use LE encoding
+                                        // and unicode is not supported here, there is IMHO no need 
+                                        // for conversions...
+                                    }
                                     
                                     if ( strncmp( tbh->magic, TBH_MAGIC, strlen( TBH_MAGIC ) ) != 0 )
                                     {
@@ -1408,21 +1470,14 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
     }
         
 finalize:        
-    if( command )
-    {
-        mxFree( command );  
-    }
-
     if ( st )
     {
         sqlite3_clear_bindings( st );
         sqlite3_finalize( st );
     }
     
-    if( pArgs )
-    {
-        mxDestroyArray( pArgs );
-    }
+    Free( command );  
+    DestroyArray( pArgs );
 
     // mexErrMsg*() functions automatically free all 
     // allocated memory by mxCalloc() ans mxCreate*() functions.
@@ -1435,6 +1490,156 @@ finalize:
     if( g_finalize_msg )
     {
         mexErrMsgTxt( g_finalize_msg );
+    }
+}
+
+void powFunc(sqlite3_context *ctx, int argc, sqlite3_value **argv){
+    assert( argc == 2 ) ;
+    double base, exponent, result;
+    switch( sqlite3_value_type( argv[0] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            base = sqlite3_value_double( argv[0] );
+    }
+    
+    switch( sqlite3_value_type( argv[1] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            exponent = sqlite3_value_double( argv[1] );
+    }
+
+    try
+    {
+        result = pow( base, exponent );
+    }
+    catch( ... )
+    {
+        sqlite3_result_error( ctx, "pow(): evaluation error", -1 );
+        return;
+    }
+    sqlite3_result_double( ctx, result );
+}
+
+void regexFunc(sqlite3_context *ctx, int argc, sqlite3_value **argv){
+    assert( argc >= 2 );
+    char *str, *pattern, *replace = NULL;
+    
+    sqlite3_result_null( ctx );
+    
+    str = strnewdup( (const char*)sqlite3_value_text( argv[0] ) );
+    pattern = strnewdup( (const char*)sqlite3_value_text( argv[1] ) );
+    
+    if( argc > 2 )
+    {
+        replace = strnewdup( (const char*)sqlite3_value_text( argv[2] ) );
+    }
+    
+    CRegexpT <char> regexp( pattern );
+
+    // find and match
+    MatchResult result = regexp.Match( str );
+
+    // result
+    if( result.IsMatched() )
+    {
+        char *str_value = NULL;
+        
+        if( argc == 2 )
+        {
+            // Match mode
+            int start = result.GetStart();
+            int end   = result.GetEnd  ();
+            int len   = end - start;
+
+            str_value = (char*)mxCalloc( len + 1, sizeof(char) );
+            
+            if( str_value && len > 0 )
+            {
+                strncpy( str_value, &str[start], len );
+            }
+        }
+        else
+        {
+            // Replace mode
+            char* result = regexp.Replace( str, replace );
+            
+            if( result )
+            {
+                int len = (int)strlen( result );
+                str_value = (char*)mxCalloc( len + 1, sizeof(char) );
+                
+                if( str_value && len )
+                {
+                    strncpy( str_value, result, len );
+                }
+                
+                CRegexpT<char>::ReleaseString( result );
+            }
+        }
+        
+        if( str_value && convertUTF8 )
+        {
+            int len = latin2utf( (unsigned char*)str_value, NULL ); // get the size only
+            char *temp = (char*)mxCalloc( len, sizeof(char) ); // allocate memory
+            if ( temp )
+            {
+                latin2utf( (unsigned char*)str_value, (unsigned char*)temp );
+                Free( str_value );
+                str_value = temp;
+            }
+        }
+        
+        if( str_value )
+        {
+            sqlite3_result_text( ctx, str_value, -1, SQLITE_TRANSIENT );
+            Free( str_value );
+        }
+    }
+   
+    if( str )
+    {
+        delete[] str;
+    }
+    
+    if( pattern )
+    {
+        delete[] pattern;
+    }
+    
+    if( replace )
+    {
+        delete[] replace;
+    }
+}
+
+
+// Matlab documentation is missing the issue, if mxFree and mxDestroyArray
+// accept NULL pointers. Tested without crash, but what will be in further 
+// Matlab versions...
+// So we do it on our own:
+
+void DestroyArray( mxArray *&pmxarr )
+{
+    if( pmxarr )
+    {
+        mxDestroyArray( pmxarr );
+        pmxarr = NULL;
+    }
+}
+
+template <class T>
+void Free( T *&pmxarr )
+{
+    if( pmxarr )
+    {
+        mxFree( (void*)pmxarr );
+        pmxarr = NULL;
     }
 }
 
