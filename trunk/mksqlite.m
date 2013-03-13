@@ -37,7 +37,7 @@
 %  mksqlite('version sql')                 (1
 % oder
 %  version = mksqlite('version sql')       (2
-% Gibt die Version der verwendeten SQLite Engine in der Ausgabe (1), 
+% Gibt die Version der verwendeten SQLite Engine in der Ausgabe (1),
 % oder als String (2) zurück.
 %
 %  mksqlite('SQL-Befehl')
@@ -58,6 +58,7 @@
 %  mksqlite('close')
 % Zeigt alle Tabellen in der Datenbank "testdb.db3" an.
 %
+% =====================================================================
 % Parameter binding:
 % Die SQL Syntax erlaubt die Verwendung von Parametern, die vorerst nur
 % durch Platzhalter gekennzeichnet und durch nachträgliche Argumente
@@ -76,8 +77,8 @@
 % Parameter mit NULL belegt. Werden mehr Argumente übergeben als
 % benötigt, bricht die Funktion mit einer Fehlermeldung ab.
 % Ein Argument darf ein realer numerischer Wert (Skalar oder Array)
-% oder ein String sein. Nichtskalare Werte werden als Vektor vom Datentyp
-% BLOB (uint8) verarbeitet.
+% oder ein String sein. Nichtskalare Werte werden als Vektor vom SQL Datentyp
+% BLOB (uint8) verarbeitet. ( BLOB = (B)inary (L)arge (OB)ject) )
 %
 % Beispiel:
 %  data = rand(10,15);
@@ -87,11 +88,11 @@
 %  data_sql = reshape( data_sql, 10, 15 );
 %
 % BLOBs werden immer als Vektor aus uint8 Werten in der Datenbank abgelegt.
-% Um wieder ursprüngliche Datenformate (z.B. double) und Dimensionen 
+% Um wieder ursprüngliche Datenformate (z.B. double) und Dimensionen
 % der Matrix zu erhalten muss explizit typecast() und reshape() aufgerufen werden.
 % (Siehe hierzu auch das Beispiel "sqlite_test_bind.m")
-% Wahlweise kann diese Information (Typisierung) im BLOB hinterlegt werden. 
-% Die geschilderte Nachbearbeitung ist dann zwar nicht mehr nötig, u.U. ist die 
+% Wahlweise kann diese Information (Typisierung) im BLOB hinterlegt werden.
+% Die geschilderte Nachbearbeitung ist dann zwar nicht mehr nötig, u.U. ist die
 % Datenbank jedoch nicht mehr kompatibel zu anderer Software!
 % Die Typisierung kann mit folgendem Befehl aktiviert/deaktiviert werden:
 %
@@ -101,6 +102,34 @@
 % (Siehe auch Beispiel "sqlite_test_bind_typed.m")
 % Typisiert werden nur numerische Arrays und Vektoren. Strukturen, Cellarrays
 % und komplexe Daten sind nicht zulässig und müssen vorher konvertiert werden.
+%
+% =======================================================================
+%
+% Extra SQL Funktionen:
+% mksqlite bietet zusätzliche SQL Funktionen neben der bekannten "core functions"
+% wie replace,trim,abs,round,...
+% In dieser Version werden 2 weitere Funktionen angeboten:
+%   * pow(x,y):
+%     Berechnet x potenziert um den Exponenten y. Ist der Zahlenwert des Ergebnisses
+%     nicht darstellbar ist der Rückgabewert NULL.
+%   * regex(str,pattern):
+%     Ermittelt den ersten Teilstring von str, der dem Regulären Ausdruck pattern
+%     entspricht.
+%   * regex(str,pattern,repstr):
+%     Ermittelt den ersten Teilstring von str, der dem Regulären Ausdruck pattern
+%     entspricht. Der Rückgabewert wird jedoch durch die neue Zusammensetzungsvorschrift
+%     repstr gebildet.
+%     (mksqlite verwendet die perl kompatible regex engine "DEELX".
+%     Weiterführende Informationen siehe www.regexlab.com oder wikipedia)
+%
+% Die Verwendung von regex in Kombination mit parametrischen Parametern bieten eine
+% besonders effiziente Möglichkeit komplexe Abfragen auf Textinhalte anzuwenden.
+% Beispiel:
+%   mksqlite( [ 'SELECT REGEX(field1,"[FMA][XYZ]MR[VH][RL]") AS re_field FROM Table ', ...
+%               'WHERE REGEX(?,?,?) NOT NULL' ], 'field2', '(\\d{5})_(.*)', '$1' );
+%
+% (siehe auch test_regex.m für weitere Beispiele...)
+%
 %
 % (c) 2008 by Martin Kortmann <mail@kortmann.de>
 %

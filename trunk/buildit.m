@@ -8,6 +8,7 @@
 
 %%
 function buildit(varargin)
+clc
 
 switch nargin
 
@@ -78,6 +79,12 @@ else
     buildargs = [buildargs ' -ldl'];
 end
 
+if ~exist( 'arch', 'var' )
+    buildargs = [ buildargs, ' -', computer('arch') ];
+else
+    buildargs = [ buildargs, ' -', arch ];
+end
+
 % save the current directory and get the version information
 mksqlite_compile_currdir = pwd;
 cd (fileparts(mfilename('fullpath')));
@@ -95,7 +102,7 @@ if 0  % set to 1 if you prefer using Windows and TortoiseSVN only...
     end
 else
     if ispc
-        svnversion_cmd = [getenv('ProgramFiles') '\TortoiseSVN\bin\svnversion.exe'];
+        svnversion_cmd = ['"', getenv('ProgramFiles') '\TortoiseSVN\bin\svnversion.exe"'];
         if ~exist( svnversion_cmd, 'file' )
             svnversion_cmd = 'svnversion.exe'; % try if svnversion in in PATH
         end
@@ -109,7 +116,7 @@ else
     else
         fid = fopen( 'svn_revision.h', 'w' );
         if str_revision(end) == 'M'
-            str_modified = '(modified)';
+            str_modified = ' (modified)';
             str_revision(end) = [];
         else
             str_modified = '';
@@ -118,7 +125,7 @@ else
         try
           fprintf( fid, ['#ifndef __SVN_REVISION_H\n', ...
                          '#define __SVN_REVISION_H\n\n', ...
-                         '#define SVNREV "build: %s %s"\n\n', ...
+                         '#define SVNREV "build: %s%s"\n\n', ...
                          '#endif // __SVN_REVISION_H'], ...
                          str_revision, str_modified );
         catch ex
