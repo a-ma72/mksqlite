@@ -51,8 +51,9 @@ static bool use_typed_blobs   = false;
 static const char TBH_MAGIC[] = "mkSQLite.tbh";
 static char g_platform[11]    = {0};
 static char g_endian[2]       = {0};
-typedef struct { 
+typedef struct {
   char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
+  unsigned short ver;             // Kind of version number for later backwards compatibility
   mxClassID clsid;                // Matlab ClassID of variable
   char platform[11];              // Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
   char endian;                    // Byte order: 'L'ittle endian or 'B'ig endian
@@ -940,6 +941,12 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             if ( !NumArgs || !mxIsCell( prhs[FirstArg] ))  // mxIsCell() not called when NumArgs==0 !
             {
                 // Arguments passed as list, or no arguments
+                if ( NumArgs > (mwSize) bind_names_count )
+                {
+                    // more parameters than needed is not allowed
+                    FINALIZE( MSG_UNEXPECTEDARG );
+                }
+
                 pArgs = mxCreateCellMatrix( bind_names_count, 1 );
                 for ( int i = 0; pArgs && i < bind_names_count; i++ )
                 {
@@ -959,7 +966,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
             {
                 // Parameters may be (and are) packed in only one single 
                 // cell array
-                if (NumArgs > 1)
+                if ( NumArgs > 1 )
                 {
                     FINALIZE( MSG_UNEXPECTEDARG );
                 }
@@ -973,12 +980,6 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                 // if parameters needed for parameter binding, 
                 // at least one parameter has to be passed 
                 FINALIZE( MSG_MISSINGARG );
-            }
-                
-            if ( mxGetNumberOfElements( pArgs ) > (mwSize) bind_names_count )
-            {
-                // more parameters than needed is not allowed
-                FINALIZE( MSG_UNEXPECTEDARG );
             }
                 
             for ( int i = 0; i < bind_names_count; i++ )
@@ -1051,6 +1052,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                         }
                         
                         typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
+                        tbh->ver               = sizeof(*tbh);
                         tbh->clsid             = clsid;
                         tbh->endian            = g_endian[0];
                         tbh->sizeDims[0]       = item_nDims;
@@ -1371,6 +1373,14 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                 {
                                     void* blob             = (void*)recordvalue->m_StringValue;
                                     typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
+                                    unsigned short ver     = tbh->ver;
+                                    
+                                    if ( (size_t)ver != sizeof( *tbh ) )
+                                    {
+                                        // TODO: handle new header versions here...
+                                        FINALIZE( MSG_UNSUPPTBH );
+                                    }
+                                    
                                     mxClassID clsid        = tbh->clsid;
                                     char* platform         = tbh->platform;
                                     char endian            = tbh->endian;
@@ -1378,7 +1388,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                     mwSize* pSize          = &tbh->sizeDims[1];
                                     mwSize sizeBlob        = recordvalue->m_Size - (mwSize)TBH_DATA_OFFSET( item_nDims );
                                     
-                                    if( g_endian[0] != endian || !strncmp( g_platform, platform, sizeof( g_platform ) - 1 ) )
+                                    if( g_endian[0] != endian || 0 != strncmp( g_platform, platform, sizeof( g_platform ) - 1 ) )
                                     {
                                         mexWarnMsgTxt( MSG_WARNDIFFARCH );
                                         // TODO: warning, error or automatic conversion..?
@@ -1387,7 +1397,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                         // for conversions...
                                     }
                                     
-                                    if ( strncmp( tbh->magic, TBH_MAGIC, strlen( TBH_MAGIC ) ) != 0 )
+                                    if ( ver != sizeof( *tbh ) || 0 != strncmp( tbh->magic, TBH_MAGIC, strlen( TBH_MAGIC ) ) )
                                     {
                                         FINALIZE( MSG_UNSUPPTBH );
                                     }
