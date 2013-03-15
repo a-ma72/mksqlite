@@ -1,6 +1,6 @@
 % BUILDIT - builds mksqlite
 %
-% possible commands:
+% possible commands: 
 % - buildit                     : builds the release of mksqlite
 % - buildit release             : builds the release of mksqlite
 % - buildit debug               : builds the debug version of mksqlite
@@ -8,20 +8,19 @@
 
 %%
 function buildit(varargin)
-clc
 
-switch nargin
+switch nargin 
 
     case 0
         buildmksqlite('release');
-
+        
     case 1
-
+        
         switch varargin{1}
-
+            
             case {'release' 'debug'}
                 buildmksqlite(varargin{1});
-
+      
             otherwise
                 help(mfilename);
         end
@@ -29,15 +28,15 @@ switch nargin
     case 2
 
          switch varargin{1}
-
+            
             case {'packrelease'}
 %                 buildmksqlite('release');
                 packmksqlite(varargin{2});
-
+                
             otherwise
                 help(mfilename);
         end
-
+        
     otherwise
         help(mfilename);
         return;
@@ -52,13 +51,13 @@ if ~exist('buildtype', 'var') || isempty(buildtype) || ~ischar(buildtype)
 end
 
 switch buildtype
-
+    
     case 'release'
         buildrelease = true;
-
+        
     case 'debug'
         buildrelease = false;
-
+        
     otherwise
     error ('wrong or empty argument');
 end
@@ -79,61 +78,18 @@ else
     buildargs = [buildargs ' -ldl'];
 end
 
-if ~exist( 'arch', 'var' )
-    buildargs = [ buildargs, ' -', computer('arch') ];
-else
-    buildargs = [ buildargs, ' -', arch ];
-end
-
 % save the current directory and get the version information
 mksqlite_compile_currdir = pwd;
 cd (fileparts(mfilename('fullpath')));
 
-if 0  % set to 1 if you prefer using Windows and TortoiseSVN only...
-    mksqlite_compile_subwcrev = [getenv('ProgramFiles') '\TortoiseSVN\bin\SubWCRev.exe'];
+mksqlite_compile_subwcrev = [getenv('ProgramFiles') '\TortoiseSVN\bin\SubWCRev.exe'];
 
-    if exist(mksqlite_compile_subwcrev, 'file')
-        fprintf ('svn revision info:\n');
-        system(['"' mksqlite_compile_subwcrev '" ' pwd ' svn_revision.tmpl svn_revision.h']);
-    else
-        if ~exist('svn_revision.h','file')
-            copyfile('svn_revision.dummy','svn_revision.h');
-        end
-    end
+if exist(mksqlite_compile_subwcrev, 'file')
+    fprintf ('svn revision info:\n');
+    system(['"' mksqlite_compile_subwcrev '" ' pwd ' svn_revision.tmpl svn_revision.h']);
 else
-    if ispc
-        svnversion_cmd = ['"', getenv('ProgramFiles') '\TortoiseSVN\bin\svnversion.exe"'];
-        if ~exist( svnversion_cmd, 'file' )
-            svnversion_cmd = 'svnversion.exe'; % try if svnversion in in PATH
-        end
-    else
-        svnversion_cmd = 'svnversion';
-    end
-
-    [status, str_revision] = system( [svnversion_cmd, ' -n'] );
-    if status ~= 0
+    if ~exist('svn_revision.h','file')
         copyfile('svn_revision.dummy','svn_revision.h');
-    else
-        fid = fopen( 'svn_revision.h', 'w' );
-        if str_revision(end) == 'M'
-            str_modified = ' (modified)';
-            str_revision(end) = [];
-        else
-            str_modified = '';
-        end
-
-        try
-          fprintf( fid, ['#ifndef __SVN_REVISION_H\n', ...
-                         '#define __SVN_REVISION_H\n\n', ...
-                         '#define SVNREV "build: %s%s"\n\n', ...
-                         '#endif // __SVN_REVISION_H'], ...
-                         str_revision, str_modified );
-        catch ex
-            fclose( fid );
-            throw ex
-        end
-
-        fclose( fid );
     end
 end
 
@@ -193,25 +149,9 @@ fprintf ('packing mksqlite release files\n');
 % release
 copyfile('Changelog.txt', reldir);
 copyfile('mksqlite.m', reldir);
-
-% x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 copyfile('mksqlite.mexw32', reldir);
-
-% x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexw64', 'file' )
-  copyfile('mksqlite.mexw64', reldir);
-end
-
-% x86 64-bit version (gcc 4.1.2 20080704 / Red Hat 4.1.2-52)
-% MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexa64', 'file' )
-  copyfile('mksqlite.mexa64', reldir);
-end
-
 copyfile('README.TXT', reldir);
 copyfile('sqlite_test.m', reldir);
-copyfile('sqlite_test_bind.m', reldir);
-copyfile('sqlite_test_bind_typed.m', reldir);
 mkdir ([reldir filesep 'docu']);
 copyfile(['docu' filesep 'index.html'], [reldir filesep 'docu']);
 copyfile(['docu' filesep 'mksqlite_eng.html'], [reldir filesep 'docu']);
@@ -222,29 +162,12 @@ copyfile('buildit.m', srcdir);
 copyfile('Changelog.txt', srcdir);
 copyfile('mksqlite.cpp', srcdir);
 copyfile('mksqlite.m', srcdir);
-
-% x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 copyfile('mksqlite.mexw32', srcdir);
-
-% x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexw64', 'file' )
-  copyfile('mksqlite.mexw64', srcdir);
-end
-
-% x86 64-bit version (gcc 4.1.2 20080704 / Red Hat 4.1.2-52)
-% MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexa64', 'file' )
-  copyfile('mksqlite.mexa64', srcdir);
-end
-
 copyfile('README.TXT', srcdir);
-copyfile('shell.c', srcdir);
 copyfile('sqlite3.c', srcdir);
 copyfile('sqlite3.h', srcdir);
 copyfile('sqlite3ext.h', srcdir);
 copyfile('sqlite_test.m', srcdir);
-copyfile('sqlite_test_bind.m', srcdir);
-copyfile('sqlite_test_bind_typed.m', srcdir);
 copyfile('svn_revision.dummy', srcdir);
 copyfile('svn_revision.h', srcdir);
 copyfile('svn_revision.tmpl', srcdir);
