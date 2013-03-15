@@ -3,27 +3,27 @@ function sqlite_test_regex
 
   db = mksqlite( 0, 'open', ':memory:' );
   email = 'Günther.Mayer@domain.de';
-  
+
   fprintf( 'Some examples on regular expressions (email="%s"):\n\n', email );
 
   % some regex examples (only some ideas, you'll find your specific needs...)
   fprintf( '%s\n', 'Find matching string: mksqlite( ''SELECT REGEX(?,"M...r") as result'', email )' );
-  disp( mksqlite( 'SELECT REGEX(?,"M...r") as result', email ) )
+  disp( mksqlite( db, 'SELECT REGEX(?,"M...r") as result', email ) )
 
   fprintf( '%s\n', 'Parse entire email: mksqlite( ''SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result'', email )' );
-  disp( mksqlite( 'SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result', email ) )
+  disp( mksqlite( db, 'SELECT REGEX(?,"([^@]+@(.*))\.(.*)") as result', email ) )
 
   fprintf( '%s\n', 'Omit name only (3rd argument is replacement string): mksqlite( ''SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result'', email )' );
-  disp( mksqlite( 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result', email ) )
+  disp( mksqlite( db, 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1") as result', email ) )
 
   fprintf( '%s\n', 'Replace domain: mksqlite( ''SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result'', email )' );
-  disp( mksqlite( 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result', email ) )
+  disp( mksqlite( db, 'SELECT REGEX(?,"([^@]+)@(.*)\.(.*)", "$1@$2.com") as result', email ) )
 
 
   mksqlite( db, 'close' );
-  
+
   input('Press <return> ' );
-  
+
   clc
   db_name = 'winsys32.db';
   root = fullfile( getenv('windir'), 'system32' );
@@ -77,10 +77,10 @@ function path_trace( pathname, extensions, parent_id )
       parent_id = 0;
     end
 
-    query = mksqlite( 'select count(*) as id from files' );
+    query = mksqlite( 'SELECT COUNT(*) AS id FROM files' );
     id = query.id;
 
-    % Trace files
+    % Trace files first
     mksqlite( 'BEGIN' );
     files = dir( pathname );
     if ~isempty( files )
@@ -94,7 +94,7 @@ function path_trace( pathname, extensions, parent_id )
                         id = id + 1;
                         mksqlite( 'INSERT INTO files (id,name,parent,date,size) VALUES (?,?,?,?,?)', ...
                                    id, [name ext], parent_id, datestr(files(i).datenum, 'yyyy-mm-dd HH:MM:SS.FFF' ), files(i).bytes );
-                        fprintf( 'File: %s\n', [name ext] );
+                        fprintf( 'File: %s\n', fullfilename );
                     end
                 end
             end
@@ -102,7 +102,7 @@ function path_trace( pathname, extensions, parent_id )
     end
     mksqlite( 'COMMIT' );
 
-    % Trace directories
+    % Trace directories then
     if ~isempty( files )
         for i = 1:numel( files )
             filename = files(i).name;
