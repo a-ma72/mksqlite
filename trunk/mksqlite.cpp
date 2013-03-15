@@ -53,7 +53,7 @@ static char g_platform[11]    = {0};
 static char g_endian[2]       = {0};
 typedef struct {
   char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
-  unsigned short ver;             // Kind of version number for later backwards compatibility
+  unsigned short ver;             // Kind of version number for later backwards compatibility (may only increase!)
   mxClassID clsid;                // Matlab ClassID of variable
   char platform[11];              // Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
   char endian;                    // Byte order: 'L'ittle endian or 'B'ig endian
