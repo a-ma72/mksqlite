@@ -53,8 +53,9 @@ static char g_platform[11]    = {0};
 static char g_endian[2]       = {0};
 typedef struct {
   char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
-  unsigned short ver;             // Kind of version number for later backwards compatibility (may only increase!)
-  mxClassID clsid;                // Matlab ClassID of variable
+  unsigned short ver;             // Kind of version number for later backwards compatibility (may increase only!)
+  unsigned char mwSize_bytes;     // Size of type mwSize in bytes
+  int clsid;                      // Matlab ClassID of variable (see mxClassID)
   char platform[11];              // Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
   char endian;                    // Byte order: 'L'ittle endian or 'B'ig endian
   mwSize sizeDims[1];             // Number of dimensions, followed by sizes of each dimension
@@ -1052,8 +1053,8 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                         }
                         
                         typed_BLOB_header* tbh = (typed_BLOB_header*) blob;
-                        tbh->ver               = sizeof(*tbh);
-                        tbh->clsid             = clsid;
+                        tbh->ver               = (unsigned short)sizeof(*tbh);
+                        tbh->clsid             = (int)clsid;
                         tbh->endian            = g_endian[0];
                         tbh->sizeDims[0]       = item_nDims;
                         strcpy( tbh->magic, TBH_MAGIC );
@@ -1381,7 +1382,7 @@ void mexFunction(int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[])
                                         FINALIZE( MSG_UNSUPPTBH );
                                     }
                                     
-                                    mxClassID clsid        = tbh->clsid;
+                                    mxClassID clsid        = (mxClassID)tbh->clsid;
                                     char* platform         = tbh->platform;
                                     char endian            = tbh->endian;
                                     mwSize item_nDims      = tbh->sizeDims[0];

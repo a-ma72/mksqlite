@@ -10,7 +10,7 @@
 // Author:  ∑ ŸŒ∞ (sswater shi)
 // sswater@gmail.com
 //
-// $Revision: 749 $
+// $Revision: 863 $
 //
 
 #ifndef __DEELX_REGEXP__H__
@@ -599,6 +599,7 @@ public:
 	int    m_nBeginPos;
 	int    m_nLastBeginPos;
 	int    m_nParenZindex;
+	int    m_nCursiveLimit;
 
 	void * m_pMatchString;
 	int    m_pMatchStringLength;
@@ -1053,7 +1054,17 @@ template <class CHART> CDelegateElxT <CHART> :: CDelegateElxT(int ndata)
 template <class CHART> int CDelegateElxT <CHART> :: Match(CContext * pContext) const
 {
 	if(m_pelx != 0)
-		return m_pelx->Match(pContext);
+	{
+		if(pContext->m_nCursiveLimit > 0)
+		{
+			pContext->m_nCursiveLimit --;
+			int result = m_pelx->Match(pContext);
+			pContext->m_nCursiveLimit ++;
+			return result;
+		}
+		else
+			return 0;
+	}
 	else
 		return 1;
 }
@@ -1773,6 +1784,19 @@ protected:
 	int m_nCharsetDepth;
 	int m_bQuoted;
 	POSIX_FUNC m_quote_fun;
+
+	// Backup current pos
+	struct Snapshot
+	{
+		CHART_INFO prev, curr, next, nex2;
+		int m_nNextPos;
+		int m_nCharsetDepth;
+		int m_bQuoted;
+		POSIX_FUNC m_quote_fun;
+		Snapshot():prev(0,0),curr(0,0),next(0,0),nex2(0,0) {}
+	};
+	void Backup (Snapshot * pdata) { memcpy(pdata, &prev, sizeof(Snapshot)); }
+	void Restore(Snapshot * pdata) { memcpy(&prev, pdata, sizeof(Snapshot)); }
 
 	ElxInterface * m_pStockElxs[STOCKELX_COUNT];
 };
@@ -2810,6 +2834,10 @@ template <class CHART> ElxInterface * CBuilderT <CHART> :: BuildCharset(int & fl
 			// create
 			if(curr == CHART_INFO(RCHART(':'), 1))
 			{
+				// Backup before posix
+				Snapshot shot;
+				Backup(&shot);
+
 				CBufferT <char> posix;
 
 				do {
@@ -2821,9 +2849,17 @@ template <class CHART> ElxInterface * CBuilderT <CHART> :: BuildCharset(int & fl
 				MoveNext(); // skip ']'
 
 				// posix
-				return Keep(new CPosixElxT <CHART> (posix.GetBuffer(), flags & RIGHTTOLEFT));
+				CPosixElxT<CHART> * pposix = (CPosixElxT<CHART> *) Keep(new CPosixElxT <CHART> (posix.GetBuffer(), flags & RIGHTTOLEFT));
+				if(pposix->m_posixfun != 0)
+				{
+					return pposix;
+				}
+
+				// restore if not posix
+				Restore(&shot);
 			}
-			else if(curr == CHART_INFO(RCHART('^'), 1))
+
+			if(curr == CHART_INFO(RCHART('^'), 1))
 			{
 				MoveNext(); // skip '^'
 				pRange = (CRangeElxT <CHART> *)Keep(new CRangeElxT <CHART> (flags & RIGHTTOLEFT, 0));
@@ -3464,6 +3500,7 @@ template <class CHART> MatchResult CRegexpT <CHART> :: MatchExact(const CHART * 
 	pContext->m_nLastBeginPos = -1;
 	pContext->m_pMatchString  = (void*)tstring;
 	pContext->m_pMatchStringLength = length;
+	pContext->m_nCursiveLimit = 100;
 
 	if(m_builder.m_nFlags & RIGHTTOLEFT)
 	{
