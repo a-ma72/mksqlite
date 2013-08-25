@@ -22,7 +22,7 @@
 #include "deelx.h"
 
 /* Versionnumber */
-#define VERSION "1.13"
+#define VERSION "1.13pre"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000

@@ -1,5 +1,5 @@
 Version 1.13 (build 50 - 19. Mar 2013 )
-- SQLite Engine updated to Version 3.7.15.2
+- SQLite Engine updated to Version 3.7.17
 - Strict field names: Only alphanumeric chars and '_' are allowed
 - Parameter binding extension
 - Tiny exception handling implementation
