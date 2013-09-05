@@ -179,7 +179,7 @@ static const char* messages_0[] =
     "(c) 2008-2013 by Martin Kortmann <mail@kortmann.de>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite uses the perl compatible regex engine DEELX Version 1.2 - http://www.regexlab.com (Sswater@gmail.com)\n"
-    "UTF-8, parameter binding, regex and typed BLOBs: A.Martin, 2013-02-25, Volkswagen AG\n\n",
+    "UTF-8, parameter binding, regex and typed BLOBs: A.Martin, 2013-02-25\n\n",
     
     "invalid database handle\n",
     "function not possible",
@@ -213,7 +213,7 @@ static const char* messages_1[] =
     "(c) 2008-2013 by Martin Kortmann <mail@kortmann.de>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite verwendet die Perl kompatible regex engine DEELX Version 1.2 - http://www.regexlab.com (Sswater@gmail.com)\n"
-    "UTF-8, parameter binding, regex und typisierte BLOBs: A.Martin, 2013-02-25, Volkswagen AG\n\n",
+    "UTF-8, parameter binding, regex und typisierte BLOBs: A.Martin, 2013-02-25\n\n",
     
     "ungültiger Datenbankhandle\n",
     "Funktion nicht möglich",
