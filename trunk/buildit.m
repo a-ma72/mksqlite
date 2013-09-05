@@ -94,7 +94,7 @@ if 0  % set to 1 if you prefer using Windows and TortoiseSVN only...
 
     if exist(mksqlite_compile_subwcrev, 'file')
         fprintf ('svn revision info:\n');
-        system(['"' mksqlite_compile_subwcrev '" ' pwd ' svn_revision.tmpl svn_revision.h']);
+        system(['"' mksqlite_compile_subwcrev '" "' pwd '" svn_revision.tmpl svn_revision.h']);
     else
         if ~exist('svn_revision.h','file')
             copyfile('svn_revision.dummy','svn_revision.h');
@@ -212,6 +212,7 @@ copyfile('README.TXT', reldir);
 copyfile('sqlite_test.m', reldir);
 copyfile('sqlite_test_bind.m', reldir);
 copyfile('sqlite_test_bind_typed.m', reldir);
+copyfile('sqlite_test_regex.m', reldir);
 mkdir ([reldir filesep 'docu']);
 copyfile(['docu' filesep 'index.html'], [reldir filesep 'docu']);
 copyfile(['docu' filesep 'mksqlite_eng.html'], [reldir filesep 'docu']);
@@ -245,6 +246,7 @@ copyfile('sqlite3ext.h', srcdir);
 copyfile('sqlite_test.m', srcdir);
 copyfile('sqlite_test_bind.m', srcdir);
 copyfile('sqlite_test_bind_typed.m', srcdir);
+copyfile('sqlite_test_regex.m', srcdir);
 copyfile('svn_revision.dummy', srcdir);
 copyfile('svn_revision.h', srcdir);
 copyfile('svn_revision.tmpl', srcdir);
