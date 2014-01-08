@@ -1,5 +1,10 @@
-Version 1.13 (build 50 - 19. Mar 2013 )
-- SQLite Engine updated to Version 3.7.17
+Version 1.13 (build 53 - 08. Jan 2014 )
+- SQLite Engine updated to Version 3.8.2
+- Optional parameters for open command (SQL) to set file access mode 
+  and multithreading mode (single threaded, multi threaded or serialized)
+  mksqlite( 'open', {filename} [,{access_mode}] [,{threading_mode}] )
+  {access_mode} can be 'ro', 'rw' or 'rwc' (not case sensitive)
+  {threading_mode} can be 'single', 'multi' or 'serial' (not case sensitive)
 - Strict field names: Only alphanumeric chars and '_' are allowed
 - Parameter binding extension
 - Tiny exception handling implementation
@@ -9,16 +14,31 @@ Version 1.13 (build 50 - 19. Mar 2013 )
 - Added two new commands:
   mksqlite('version mex'): Returns the release version of mksqlite
   mksqlite('version sql'): Returns the version of the used SQLite engine
-- Added two SQL functions:
+- Data compression (BLOSC lib) for typed blobs. Set the compression method by
+  mksqlite( 'compression', {method}, {level} )
+  {method} can be 'blosclz', 'lz4' or 'lz4hc' (not case sensitive)
+  {level} ranges between 0 and 9. 0 means no compression, 9 means max. compression.
+  Compressed data is by default checked, if decompressed equals to original. You can 
+  disable this behaviour by
+  mksqlite( 'compression_check', 0|1 );
+- Added more SQL functions:
   * pow(x,y): power function x**y
   * regex(str,pattern,<repstr>): Regular expression pattern on str, replacements
     by optional parameter repstr definition. 
-    (Based on DEELX V1.2 Rev.863, see www.regexlab.com)  
-  Including example file "test_regex.m"
+    (Based on DEELX V1.2 Rev.864, see www.regexlab.com)  
+    Including example file "test_regex.m"
+  * md5(x): calculates the MD5 digest of data x.
+    (see sqlite_test_md5_and_packaging.m for example)
+  * bdcpacktime(x): calculates the time needing to compress data x with current 
+    compressor type and level.
+  * bdcunpacktime(x): calculates the time needing to de compress data x with current 
+    compressor type and level.
+  * bdcratio(x): calculates the compression ratio relying on data x and
+    current compressor type and level.
 - Bugfix: matlab crash when no arguments passed to mksqlite
 - Insertion of svn revision number into source code for linux too, now 
 - Switch to return NULL as NaN applied: mksqlite('NullAsNaN', 0|1)
-  (Default is OFF) 
+  (Default is OFF)
 
 Version 1.12 (Build 34 - 29. Apr 2012)
 - SQLite Engine updated to Version 3.7.11
