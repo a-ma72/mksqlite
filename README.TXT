@@ -9,7 +9,7 @@ Verwendung:
 In der ZIP-Datei befindet sich ein M-Skript mit einer kurzen Befehlsreferenz.
 Diese kann in MATLAB mit "help mksqlite" aufgerufen werden.
 Im "doc" Verzeichnis befindet sich eine kurze Dokumentation.
-Des weiteren dient das Skript "sqlite_test.m" als Beispiel für die 
+Des weiteren dienen die Skripte im Ordner Test/ als Beispiel für die 
 Verwendung vom mksqlite.
 
 ------------------------------------------------------------------------
@@ -23,6 +23,6 @@ MATLAB or use e new directory and insert it into the serach path.
 
 Usage:
 You can find a short description in the "doc" Folder.
-There is an Example script inside the archive.
+There are example scripts in the test folder.
 The MATLAB command 'help mksqlite' works - but the help page is
 only german yet.

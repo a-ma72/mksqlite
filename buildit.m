@@ -65,11 +65,16 @@ end
 
 fprintf ('compiling %s version of mksqlite...\n', buildtype);
 
+sqlite = ' sqlite/sqlite3.c ';
+blosc  = ' blosc/blosc.c blosc/blosclz.c blosc/shuffle.c blosc/lz4.c blosc/lz4hc.c ';
+md5    = ' md5/md5.c ';
+
+
 % get the mex arguments
 if buildrelease
-    buildargs = '-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -O mksqlite.cpp sqlite3.c';
+    buildargs = ['-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O mksqlite.cpp ', sqlite, blosc, md5];
 else
-    buildargs = '-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -g -v mksqlite.cpp sqlite3.c';
+    buildargs = ['-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v mksqlite.cpp ', sqlite, blosc, md5];
 end
 
 % additional libraries
@@ -191,11 +196,14 @@ fprintf ('packing mksqlite release files\n');
 
 % copy files
 % release
+copyfile('README.TXT',    reldir);
 copyfile('Changelog.txt', reldir);
-copyfile('mksqlite.m', reldir);
+copyfile('mksqlite.m',    reldir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
-copyfile('mksqlite.mexw32', reldir);
+if exist('mksqlite.mexw32', 'file' )
+  copyfile('mksqlite.mexw32', reldir);
+end
 
 % x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
 if exist('mksqlite.mexw64', 'file' )
@@ -208,24 +216,29 @@ if exist('mksqlite.mexa64', 'file' )
   copyfile('mksqlite.mexa64', reldir);
 end
 
-copyfile('README.TXT', reldir);
-copyfile('sqlite_test.m', reldir);
-copyfile('sqlite_test_bind.m', reldir);
-copyfile('sqlite_test_bind_typed.m', reldir);
-copyfile('sqlite_test_regex.m', reldir);
-mkdir ([reldir filesep 'docu']);
-copyfile(['docu' filesep 'index.html'], [reldir filesep 'docu']);
-copyfile(['docu' filesep 'mksqlite_eng.html'], [reldir filesep 'docu']);
-copyfile(['docu' filesep 'mksqlite_ger.html'], [reldir filesep 'docu']);
+copyfile('docu/', [reldir '/docu']);
+copyfile('test/', [reldir '/test']);
 
 % source
-copyfile('buildit.m', srcdir);
-copyfile('Changelog.txt', srcdir);
-copyfile('mksqlite.cpp', srcdir);
-copyfile('mksqlite.m', srcdir);
+copyfile('README.TXT',         srcdir);
+copyfile('Changelog.txt',      srcdir);
+copyfile('buildit.m',          srcdir);
+copyfile('mksqlite.m',         srcdir);
+copyfile('mksqlite.cpp',       srcdir);
+copyfile('sqlite/',           [srcdir '/sqlite']);
+copyfile('blosc/',            [srcdir '/blosc']);
+copyfile('deelx/',            [srcdir '/deelx']);
+copyfile('md5/',              [srcdir '/md5']);
+copyfile('docu/',             [srcdir '/docu']);
+copyfile('test/',             [srcdir '/test']);
+copyfile('svn_revision.dummy', srcdir);
+copyfile('svn_revision.h',     srcdir);
+copyfile('svn_revision.tmpl',  srcdir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
-copyfile('mksqlite.mexw32', srcdir);
+if exist('mksqlite.mexw32', 'file' )
+  copyfile('mksqlite.mexw32', srcdir);
+end
 
 % x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
 if exist('mksqlite.mexw64', 'file' )
@@ -237,23 +250,6 @@ end
 if exist('mksqlite.mexa64', 'file' )
   copyfile('mksqlite.mexa64', srcdir);
 end
-
-copyfile('README.TXT', srcdir);
-copyfile('shell.c', srcdir);
-copyfile('sqlite3.c', srcdir);
-copyfile('sqlite3.h', srcdir);
-copyfile('sqlite3ext.h', srcdir);
-copyfile('sqlite_test.m', srcdir);
-copyfile('sqlite_test_bind.m', srcdir);
-copyfile('sqlite_test_bind_typed.m', srcdir);
-copyfile('sqlite_test_regex.m', srcdir);
-copyfile('svn_revision.dummy', srcdir);
-copyfile('svn_revision.h', srcdir);
-copyfile('svn_revision.tmpl', srcdir);
-mkdir ([srcdir filesep 'docu']);
-copyfile(['docu' filesep 'index.html'], [srcdir filesep 'docu']);
-copyfile(['docu' filesep 'mksqlite_eng.html'], [srcdir filesep 'docu']);
-copyfile(['docu' filesep 'mksqlite_ger.html'], [srcdir filesep 'docu']);
 
 % save the current directory
 mksqlite_compile_currdir = pwd;

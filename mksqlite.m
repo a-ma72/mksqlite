@@ -103,12 +103,43 @@
 % Typisiert werden nur numerische Arrays und Vektoren. Strukturen, Cellarrays
 % und komplexe Daten sind nicht zulässig und müssen vorher konvertiert werden.
 %
+%
+% Die Daten in einem BLOB werden entweder unkomprimiert (Standard) oder komprimiert
+% abgelegt. Eine automatische Komprimierung der Daten ist nur für typisierte BLOBs
+% (s.o.) zulässig und muss zuvor aktiviert werden:
+%
+%   mksqlite( 'compression', 'lz4', 9 ); % Maximale Kompression aktivieren (0=aus)
+%
+% (Siehe auch Beispiel "sqlite_test_bind_typed_compressed.m" und
+% "sqlite_test_md5_and_packaging.m")
+% Zur Komprimierung wird BLOSC (http://blosc.pytables.org/trac) verwendet.
+% Nach dem Komprimieren der Daten werden sie erneut entpackt und mit dem
+% Original verglichen. Weichen die Daten ab, wird eine entsprechende Fehlermeldung
+% ausgegeben. Wenn diese Funktionalität nicht gewünscht ist (Daten werden ungeprüft
+% gespeichert), kann sie auch deaktiviert werden:
+%
+%   mksqlite( 'compression_check', 0 ); % Check deaktivieren (1=aktivieren)
+%
+% Kompatibilität:
+% Komprimiert abgelegte BLOBs können Sie nicht mit einer älteren Version von
+% mksqlite abrufen, es kommt dann zu einer Fehlermeldung. Unkomprimierte BLOBs
+% hingegen können auch mit der Vorgängerversion abgerufen werden.
+% Mit der Vorgängerversion gespeicherte BLOBs können Sie natürlich auch mit dieser
+% Version abrufen.
+%
+% Anmerkungen zur Kompressionsrate:
+% Die erzielbaren Kompressionsraten hängen stark vom Inhalt der Variablen ab.
+% Obwohl BLOSC für die Verwendung von Zahldatenformaten ausgelegt ist, ist die
+% Kompressionsrate für randomisierte Zahlen (double) schlecht (~95%).
+% Wenn viele gleiche Zahlen, z.B. durch Quantisierung, vorliegen wird die
+% Kompressionsrate deutlich besser ausfallen...
+%
 % =======================================================================
 %
 % Extra SQL Funktionen:
 % mksqlite bietet zusätzliche SQL Funktionen neben der bekannten "core functions"
 % wie replace,trim,abs,round,...
-% In dieser Version werden 2 weitere Funktionen angeboten:
+% In dieser Version werden 7 weitere Funktionen angeboten:
 %   * pow(x,y):
 %     Berechnet x potenziert um den Exponenten y. Ist der Zahlenwert des Ergebnisses
 %     nicht darstellbar ist der Rückgabewert NULL.
@@ -121,6 +152,16 @@
 %     repstr gebildet.
 %     (mksqlite verwendet die perl kompatible regex engine "DEELX".
 %     Weiterführende Informationen siehe www.regexlab.com oder wikipedia)
+%   * md5(x):
+%     Es wird der MD5 Hashing Wert von x berechnet und ausgegeben.
+%   * bdcpacktime(x):
+%     Berechnet die erforderliche Zeit um x mit dem aktuellen Kompressor
+%     und der eingestellten Konpression zu packen (Nettozeit)
+%   * bdcunpacktime(x):
+%     Das Äquivalent zu bdcpacktime(x).
+%   * bdcratio(x):
+%     Berechnet den Kompressionsfaktor, bezogen auf x und die derzeit
+%     eingestellte Kompression.
 %
 % Die Verwendung von regex in Kombination mit parametrischen Parametern bieten eine
 % besonders effiziente Möglichkeit komplexe Abfragen auf Textinhalte anzuwenden.

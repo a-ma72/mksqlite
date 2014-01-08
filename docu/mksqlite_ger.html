@@ -40,8 +40,8 @@
     </P>
     <p class="headline">Versionen</p>
 	<p class="text">
-	mksqlite Version 1.13 setzt SQLite in der Version 3.7.17 ein.<BR>
-	Als MATLAB Versionen wurden R13SP1, R14SP2, 2006a, 2009a und 2011a eingesetzt.<BR>
+	mksqlite Version 1.13 setzt SQLite in der Version 3.8.2 ein.<BR>
+	Als MATLAB Versionen wurden R13SP1, R14SP2, 2006a, 2008b, 2009a, 2011a und 2011b eingesetzt.<BR>
 	mksqlite l&auml;uft auf Windows, Linux und MAC OS-X.
 	</p>
     <p class="headline">Installation</p>
@@ -80,13 +80,13 @@
  Funktionsaufrufe:
     </p>
     <div align="center"><table class="code"><tr><td><p class="code">
-  mksqlite('open', 'datenbankdatei')
+  mksqlite('open', 'datenbankdatei' [,'ro'|'rw'|'rwc'] [,'single'|'multi'|'serial'])
     </td></tr></table></div>
     <p class="text">
  oder
     </p>
     <div align="center"><table class="code"><tr><td><p class="code">
-  dbid = mksqlite(0, 'open', 'datenbankdatei')
+  dbid = mksqlite(0, 'open', 'datenbankdatei' [,...])
     </td></tr></table></div>
     <p class="text">
     &Ouml;ffnet die Datenbankdatei mit dem Dateinamen "datenbankdatei". Wenn eine<BR>
