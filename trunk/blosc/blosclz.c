@@ -69,6 +69,9 @@
 #if defined(_MSC_VER) && !defined(__cplusplus)   /* Visual Studio */
 #define inline __inline  /* Visual C is not C99, but supports some kind of inline */
 #endif
+#if defined(__GNUC__) && defined(__STRICT_ANSI__)
+#define inline __inline  /* GNUC with -ansi switch set, supports also some kind of inline */
+#endif
 
 #define MAX_COPY       32
 #define MAX_LEN       264  /* 256 + 8 */

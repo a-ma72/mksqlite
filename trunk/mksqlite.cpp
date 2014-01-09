@@ -164,9 +164,9 @@ static const int PLATFORM_MAXLEN                    = 11;
 static char g_platform[PLATFORM_MAXLEN]             = {0};
 static char g_endian[2]                             = {0};
 static const int COMPRID_MAXLEN                     = 12;
-static const char BLOSC_LZ4_ID[COMPRID_MAXLEN]      = "LZ4";
-static const char BLOSC_LZ4HC_ID[COMPRID_MAXLEN]    = "LZ4HC";
-static const char BLOSC_DEFAULT_ID[COMPRID_MAXLEN]  = "BLOSCLZ";
+static const char BLOSC_LZ4_ID[COMPRID_MAXLEN]      = BLOSC_LZ4_COMPNAME;
+static const char BLOSC_LZ4HC_ID[COMPRID_MAXLEN]    = BLOSC_LZ4HC_COMPNAME;
+static const char BLOSC_DEFAULT_ID[COMPRID_MAXLEN]  = BLOSC_BLOSCLZ_COMPNAME;
 
 // typed BLOB header agreement
 // typed_BLOB_header_base is the unique and mandatory header prelude for typed blob headers
