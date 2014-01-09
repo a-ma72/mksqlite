@@ -65,16 +65,24 @@ end
 
 fprintf ('compiling %s version of mksqlite...\n', buildtype);
 
-sqlite = ' sqlite/sqlite3.c ';
-blosc  = ' blosc/blosc.c blosc/blosclz.c blosc/shuffle.c blosc/lz4.c blosc/lz4hc.c ';
-md5    = ' md5/md5.c ';
+sqlite = [' sqlite/sqlite3.c '];
+
+blosc  = [' blosc/blosc.c', ...
+          ' blosc/blosclz.c', ...
+          ' blosc/shuffle.c', ...
+          ' blosc/lz4.c', ...
+          ' blosc/lz4hc.c'];
+
+md5    = [' md5/md5.c '];
+
+uuid   = [];
 
 
 % get the mex arguments
 if buildrelease
-    buildargs = ['-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O mksqlite.cpp ', sqlite, blosc, md5];
+    buildargs = ['-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O mksqlite.cpp ', sqlite, blosc, md5, uuid];
 else
-    buildargs = ['-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v mksqlite.cpp ', sqlite, blosc, md5];
+    buildargs = ['-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v mksqlite.cpp ', sqlite, blosc, md5, uuid];
 end
 
 % additional libraries
