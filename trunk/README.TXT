@@ -9,7 +9,7 @@ Verwendung:
 In der ZIP-Datei befindet sich ein M-Skript mit einer kurzen Befehlsreferenz.
 Diese kann in MATLAB mit "help mksqlite" aufgerufen werden.
 Im "doc" Verzeichnis befindet sich eine kurze Dokumentation.
-Des weiteren dienen die Skripte im Ordner Test/ als Beispiel für die 
+Des weiteren dienen die Skripte im Ordner Test/ als Beispiel für die
 Verwendung vom mksqlite.
 
 ------------------------------------------------------------------------

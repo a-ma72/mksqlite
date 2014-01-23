@@ -1,6 +1,6 @@
 #ifndef __SVN_REVISION_H
 #define __SVN_REVISION_H
 
-#define SVNREV "build: 53"
+#define SVNREV "build: 55" 
 
 #endif // __SVN_REVISION_H
