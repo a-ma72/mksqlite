@@ -1,0 +1,97 @@
+Version 1.13 (build 53 - 23. Jan 2014 )
+- SQLite Engine updated to Version 3.8.2
+- Optional parameters for open command (SQL) to set file access mode 
+  and multithreading mode (single threaded, multi threaded or serialized)
+  mksqlite( 'open', {filename} [,{access_mode}] [,{threading_mode}] )
+  {access_mode} can be 'ro', 'rw' or 'rwc' (not case sensitive)
+  {threading_mode} can be 'single', 'multi' or 'serial' (not case sensitive)
+- Strict field names: Only alphanumeric chars and '_' are allowed
+- Parameter binding extension
+- Tiny exception handling implementation
+- Introducing "typed BLOBs"
+  Behaviour can be changed by switch mksqlite('typedBLOBs', 0|1)
+  (Default is OFF)
+- Added two new commands:
+  mksqlite('version mex'): Returns the release version of mksqlite
+  mksqlite('version sql'): Returns the version of the used SQLite engine
+- Data compression (BLOSC lib) for typed blobs. Set the compression method by
+  mksqlite( 'compression', {method}, {level} )
+  {method} can be 'blosclz', 'lz4' or 'lz4hc' (not case sensitive)
+  {level} ranges between 0 and 9. 0 means no compression, 9 means max. compression.
+  Compressed data is by default checked, if decompressed equals to original. You can 
+  disable this behaviour by
+  mksqlite( 'compression_check', 0|1 );
+- Added more SQL functions:
+  * pow(x,y): power function x**y
+  * regex(str,pattern,<repstr>): Regular expression pattern on str, replacements
+    by optional parameter repstr definition. 
+    (Based on DEELX V1.2 Rev.864, see www.regexlab.com)  
+    Including example file "test_regex.m"
+  * md5(x): calculates the MD5 digest of data x.
+    (see sqlite_test_md5_and_packaging.m for example)
+  * bdcpacktime(x): calculates the time needing to compress data x with current 
+    compressor type and level.
+  * bdcunpacktime(x): calculates the time needing to de compress data x with current 
+    compressor type and level.
+  * bdcratio(x): calculates the compression ratio relying on data x and
+    current compressor type and level.
+- Bugfix: matlab crash when no arguments passed to mksqlite
+- Insertion of svn revision number into source code for linux too, now 
+- Switch to return NULL as NaN applied: mksqlite('NullAsNaN', 0|1)
+  (Default is OFF)
+
+Version 1.12 (Build 34 - 29. Apr 2012)
+- SQLite Engine updated to Version 3.7.11
+- Unique field names for duplicate database fields (eg JOINed Databases)
+  Behavior can be changed by switch mksqlite('check4uniquefields', 0|1)
+- UTF8 to Latin1 conversion
+  Behavior can be changed by switch mksqlite('convertUTF8', 0|1)
+
+Version 1.11 (Build 32 - 25. Mai 2011)
+- SQLite Engine updated to Version 3.7.6.3
+- mxCreateScalarDouble changed to mxCreateDoubleSalar
+  so it runs under MATLAB 2011a again
+  (thanks to Gerald Grabner and Peter Li)
+
+Version 1.10 (Build 30 - 06. Feb 2011)
+- SQLite Engine updated to Version 3.7.5
+
+Version 1.9 (Build 28 - 15. Jan 2011)
+- SQLite Engine updated to Version 3.7.4
+- adding busy timeout (command: mksqlite('SETBUSYTIMEOUT', 1000);)
+  defaults to 1000ms
+
+Verion 1.8 (Build 26 - 05. Oct 2010)
+- SQLite Engine updated to Verison 3.7.2
+- it is now poosible to read simple BLOBs into an MATLAB Byte Array
+- Changed the License from GPL to LGPL
+
+Version 1.7 (Build 22 - 21. Nov 2009)
+- SQLite Engine updated to Version 3.6.20
+- a little FAQ
+
+Version 1.6 (Build 20 - 08. Aug 2009)
+- SQLite Engine updated to Version 3.6.16
+
+Version 1.5 (Build 18 - 19. Apr 2009)
+- SQLite Engine updated to Version 3.6.13
+- changes to eliminate Warnings on MSVC 2005
+- changes in buildit.m, new build arguments
+
+Version 1.4 (Build 15 - 05. Mar 2009)
+- SQLite Eingine updated to Version 3.6.11
+- changes for Linux and MAC OS-X Versions (thanks to Andreas Korinek)
+
+Version 1.3 (Build 13 - 30. Nov 2008)
+- SQLite Engine updated to Version 3.6.6.2
+
+Version 1.2 (Build 11 - 14. Nov 2008)
+- SQLite Engine updated to Version 3.6.5
+
+Version 1.1 (Build 8 - 01. Sep 2008)
+- Sourcecode cleanup 
+- Sourcecode comments in english
+- inserted the website contents as documentation
+
+Version 1.0 (Build 3 - 14. Aug 2008)
+- erstes Release
