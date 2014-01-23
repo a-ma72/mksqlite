@@ -45,7 +45,7 @@ extern "C"
 }
 
 /* Versionstring */
-#define MKSQLITE_VERSION_STRING "1.13pre2"
+#define MKSQLITE_VERSION_STRING "1.13"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000
@@ -521,7 +521,7 @@ static const char* messages_0[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
     "   \n"
-    "UTF-8, parameter binding, regex and (compressed) typed BLOBs: A.Martin, 2014-01-06\n\n",
+    "UTF-8, parameter binding, regex and (compressed) typed BLOBs: A.Martin, 2014-01-23\n\n",
     
     "invalid database handle",
     "function not possible",
@@ -565,7 +565,7 @@ static const char* messages_1[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
     "   \n"
-    "UTF-8, parameter binding, regex und (komprimierte) typisierte BLOBs: A.Martin, 2014-01-06\n\n",
+    "UTF-8, parameter binding, regex und (komprimierte) typisierte BLOBs: A.Martin, 2014-01-23\n\n",
     
     "ungültiger Datenbankhandle",
     "Funktion nicht möglich",
@@ -2555,6 +2555,9 @@ int blob_unpack( const void* pBlob, size_t blob_bytes, mxArray** ppItem, double*
         // since mostly platforms (except SunOS) use LE encoding
         // and unicode is not supported here, there is IMHO no need 
         // for conversions...
+        
+        // Warning can switched off via:
+        // warning( 'off', 'MATLAB:MKSQLITE:BlobDiffArch' );
     }
 
     /* check for valid header */
