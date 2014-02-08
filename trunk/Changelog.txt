@@ -1,3 +1,10 @@
+Version 1.14 (build 58 - 07. Feb 2014 )
+- Supporting storage of any combination of structs, cells and complex 
+  numbers as blob using an undocumented Matlab feature. 
+  Please bear in mind, that nevertheless, there can be no guarantee that 
+  this feature will work in future Matlab versions. But for now it works
+  excellent.
+
 Version 1.13 (build 53 - 23. Jan 2014 )
 - SQLite Engine updated to Version 3.8.2
 - Optional parameters for open command (SQL) to set file access mode 

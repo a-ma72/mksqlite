@@ -101,7 +101,13 @@
 %
 % (Siehe auch Beispiel "sqlite_test_bind_typed.m")
 % Typisiert werden nur numerische Arrays und Vektoren. Strukturen, Cellarrays
-% und komplexe Daten sind nicht zulässig und müssen vorher konvertiert werden.
+% und komplexe Daten müssen vorher konvertiert werden. Matlab ist in der
+% Lage diese Konvertierung durch undokumentierte Funktionen zu übernehmen:
+% getByteStreamFromArray() und getArrayFromByteStream(). Die Funktionalität
+% wird durch folgenden Befehl aktiviert:
+%
+%   mksqlite ( 'typedBLOBs', 2); % erweitertes Aktivieren
+% 
 %
 %
 % Die Daten in einem BLOB werden entweder unkomprimiert (Standard) oder komprimiert

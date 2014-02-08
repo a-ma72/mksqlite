@@ -5,7 +5,11 @@ function sqlite_test_bind_typed ()
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   mksqlite( 'open', ':memory:' ); % "in-memory"-Datenbank
-  mksqlite( 'typedBLOBs', 1 ); % Typisierung der BLOBs einschalten
+  
+  % Typisierung der BLOBs einschalten. Damit können typsicher
+  % mehrdimensionale Arrays als BLOB in der Datenbank gespeichert werden.
+  % Strukturen, Cell-Arrays und komplexe Zahlen jedoch nicht!
+  mksqlite( 'typedBLOBs', 1 ); 
 
   %          |Vorname   |Name         |Ort          |Testdaten
   mydata = { ...
@@ -35,7 +39,19 @@ function sqlite_test_bind_typed ()
   % ... und als BLOB in die Datenbank schreiben
   mksqlite( 'insert into demo values (?,?,?,?)', ...
             size( data, 1 ), size( data, 2 ), size( data, 3 ), data );
+          
+  % Erweiterte Typisierung der BLOBs aktivieren. Damit jetzt auch Strukturen, 
+  % Cell-Arrays und komplexe Zahlen als BLOB in der Datenbank gespeichert werden.
+  mksqlite( 'typedBLOBs', 2 ); 
   
+  data_complex = struct;
+  data_complex.String = 'Name';
+  data_complex.Complex = 3+4i;
+  data_complex.Cell = { 1:10, 'Text', 1+2i };
+
+  mksqlite( 'insert into demo values (?,?,?,?)', ...
+            0, 0, 0, data_complex );
+ 
           
           
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
@@ -73,6 +89,11 @@ function sqlite_test_bind_typed ()
     jh.fFigureClient.getWindow.setVisible( true );
   catch
   end
+  
+  
+  % Komplexe Datenstrukturen
+  fprintf( '---> Komplexe Datenstruktur: ' );
+  query(5).Data
   
   mksqlite( 'close' );
 end

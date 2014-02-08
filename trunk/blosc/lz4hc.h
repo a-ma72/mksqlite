@@ -63,14 +63,21 @@ LZ4_compress_limitedOutput() :
 */
 
 
+int LZ4_compressHC2 (const char* source, char* dest, int inputSize, int compressionLevel);
+int LZ4_compressHC2_limitedOutput (const char* source, char* dest, int inputSize, int maxOutputSize, int compressionLevel);
+/*
+    Same functions as above, but with programmable 'compressionLevel'.
+    'compressionLevel'==0 means use default 'compressionLevel' value.
+*/
+
 /* Note :
 Decompression functions are provided within LZ4 source code (see "lz4.h") (BSD license)
 */
 
 
-/*****************************
- Using an external allocation
-*****************************/
+/**************************************
+   Using an external allocation
+**************************************/
 int LZ4_sizeofStateHC();
 int LZ4_compressHC_withStateHC               (void* state, const char* source, char* dest, int inputSize);
 int LZ4_compressHC_limitedOutput_withStateHC (void* state, const char* source, char* dest, int inputSize, int maxOutputSize);
@@ -88,10 +95,9 @@ They just use the externally allocated memory area instead of allocating their o
 */
 
 
-/****************************
- Streaming Functions
-****************************/
-
+/**************************************
+   Streaming Functions
+**************************************/
 void* LZ4_createHC (const char* inputBuffer);
 int   LZ4_compressHC_continue (void* LZ4HC_Data, const char* source, char* dest, int inputSize);
 int   LZ4_compressHC_limitedOutput_continue (void* LZ4HC_Data, const char* source, char* dest, int inputSize, int maxOutputSize);

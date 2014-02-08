@@ -2,6 +2,7 @@
  * mksqlite: A MATLAB Interface To SQLite
  *
  * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
+ *               and A.Martin
  * distributed under LGPL
  */
 
@@ -44,8 +45,13 @@ extern "C"
   #include "md5/md5.h"  /* little endian only! */
 }
 
+/* Early bind mxSerialize and mxDeserialize */
+#ifndef EARLY_BIND_SERIALIZE
+#define EARLY_BIND_SERIALIZE 0
+#endif
+
 /* Versionstring */
-#define MKSQLITE_VERSION_STRING "1.13"
+#define MKSQLITE_VERSION_STRING "1.14"
 
 /* Default Busy Timeout */
 #define DEFAULT_BUSYTIMEOUT 1000
@@ -113,11 +119,12 @@ static const char *g_finalize_msg = NULL;              // if assigned, function 
 static const char* SQL_ERR = "SQL_ERR";                // if attached to g_finalize_msg, function returns with least SQL error message
 static const char* SQL_ERR_CLOSE = "SQL_ERR_CLOSE";    // same as SQL_ERR, additionally the responsible db will be closed
 #define FINALIZE( msg ) { g_finalize_msg = msg; goto finalize; }
-#define FINALIZEIF( cond, msg ) { if(cond) FINALIZE( msg ) }
+#define FINALIZE_IF( cond, msg ) { if(cond) FINALIZE( msg ) }
 
 /* declare the MEX Entry function as pure C */
 extern "C" void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] );
-
+extern "C" mxArray* mxSerialize(const mxArray*);
+extern "C" mxArray* mxDeserialize(const void*, size_t);
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 /* common global states */
@@ -149,11 +156,26 @@ static int g_compression_check = 1;           // Flag: check compressed against 
 /* Convert UTF-8 to ascii, otherwise set slCharacterEncoding('UTF-8') */
 static bool g_convertUTF8 = true;
 
+typedef enum {
+    TC_EMPTY = 0,       // Empty
+    TC_SIMPLE,          // 1-byte non-complex scalar, char or simple string (SQLite simple types)
+    TC_SIMPLE_VECTOR,   // non-complex numeric vectors (SQLite BLOB)
+    TC_SIMPLE_ARRAY,    // multidimensional non-complex numeric or char arrays (SQLite typed BLOB)
+    TC_COMPLEX,         // structs, cells, complex data (SQLite typed ByteStream BLOB)
+    TC_UNSUPP = -1      // all other (unsuppored types)
+} type_complexity_e;
+
 /* Store type and dimensions of MATLAB vectors/arrays in BLOBs 
  * native and free of matlab types, to provide data sharing 
  * with other applications
  */
-static bool g_use_typed_blobs = false;
+typedef enum {
+  TYBLOB_NO = 0,     // no typed blobs
+  TYBLOB_ARRAY,      // storage of multidimensional non-complex arrays as typed blobs
+  TYBLOB_BYSTREAM    // storage of complex data structures as byte stream in a typed blob
+} typed_blobs_e;
+
+static typed_blobs_e g_typed_blobs_mode = TYBLOB_NO; 
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
@@ -169,6 +191,11 @@ static const char BLOSC_LZ4HC_ID[COMPRID_MAXLEN]    = BLOSC_LZ4HC_COMPNAME;
 static const char BLOSC_DEFAULT_ID[COMPRID_MAXLEN]  = BLOSC_BLOSCLZ_COMPNAME;
 
 // typed BLOB header agreement
+// References:
+// https://www.mathworks.com/matlabcentral/fileexchange/29457-serializedeserialize (Tim Hutt)
+// https://www.mathworks.com/matlabcentral/fileexchange/34564-fast-serializedeserialize (Christian Kothe)
+// http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data (Christian Kothe)
+// getByteStreamFromArray(), getArrayFromByteStream() (undocumented Matlab functions)
 // typed_BLOB_header_base is the unique and mandatory header prelude for typed blob headers
 struct typed_BLOB_header_base 
 {
@@ -212,11 +239,14 @@ struct typed_BLOB_header_base
       case   mxINT64_CLASS:
       case  mxUINT64_CLASS:
         return true;
+      case mxUNKNOWN_CLASS:
+        return TYBLOB_BYSTREAM == g_typed_blobs_mode;
       default:
         return false;
     }
   }
   
+
   static
   bool valid_clsid( const mxArray* pItem )
   {
@@ -342,8 +372,15 @@ struct TBH_data : public header_base
     mwSize nDims = (mwSize)m_nDims[0];
     mxArray* pItem = NULL;
     size_t data_bytes = 0;
+    mxClassID clsid = (mxClassID)this->m_clsid;
     
-    pItem = nDims ? mxCreateNumericMatrix( 1, 1, this->m_clsid, mxREAL ) : NULL;
+    if( clsid == mxUNKNOWN_CLASS )
+    {
+        assert( TYBLOB_BYSTREAM == g_typed_blobs_mode );
+        clsid = mxUINT8_CLASS;
+    }
+    
+    pItem = nDims ? mxCreateNumericMatrix( 1, 1, clsid, mxREAL ) : NULL;
     
     if( pItem )
     {
@@ -365,13 +402,20 @@ struct TBH_data : public header_base
     mwSize nDims = m_nDims[0];
     mwSize* dimensions = new mwSize[nDims];
     mxArray* pItem = NULL;
+    mxClassID clsid = (mxClassID)this->m_clsid;
+    
+    if( clsid == mxUNKNOWN_CLASS )
+    {
+        assert( TYBLOB_BYSTREAM == g_typed_blobs_mode );
+        clsid = mxUINT8_CLASS;
+    }
     
     for( int i = 0; i < nDims; i++ )
     {
         dimensions[i] = (mwSize)m_nDims[i+1];
     }
     
-    pItem = mxCreateNumericArray( nDims, dimensions, (mxClassID)this->m_clsid, mxREAL );
+    pItem = mxCreateNumericArray( nDims, dimensions, clsid, mxREAL );
     delete[] dimensions;
     
     if( pItem && doCopyData )
@@ -468,11 +512,17 @@ void MD5Func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double* pProcess_time );
 int blob_unpack( const void* pBlob, size_t blob_bytes, mxArray** ppItem, double* pProcess_time );
 
+// (de-)serializing functions
+bool haveSerialize();
+bool canSerialize();
+bool serialize( const mxArray* pItem, mxArray*& pByteStream );
+bool deserialize( const mxArray* pByteStream, mxArray*& pItem );
+
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 /*
  * a poor man localization.
- * every language have an table of messages.
+ * every language have a table of messages.
  */
 
 /* Number of message table to use */
@@ -508,6 +558,7 @@ static int Language = -1;
 #define MSG_ERRUNKTHREADMODE    messages[Language][27]
 #define MSG_ERRCANTCLOSE        messages[Language][28]
 #define MSG_ERRCLOSEDBS         messages[Language][29]
+#define MSG_ERRNOTSUPPORTED     messages[Language][30]
 
 
 /* 0 = english message table */
@@ -551,7 +602,8 @@ static const char* messages_0[] =
     "unknown open modus (only 'ro', 'rw' or 'rwc' accepted)",
     "unknown threading mode (only 'single', 'multi' or 'serial' accepted)",
     "cannot close connection",
-    "not all connections could be closed"
+    "not all connections could be closed",
+    "this Matlab version doesn't support this feature"
 };
 
 /* 1 = german message table */
@@ -595,7 +647,8 @@ static const char* messages_1[] =
     "unbekannzer Zugriffmodus (nur 'ro', 'rw' oder 'rwc' möglich)",
     "unbekannter Threadingmodus (nur 'single', 'multi' oder 'serial' möglich)",
     "die Datenbank kann nicht geschlossen werden",
-    "nicht alle Datenbanken konnten geschlossen werden"
+    "nicht alle Datenbanken konnten geschlossen werden",
+    "Feature wird von dieser Matlab Version nicht unterstützt "
 };
 
 /*
@@ -874,7 +927,7 @@ static const char* TransErrToIdent( sqlite3 *db )
 /*
  * Convert a string to char *
  */
-static char *getstring( const mxArray *a )
+static char *getString( const mxArray *a )
 {
     size_t count = mxGetM( a ) * mxGetN( a ) + 1;
     char *c = (char *)mxCalloc( count, sizeof(char) );
@@ -911,7 +964,7 @@ static char *getstring( const mxArray *a )
 /*
  * get an integer value from an numeric
  */
-static int getinteger( const mxArray* a )
+static int getInteger( const mxArray* a )
 {
     switch( mxGetClassID( a ) )
     {
@@ -927,6 +980,58 @@ static int getinteger( const mxArray* a )
     
     return 0;
 }
+
+static bool isVector( const mxArray* item )
+{
+    assert( item );
+    return mxGetM( item ) == 1 || mxGetN( item ) == 1;
+}
+
+static bool isScalar( const mxArray* item )
+{
+    assert( item );
+    return mxGetM( item ) == 1 && mxGetN( item ) == 1;
+}
+
+static type_complexity_e getTypeComplexity( const mxArray* pItem )
+{
+  assert( pItem );
+  mxClassID clsid = mxGetClassID( pItem );
+  
+  if( mxIsEmpty( pItem ) ) return TC_EMPTY;
+
+  switch( clsid )
+  {
+    case  mxDOUBLE_CLASS:
+    case  mxSINGLE_CLASS:
+      if( mxIsComplex( pItem ) )
+      {
+          return TC_COMPLEX;
+      }
+      /* fallthrough */
+    case mxLOGICAL_CLASS:
+    case    mxINT8_CLASS:
+    case   mxUINT8_CLASS:
+    case   mxINT16_CLASS:
+    case  mxUINT16_CLASS:
+    case   mxINT32_CLASS:
+    case  mxUINT32_CLASS:
+    case   mxINT64_CLASS:
+    case  mxUINT64_CLASS:
+      if( isScalar( pItem ) ) return TC_SIMPLE;
+      return isVector( pItem ) ? TC_SIMPLE_VECTOR : TC_SIMPLE_ARRAY;
+    case    mxCHAR_CLASS:
+      return ( isScalar( pItem) || isVector( pItem ) ) ? TC_SIMPLE : TC_SIMPLE_ARRAY;
+    case mxUNKNOWN_CLASS:
+      return ( TYBLOB_BYSTREAM == g_typed_blobs_mode ) ? TC_COMPLEX : TC_UNSUPP;
+    case  mxSTRUCT_CLASS:
+    case    mxCELL_CLASS:
+      return TC_COMPLEX;
+    default:
+      return TC_UNSUPP;
+  }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
@@ -1007,7 +1112,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
      */
     if( nrhs >= 1 && mxIsNumeric( prhs[0] ) )
     {
-        db_id = getinteger( prhs[0] );
+        db_id = getInteger( prhs[0] );
         if( db_id < 0 || db_id > MaxNumOfDbs )
         {
             FINALIZE( MSG_INVALIDDBHANDLE );
@@ -1041,7 +1146,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
     /*
      * Get the command string
      */
-    command = getstring( prhs[CommandPos] );
+    command = getString( prhs[CommandPos] );
     
     /*
      * Adjust the Argument pointer and counter
@@ -1078,12 +1183,12 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             FINALIZE( MSG_NOOPENARG );
         }
         
-        // No Memoryleak 'command not freed' when getstring fails
+        // No Memoryleak 'command not freed' when getString fails
         // Matlab Help:
         // "If your application called mxCalloc or one of the 
         // mxCreate* routines to allocate memory, mexErrMsgTxt 
         // automatically frees the allocated memory."
-        char* dbname = getstring( prhs[FirstArg] );
+        char* dbname = getString( prhs[FirstArg] );
 
         /*
          * Is there an database ID? The close the database with the same id 
@@ -1130,7 +1235,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
          */
         if( NumArgs >= 2 )
         {
-            char* iomode = getstring( prhs[FirstArg+1] );
+            char* iomode = getString( prhs[FirstArg+1] );
             
             if( 0 == _strcmpi( iomode, "ro" ) )
             {
@@ -1158,7 +1263,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
          */
         if( NumArgs >= 3 )
         {
-            char* threadmode = getstring( prhs[FirstArg+2] );
+            char* threadmode = getString( prhs[FirstArg+2] );
             
             if( 0 == _strcmpi( threadmode, "single" ) )
             {
@@ -1237,7 +1342,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         /*
          * There should be no Argument to close
          */
-        FINALIZEIF( NumArgs > 0, MSG_INVALIDARG );
+        FINALIZE_IF( NumArgs > 0, MSG_INVALIDARG );
         
         /*
          * if the database id is < 0 than close all open databases
@@ -1264,7 +1369,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
              * If the database is open, then close it. Otherwise
              * inform the user
              */
-            FINALIZEIF( !g_dbs[db_id], MSG_DBNOTOPEN );
+            FINALIZE_IF( !g_dbs[db_id], MSG_DBNOTOPEN );
 
             if( SQLITE_OK == sqlite3_close( g_dbs[db_id] ) )
             {
@@ -1280,7 +1385,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         /*
          * There should be no Argument to status
          */
-        FINALIZEIF( NumArgs > 0, MSG_INVALIDARG );
+        FINALIZE_IF( NumArgs > 0, MSG_INVALIDARG );
         
         for( int i = 0; i < MaxNumOfDbs; i++ )
         {
@@ -1292,13 +1397,13 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         /*
          * There should be one Argument, the Timeout in ms
          */
-        FINALIZEIF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
-        FINALIZEIF( !g_dbs[db_id], MSG_DBNOTOPEN );
+        FINALIZE_IF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+        FINALIZE_IF( !g_dbs[db_id], MSG_DBNOTOPEN );
 
         /*
          * Set Busytimeout
          */
-        int TimeoutValue = getinteger( prhs[FirstArg] );
+        int TimeoutValue = getInteger( prhs[FirstArg] );
 
         int rc = sqlite3_busy_timeout( g_dbs[db_id], TimeoutValue );
         if( SQLITE_OK != rc )
@@ -1319,8 +1424,8 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         }
         else 
         {
-            FINALIZEIF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
-            g_check4uniquefields = ( getinteger( prhs[FirstArg] ) ) ? true : false;
+            FINALIZE_IF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+            g_check4uniquefields = ( getInteger( prhs[FirstArg] ) ) ? true : false;
         }
     }
     else if( !_strcmpi( command, "convertUTF8" ) )
@@ -1331,20 +1436,27 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         }
         else
         {
-            FINALIZEIF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
-            g_convertUTF8 = getinteger( prhs[FirstArg] ) ? true : false;
+            FINALIZE_IF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+            g_convertUTF8 = getInteger( prhs[FirstArg] ) ? true : false;
         }
     }
     else if( !_strcmpi( command, "typedBLOBs" ) )
     {
         if( NumArgs == 0 )
         {
-            plhs[0] = mxCreateDoubleScalar( (double)g_use_typed_blobs );
+            plhs[0] = mxCreateDoubleScalar( (double)g_typed_blobs_mode );
         }
         else
         {
-            FINALIZEIF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
-            g_use_typed_blobs = getinteger( prhs[FirstArg] ) ? true : false;
+            int iValue;
+            FINALIZE_IF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+            iValue = getInteger( prhs[FirstArg] );
+            FINALIZE_IF( iValue < /*0*/ TYBLOB_NO || iValue > /*2*/ TYBLOB_BYSTREAM, MSG_INVALIDARG );
+            if( TYBLOB_BYSTREAM == iValue && !canSerialize() )
+            {
+                FINALIZE( MSG_ERRNOTSUPPORTED );
+            }
+            g_typed_blobs_mode = (typed_blobs_e)iValue;
         }
     }
     else if( !_strcmpi( command, "NULLasNaN" ) )
@@ -1355,8 +1467,8 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         }
         else
         {
-            FINALIZEIF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
-            g_NULLasNaN = getinteger( prhs[FirstArg] ) ? true : false;
+            FINALIZE_IF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+            g_NULLasNaN = getInteger( prhs[FirstArg] ) ? true : false;
         }
     }
     else if( !_strcmpi( command, "compression" ) )
@@ -1375,14 +1487,14 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             int new_compression_level = 0;
             const char* new_compressor = NULL;
             
-            FINALIZEIF(     NumArgs != 2 
+            FINALIZE_IF(     NumArgs != 2 
                         || !mxIsChar( prhs[FirstArg] )
                         || !mxIsNumeric( prhs[FirstArg+1] ), MSG_INVALIDARG );
             
-            new_compressor = getstring( prhs[FirstArg] );
-            new_compression_level = ( getinteger( prhs[FirstArg+1] ) );
+            new_compressor = getString( prhs[FirstArg] );
+            new_compression_level = ( getInteger( prhs[FirstArg+1] ) );
             
-            FINALIZEIF( new_compression_level < 0 || new_compression_level > 9, MSG_INVALIDARG );
+            FINALIZE_IF( new_compression_level < 0 || new_compression_level > 9, MSG_INVALIDARG );
 
             if( 0 == _strcmpi( new_compressor, BLOSC_LZ4_ID ) )
             {
@@ -1410,8 +1522,8 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         }
         else
         {
-            FINALIZEIF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
-            g_compression_check = getinteger( prhs[FirstArg] ) ? true : false;
+            FINALIZE_IF( NumArgs != 1 || !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+            g_compression_check = getInteger( prhs[FirstArg] ) ? true : false;
         }
     }
     else
@@ -1427,7 +1539,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         /*
          * database not open? -> error
          */
-        FINALIZEIF( !g_dbs[db_id], MSG_DBNOTOPEN );
+        FINALIZE_IF( !g_dbs[db_id], MSG_DBNOTOPEN );
         
         /*
          * Every unknown command is treated as an sql query string
@@ -1451,13 +1563,13 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
          * complete the query
          */
         // TODO: What does this test? sqlite3_complete() returns 1 if the string is complete and valid...
-        FINALIZEIF( sqlite3_complete( query ) != 0, MSG_INVQUERY );
+        FINALIZE_IF( sqlite3_complete( query ) != 0, MSG_INVQUERY );
         
         /*
          * and prepare it
          * if anything is wrong with the query, than complain about it.
          */
-        FINALIZEIF( SQLITE_OK != sqlite3_prepare_v2( g_dbs[db_id], query, -1, &st, 0 ), SQL_ERR );
+        FINALIZE_IF( SQLITE_OK != sqlite3_prepare_v2( g_dbs[db_id], query, -1, &st, 0 ), SQL_ERR );
         
         /*
          * Parameter binding 
@@ -1467,13 +1579,13 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         // If there are no placeholdes in the SQL statement, no
         // arguments are allowed. There must be at least one
         // placeholder.
-        FINALIZEIF( !bind_names_count && NumArgs > 0, MSG_UNEXPECTEDARG );
+        FINALIZE_IF( !bind_names_count && NumArgs > 0, MSG_UNEXPECTEDARG );
 
         if( !NumArgs || !mxIsCell( prhs[FirstArg] ) )  // mxIsCell() not called when NumArgs==0 !
         {
             // Arguments passed as list, or no arguments
             // More parameters than needed is not allowed
-            FINALIZEIF( NumArgs > bind_names_count, MSG_UNEXPECTEDARG ); 
+            FINALIZE_IF( NumArgs > bind_names_count, MSG_UNEXPECTEDARG ); 
 
             // Collect parameter list in one cell array
             pArgs = mxCreateCellMatrix( bind_names_count, 1 );
@@ -1495,7 +1607,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         {
             // Parameters may be (and are) packed in only one single 
             // cell array
-            FINALIZEIF( NumArgs > 1, MSG_UNEXPECTEDARG );
+            FINALIZE_IF( NumArgs > 1, MSG_UNEXPECTEDARG );
 
             // Make a deep copy
             pArgs = mxDuplicateArray( prhs[FirstArg] );
@@ -1503,33 +1615,47 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         
         // if parameters needed for parameter binding, 
         // at least one parameter has to be passed 
-        FINALIZEIF( !pArgs, MSG_MISSINGARG );
+        FINALIZE_IF( !pArgs, MSG_MISSINGARG );
 
         for( int iParam = 0; iParam < bind_names_count; iParam++ )
         {
             // item must not be destroyed! (Matlab crashes then)
-            const mxArray *item = mxGetCell( pArgs, iParam );
+            const mxArray *pItem = mxGetCell( pArgs, iParam );
 
-            if( !item || mxIsEmpty( item ) )
-                continue; // Empty parameters are omitted as NULL by sqlite
+            assert( pItem );
+            if( !pItem ) continue; // should never happen...
 
-            if( mxIsComplex( item ) || mxIsCell( item ) || mxIsStruct( item ) )
+            size_t    szElement         = mxGetElementSize( pItem );      // size of one element in bytes
+            size_t    cntElements       = mxGetNumberOfElements( pItem ); // number of elements in cell array
+            mxClassID clsid             = mxGetClassID( pItem );
+            int       iTypeComplexity   = getTypeComplexity( pItem );
+            char*     str_value         = NULL;
+
+            switch( iTypeComplexity )
             {
-                // No complex values, nested cells or structs allowed
-                FINALIZE( MSG_UNSUPPVARTYPE );
-            }
-
-            size_t    szElement   = mxGetElementSize( item );      // size of one element in bytes
-            size_t    cntElements = mxGetNumberOfElements( item ); // number of elements in cell array
-            mxClassID clsid       = mxGetClassID( item );
-            char*     str_value   = NULL;
-
-            if( cntElements > 1 && clsid != mxCHAR_CLASS )
-            {
-                if( !g_use_typed_blobs ){
+              case TC_COMPLEX:
+                // structs, cells, complex data (SQLite typed ByteStream BLOB)
+                // can only be stored as undocumented byte stream
+                if( TYBLOB_BYSTREAM != g_typed_blobs_mode )
+                {
+                    FINALIZE( MSG_INVALIDARG );
+                }
+                /* otherwise fallthrough */
+              case TC_SIMPLE_ARRAY:
+                // multidimensional non-complex numeric or char arrays (SQLite typed BLOB)
+                // can only be stored in typed BLOBs
+                if( TYBLOB_NO == g_typed_blobs_mode )
+                {
+                    FINALIZE( MSG_INVALIDARG );
+                }
+                /* otherwise fallthrough */
+              case TC_SIMPLE_VECTOR:
+                // non-complex numeric vectors (SQLite BLOB)
+                if( TYBLOB_NO == g_typed_blobs_mode )
+                {
                     // matrix arguments are omitted as blobs, except string arguments
                     // data is attached as is, no header information here
-                    const void* blob = mxGetData( item );
+                    const void* blob = mxGetData( pItem );
                     // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
                     if( SQLITE_OK != sqlite3_bind_blob( st, iParam+1, blob, 
                                                         (int)(cntElements * szElement),
@@ -1543,7 +1669,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                     double pProcess_time;
                     
                     /* blob_pack() modifies g_finalize_msg */
-                    FINALIZEIF( !blob_pack( item, &blob, &blob_bytes, &pProcess_time ), g_finalize_msg );
+                    FINALIZE_IF( !blob_pack( pItem, &blob, &blob_bytes, &pProcess_time ), g_finalize_msg );
                     
                     // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
                     if( SQLITE_OK != sqlite3_bind_blob( st, iParam+1, blob, (int)blob_bytes, sqlite3_free ) )
@@ -1551,7 +1677,9 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                         FINALIZE( SQL_ERR );
                     }  
                 }
-            } else {
+                break;
+              case TC_SIMPLE:
+                // 1-byte non-complex scalar, char or simple string (SQLite simple types)
                 switch( clsid )
                 {
                     case mxLOGICAL_CLASS:
@@ -1562,7 +1690,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                     case mxUINT16_CLASS:
                     case mxUINT32_CLASS:
                         // scalar integer value
-                        if( SQLITE_OK != sqlite3_bind_int( st, iParam+1, (int)mxGetScalar( item ) ) )
+                        if( SQLITE_OK != sqlite3_bind_int( st, iParam+1, (int)mxGetScalar( pItem ) ) )
                         {
                             FINALIZE( SQL_ERR );
                         }
@@ -1570,7 +1698,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                     case mxDOUBLE_CLASS:
                     case mxSINGLE_CLASS:
                         // scalar floating point value
-                        if( SQLITE_OK != sqlite3_bind_double( st, iParam+1, mxGetScalar( item ) ) )
+                        if( SQLITE_OK != sqlite3_bind_double( st, iParam+1, mxGetScalar( pItem ) ) )
                         {
                             FINALIZE( SQL_ERR );
                         }
@@ -1578,7 +1706,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                     case mxCHAR_CLASS:
                     {
                         // string argument
-                        char* str_value = mxArrayToString( item );
+                        char* str_value = mxArrayToString( pItem );
                         if( str_value && g_convertUTF8 )
                         {
                             int len = latin2utf( (unsigned char*)str_value, NULL ); // get the size only
@@ -1604,10 +1732,15 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                         Free( str_value );
                         break;
                     }
-                    default:
-                        // other variable classed are invalid here
-                        FINALIZE( MSG_INVALIDARG );
-                }
+                } // end switch
+                break;
+              case TC_EMPTY:
+                // Empty parameters are omitted as NULL by sqlite
+                continue;
+              default:
+                // all other (unsuppored types)
+                FINALIZE( MSG_INVALIDARG );
+                break;
             }
         }
 
@@ -1787,7 +1920,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             if( rowcount == 0 || ! allrows )
             {
                 plhs[0] = mxCreateDoubleMatrix( 0, 0, mxREAL );
-                FINALIZEIF( NULL == plhs[0], MSG_CANTCREATEOUTPUT );
+                FINALIZE_IF( NULL == plhs[0], MSG_CANTCREATEOUTPUT );
             }
             else
             {
@@ -1801,7 +1934,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                 ndims[1] = 1;
                 
                 plhs[0] = mxCreateStructArray( 2, ndims, ncol, (const char**)fieldnames );
-                FINALIZEIF( NULL == plhs[0], MSG_CANTCREATEOUTPUT );
+                FINALIZE_IF( NULL == plhs[0], MSG_CANTCREATEOUTPUT );
                 
                 /*
                  * transfer the result rows from the temporary list into the result array
@@ -1828,7 +1961,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                         {
                             if( recordvalue->m_Size > 0 )
                             {
-                                if( !g_use_typed_blobs )
+                                if( TYBLOB_NO == g_typed_blobs_mode )
                                 {
                                     mwSize NumDims[2]={1,1};
                                     NumDims[1] = recordvalue->m_Size;
@@ -1840,12 +1973,12 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                                 } else {
                                     void*    blob       = (void*)recordvalue->m_StringValue;
                                     size_t   blob_bytes = (size_t)recordvalue->m_Size;
-                                    mxArray* pItem;
+                                    mxArray* pFieldItem;
                                     double   pProcess_time;
                                     
                                     /* blob_unpack() modifies g_finalize_msg */
-                                    FINALIZEIF( !blob_unpack( blob, blob_bytes, &pItem, &pProcess_time ), g_finalize_msg );
-                                    mxSetFieldByNumber( plhs[0], index, fieldnr, pItem );
+                                    FINALIZE_IF( !blob_unpack( blob, blob_bytes, &pFieldItem, &pProcess_time ), g_finalize_msg );
+                                    mxSetFieldByNumber( plhs[0], index, fieldnr, pFieldItem );
                                 }
                             } else {
                                 // empty BLOB
@@ -1880,8 +2013,8 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             st = NULL;
 
             plhs[0] = mxCreateDoubleMatrix( 0, 0, mxREAL );
-            FINALIZEIF( NULL == plhs[0], MSG_CANTCREATEOUTPUT );
-            FINALIZEIF( SQLITE_DONE != res, SQL_ERR );
+            FINALIZE_IF( NULL == plhs[0], MSG_CANTCREATEOUTPUT );
+            FINALIZE_IF( SQLITE_DONE != res, SQL_ERR );
         }
     }
         
@@ -2362,24 +2495,51 @@ double get_cpu_time()
 // create a compressed blob from a matlab variable
 int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double *pProcess_time )
 {
-    /* 
-     * create a typed blob. Header information is generated
-     * according to value and type of the matrix and the machine
-     */
-    size_t        szElement   = mxGetElementSize( pItem );        // size of one element in bytes
-    size_t        cntElements = mxGetNumberOfElements( pItem );   // number of elements
-    mwSize        nDims       = mxGetNumberOfDimensions( pItem ); // number of data dimensions
-    const void*   odata       = mxGetData( pItem );               // raw data 
-    size_t        odata_bytes = cntElements * szElement;          // size of raw data in bytes
-    void*         cdata       = NULL;                             // compressed data
-    size_t        cdata_bytes = 0;                                // size of compressed data in bytes    
-    
     assert( NULL != ppBlob && NULL != pBlob_bytes && NULL != pProcess_time );
+    
+    mxArray* pItemCopy = mxDuplicateArray( pItem );
+    bool bIsByteStream = false;
     
     *ppBlob = NULL;
     *pProcess_time = 0.0;
 
-    FINALIZEIF( !typed_BLOB_header_base::valid_clsid( pItem ), MSG_UNSUPPVARTYPE );
+    FINALIZE_IF( !pItemCopy, MSG_ERRMEMORY );
+    
+    if( TC_COMPLEX == getTypeComplexity( pItemCopy ) )
+    {
+        mxArray* pByteStream = NULL;
+        
+        // typed BLOBs only support numeric (non-complex) arrays or strings,
+        // but if the user allows undocumented ByteStreams, they can be stored 
+        // either.
+        if( TYBLOB_BYSTREAM == g_typed_blobs_mode )
+        {
+            serialize( pItemCopy, pByteStream );
+        }
+        
+        FINALIZE_IF( !pByteStream, MSG_UNSUPPVARTYPE );
+
+        // switch original item to the byte stream copy...
+        DestroyArray( pItemCopy );
+        pItemCopy = pByteStream;
+        bIsByteStream = true;
+    }
+
+    /* 
+     * create a typed blob. Header information is generated
+     * according to value and type of the matrix and the machine
+     */
+    size_t        szElement   = mxGetElementSize( pItemCopy );        // size of one element in bytes
+    size_t        cntElements = mxGetNumberOfElements( pItemCopy );   // number of elements
+    mwSize        nDims       = mxGetNumberOfDimensions( pItemCopy ); // number of data dimensions
+    const void*   odata       = mxGetData( pItemCopy );               // raw data 
+    size_t        odata_bytes = cntElements * szElement;              // size of raw data in bytes
+    void*         cdata       = NULL;                                 // compressed data
+    size_t        cdata_bytes = 0;                                    // size of compressed data in bytes    
+    
+
+
+    FINALIZE_IF( !typed_BLOB_header_base::valid_clsid( pItemCopy ), MSG_UNSUPPVARTYPE );
 
     if( g_compression_level )
     {
@@ -2390,7 +2550,7 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
         int blosc_clevel = g_compression_level;
         int blosc_cdata_bytes;
 
-        FINALIZEIF( NULL == cdata, MSG_ERRMEMORY );   
+        FINALIZE_IF( NULL == cdata, MSG_ERRMEMORY );   
         
         blosc_set_compressor( g_compression_type );
         double start_time = get_wall_time();
@@ -2444,7 +2604,7 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
                 FINALIZE( MSG_ERRMEMORY );
             }
 
-            tbh2->init( pItem );
+            tbh2->init( pItemCopy );
 
             // TODO: Do byteswapping here if big endian? 
             // (Most platforms use little endian)
@@ -2508,7 +2668,7 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
         *pBlob_bytes = typed_BLOB_header_v1::data_offset( nDims ) +
                        odata_bytes;
 
-        FINALIZEIF( *pBlob_bytes > MKSQLITE_MAX_BLOB_SIZE, MSG_BLOBTOOBIG );
+        FINALIZE_IF( *pBlob_bytes > MKSQLITE_MAX_BLOB_SIZE, MSG_BLOBTOOBIG );
 
         tbh1 = (typed_BLOB_header_v1*)sqlite3_malloc( (int)*pBlob_bytes );
         if( NULL == tbh1 )
@@ -2516,7 +2676,7 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
             FINALIZE( MSG_ERRMEMORY );
         }
 
-        tbh1->init( pItem );
+        tbh1->init( pItemCopy );
 
         // TODO: Do byteswapping here if big endian? 
         // (Most platforms use little endian)
@@ -2525,9 +2685,21 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
         *ppBlob = (void*)tbh1;
     }
     
+    if( bIsByteStream )
+    {
+        ((typed_BLOB_header_v1*)*ppBlob)->m_clsid = mxUNKNOWN_CLASS;
+    }
+    
+    DestroyArray( pItemCopy );
+    
     return 1;
     
 finalize:
+  
+    if( pItemCopy )
+    {
+        DestroyArray( pItemCopy );
+    }
   
     return 0;
 }
@@ -2541,11 +2713,13 @@ int blob_unpack( const void* pBlob, size_t blob_bytes, mxArray** ppItem, double*
     assert( NULL != ppItem && NULL != pProcess_time );
     *ppItem = NULL;
     *pProcess_time = 0.0;
-
+    
     tbhv1_t*    tbh1          = (tbhv1_t*)pBlob;
     tbhv2_t*    tbh2          = (tbhv2_t*)pBlob;
 
     mxArray*    pItem         = NULL;
+    bool        bIsByteStream = false;
+
 
     /* test valid platform */
     if( !tbh1->valid_platform() )
@@ -2566,13 +2740,15 @@ int blob_unpack( const void* pBlob, size_t blob_bytes, mxArray** ppItem, double*
         FINALIZE( MSG_UNSUPPTBH );
     }
 
-    FINALIZEIF( !tbh1->valid_clsid(), MSG_UNSUPPVARTYPE );
+    FINALIZE_IF( !tbh1->valid_clsid(), MSG_UNSUPPVARTYPE );
+    
+    bIsByteStream = ( tbh1->m_clsid == mxUNKNOWN_CLASS );
 
     switch( tbh1->m_ver )
     {
       case sizeof( tbhv1_t ):
       {
-          pItem       = tbh1->CreateNumericArray( /* doCopyData */ true );
+          pItem = tbh1->CreateNumericArray( /* doCopyData */ true );
           break;
       }
 
@@ -2620,17 +2796,93 @@ int blob_unpack( const void* pBlob, size_t blob_bytes, mxArray** ppItem, double*
           FINALIZE( MSG_UNSUPPTBH );
     }
 
-    FINALIZEIF( NULL == pItem, MSG_ERRMEMORY );
+    if( pItem && bIsByteStream  )
+    {
+        mxArray* pByteStream = pItem;
+        pItem = NULL;
+        
+        FINALIZE_IF( !deserialize( pByteStream, pItem ), MSG_ERRMEMORY );
+        
+        DestroyArray( pByteStream );
+    }
+
+    FINALIZE_IF( NULL == pItem, MSG_ERRMEMORY );
 
     *ppItem = pItem;
     return 1;
       
 finalize:
   
+    if( pItem )
+    {
+        DestroyArray( pItem );
+    }
+    
     return 0;
 }
 
+bool serialize( const mxArray* pItem, mxArray*& pByteStream )
+{
+    assert( NULL == pByteStream && NULL != pItem );
+    
+    if( haveSerialize() )
+    {
+        mexCallMATLAB( 1, &pByteStream, 1, const_cast<mxArray**>( &pItem ), "getByteStreamFromArray" ) ;
+    }
+    
+#if EARLY_BIND_SERIALIZE
+    pByteStream = mxSerialize( pItem );
+#endif
+    
+    return NULL != pByteStream;
+}
 
+bool deserialize( const mxArray* pByteStream, mxArray*& pItem )
+{
+    assert( NULL != pByteStream && NULL == pItem );
+    
+    if( haveSerialize() )
+    {
+        mexCallMATLAB( 1, &pItem, 1, const_cast<mxArray**>( &pByteStream ), "getArrayFromByteStream" );
+        return NULL != pItem;
+    }
+    
+#if EARLY_BIND_SERIALIZE
+    pItem = mxDeserialize( mxGetData( pByteStream ), mxGetNumberOfElements( pByteStream ) );
+#endif
+
+    return NULL != pItem;
+}
+
+bool haveSerialize()
+{
+    static int flagHaveSerialize = -1;
+    
+    if( flagHaveSerialize < 0 ) 
+    {
+        mxArray* pResult = NULL;
+        mxArray* pFuncName = mxCreateString( "getByteStreamFromArray" );
+
+        flagHaveSerialize =    pFuncName
+                            && 0 == mexCallMATLAB( 1, &pResult, 1, &pFuncName, "exist" )
+                            && pResult
+                            && 5 == getInteger( pResult );
+
+        DestroyArray( pFuncName );
+        DestroyArray( pResult );
+    }
+    
+    return flagHaveSerialize > 0;
+}
+
+
+bool canSerialize()
+{
+#if EARLY_BIND_SERIALIZE
+    return true
+#endif
+    return haveSerialize();
+}
 
 /*
  *
@@ -2638,3 +2890,4 @@ finalize:
  *
  * vim:ts=4:ai:sw=4
  */
+

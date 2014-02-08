@@ -1,6 +1,6 @@
 /*
    LZ4 HC - High Compression Mode of LZ4
-   Copyright (C) 2011-2013, Yann Collet.
+   Copyright (C) 2011-2014, Yann Collet.
    BSD 2-Clause License (http://www.opensource.org/licenses/bsd-license.php)
 
    Redistribution and use in source and binary forms, with or without
@@ -31,8 +31,16 @@
    - LZ4 source repository : http://code.google.com/p/lz4/
 */
 
+
+
 /**************************************
- Memory routines
+   Tuning Parameter
+**************************************/
+#define LZ4HC_DEFAULT_COMPRESSIONLEVEL 8
+
+
+/**************************************
+   Memory routines
 **************************************/
 #include <stdlib.h>   /* calloc, free */
 #define ALLOCATOR(s)  calloc(1,s)
@@ -42,7 +50,7 @@
 
 
 /**************************************
- CPU Feature Detection
+   CPU Feature Detection
 **************************************/
 /* 32 or 64 bits ? */
 #if (defined(__x86_64__) || defined(_M_X64) || defined(_WIN64) \
@@ -126,18 +134,18 @@
 
 
 /**************************************
- Includes
+   Includes
 **************************************/
 #include "lz4hc.h"
 #include "lz4.h"
 
 
 /**************************************
- Basic Types
+   Basic Types
 **************************************/
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)   /* C99 */
 # include <stdint.h>
-  typedef  uint8_t BYTE;
+  typedef uint8_t  BYTE;
   typedef uint16_t U16;
   typedef uint32_t U32;
   typedef  int32_t S32;
@@ -178,7 +186,7 @@ typedef struct _U64_S { U64 v; } _PACKED U64_S;
 
 
 /**************************************
- Constants
+   Constants
 **************************************/
 #define MINMATCH 4
 
@@ -190,8 +198,6 @@ typedef struct _U64_S { U64 v; } _PACKED U64_S;
 #define HASH_LOG (DICTIONARY_LOGSIZE-1)
 #define HASHTABLESIZE (1 << HASH_LOG)
 #define HASH_MASK (HASHTABLESIZE - 1)
-
-#define MAX_NB_ATTEMPTS 256
 
 #define ML_BITS  4
 #define ML_MASK  (size_t)((1U<<ML_BITS)-1)
@@ -210,8 +216,8 @@ typedef struct _U64_S { U64 v; } _PACKED U64_S;
 
 
 /**************************************
- Architecture-specific macros
-/**************************************/
+   Architecture-specific macros
+**************************************/
 #if LZ4_ARCH64   /* 64-bit */
 #  define STEPSIZE 8
 #  define LZ4_COPYSTEP(s,d)     A64(d) = A64(s); d+=8; s+=8;
@@ -226,10 +232,6 @@ typedef struct _U64_S { U64 v; } _PACKED U64_S;
 #  define LZ4_COPYPACKET(s,d)   LZ4_COPYSTEP(s,d); LZ4_COPYSTEP(s,d);
 #  define UARCH U32
 #  define AARCH A32
-/*
-#  define HTYPE                 const BYTE*
-#  define INITBASE(b,s)         const int b = 0
-*/
 #  define HTYPE                 U32
 #  define INITBASE(b,s)         const BYTE* const b = s
 #endif
@@ -243,9 +245,9 @@ typedef struct _U64_S { U64 v; } _PACKED U64_S;
 #endif
 
 
-/************************************************************
- Local Types
-/************************************************************/
+/**************************************
+   Local Types
+**************************************/
 typedef struct
 {
     const BYTE* inputBuffer;
@@ -258,7 +260,7 @@ typedef struct
 
 
 /**************************************
- Macros
+   Macros
 **************************************/
 #define LZ4_WILDCOPY(s,d,e)    do { LZ4_COPYPACKET(s,d) } while (d<e);
 #define LZ4_BLINDCOPY(s,d,l)   { BYTE* e=d+l; LZ4_WILDCOPY(s,d,e); d=e; }
@@ -269,9 +271,9 @@ typedef struct
 #define GETNEXT(p)             ((p) - (size_t)DELTANEXT(p))
 
 
-/****************************
+/**************************************
  Private functions
-****************************/
+**************************************/
 #if LZ4_ARCH64
 
 FORCE_INLINE int LZ4_NbCommonBytes (register U64 val)
@@ -433,13 +435,13 @@ FORCE_INLINE size_t LZ4HC_CommonLength (const BYTE* p1, const BYTE* p2, const BY
 }
 
 
-FORCE_INLINE int LZ4HC_InsertAndFindBestMatch (LZ4HC_Data_Structure* hc4, const BYTE* ip, const BYTE* const matchlimit, const BYTE** matchpos)
+FORCE_INLINE int LZ4HC_InsertAndFindBestMatch (LZ4HC_Data_Structure* hc4, const BYTE* ip, const BYTE* const matchlimit, const BYTE** matchpos, const int maxNbAttempts)
 {
     U16* const chainTable = hc4->chainTable;
     HTYPE* const HashTable = hc4->hashTable;
     const BYTE* ref;
     INITBASE(base,hc4->base);
-    int nbAttempts=MAX_NB_ATTEMPTS;
+    int nbAttempts=maxNbAttempts;
     size_t repl=0, ml=0;
     U16 delta=0;  /* useless assignment, to remove an uninitialization warning */
 
@@ -501,13 +503,13 @@ FORCE_INLINE int LZ4HC_InsertAndFindBestMatch (LZ4HC_Data_Structure* hc4, const 
 }
 
 
-FORCE_INLINE int LZ4HC_InsertAndGetWiderMatch (LZ4HC_Data_Structure* hc4, const BYTE* ip, const BYTE* startLimit, const BYTE* matchlimit, int longest, const BYTE** matchpos, const BYTE** startpos)
+FORCE_INLINE int LZ4HC_InsertAndGetWiderMatch (LZ4HC_Data_Structure* hc4, const BYTE* ip, const BYTE* startLimit, const BYTE* matchlimit, int longest, const BYTE** matchpos, const BYTE** startpos, const int maxNbAttempts)
 {
     U16* const  chainTable = hc4->chainTable;
     HTYPE* const HashTable = hc4->hashTable;
     INITBASE(base,hc4->base);
     const BYTE*  ref;
-    int nbAttempts = MAX_NB_ATTEMPTS;
+    int nbAttempts = maxNbAttempts;
     int delta = (int)(ip-startLimit);
 
     /* First Match */
@@ -607,6 +609,7 @@ static int LZ4HC_compress_generic (
                  char* dest,
                  int inputSize,
                  int maxOutputSize,
+                 int compressionLevel,
                  limitedOutput_directive limit
                 )
 {
@@ -620,6 +623,7 @@ static int LZ4HC_compress_generic (
     BYTE* op = (BYTE*) dest;
     BYTE* const oend = op + maxOutputSize;
 
+    const int maxNbAttempts = compressionLevel ? 1<<(compressionLevel-1) : 1<<LZ4HC_DEFAULT_COMPRESSIONLEVEL;
     int   ml, ml2, ml3, ml0;
     const BYTE* ref=NULL;
     const BYTE* start2=NULL;
@@ -639,7 +643,7 @@ static int LZ4HC_compress_generic (
     /* Main Loop */
     while (ip < mflimit)
     {
-        ml = LZ4HC_InsertAndFindBestMatch (ctx, ip, matchlimit, (&ref));
+        ml = LZ4HC_InsertAndFindBestMatch (ctx, ip, matchlimit, (&ref), maxNbAttempts);
         if (!ml) { ip++; continue; }
 
         /* saved, in case we would skip too much */
@@ -649,7 +653,7 @@ static int LZ4HC_compress_generic (
 
 _Search2:
         if (ip+ml < mflimit)
-            ml2 = LZ4HC_InsertAndGetWiderMatch(ctx, ip + ml - 2, ip + 1, matchlimit, ml, &ref2, &start2);
+            ml2 = LZ4HC_InsertAndGetWiderMatch(ctx, ip + ml - 2, ip + 1, matchlimit, ml, &ref2, &start2, maxNbAttempts);
         else ml2 = ml;
 
         if (ml2 == ml)  /* No better match */
@@ -700,7 +704,7 @@ _Search3:
         /* Now, we have start2 = ip+new_ml, with new_ml = min(ml, OPTIMAL_ML=18) */
 
         if (start2 + ml2 < mflimit)
-            ml3 = LZ4HC_InsertAndGetWiderMatch(ctx, start2 + ml2 - 3, start2, matchlimit, ml2, &ref3, &start3);
+            ml3 = LZ4HC_InsertAndGetWiderMatch(ctx, start2 + ml2 - 3, start2, matchlimit, ml2, &ref3, &start3, maxNbAttempts);
         else ml3 = ml2;
 
         if (ml3 == ml2) /* No better match : 2 sequences to encode */
@@ -802,13 +806,27 @@ _Search3:
 }
 
 
-int LZ4_compressHC(const char* source, char* dest, int inputSize)
+int LZ4_compressHC2(const char* source, char* dest, int inputSize, int compressionLevel)
 {
     void* ctx = LZ4_createHC(source);
     int result;
     if (ctx==NULL) return 0;
 
-    result = LZ4HC_compress_generic (ctx, source, dest, inputSize, 0, noLimit);
+    result = LZ4HC_compress_generic (ctx, source, dest, inputSize, 0, compressionLevel, noLimit);
+
+    LZ4_freeHC(ctx);
+    return result;
+}
+
+int LZ4_compressHC(const char* source, char* dest, int inputSize) { return LZ4_compressHC2(source, dest, inputSize, 0); }
+
+int LZ4_compressHC2_limitedOutput(const char* source, char* dest, int inputSize, int maxOutputSize, int compressionLevel)
+{
+    void* ctx = LZ4_createHC(source);
+    int result;
+    if (ctx==NULL) return 0;
+
+    result = LZ4HC_compress_generic (ctx, source, dest, inputSize, maxOutputSize, compressionLevel, limitedOutput);
 
     LZ4_freeHC(ctx);
     return result;
@@ -816,21 +834,13 @@ int LZ4_compressHC(const char* source, char* dest, int inputSize)
 
 int LZ4_compressHC_limitedOutput(const char* source, char* dest, int inputSize, int maxOutputSize)
 {
-    void* ctx = LZ4_createHC(source);
-    int result;
-    if (ctx==NULL) return 0;
-
-    result = LZ4HC_compress_generic (ctx, source, dest, inputSize, maxOutputSize, limitedOutput);
-
-    LZ4_freeHC(ctx);
-    return result;
+    return LZ4_compressHC2_limitedOutput(source, dest, inputSize, maxOutputSize, 0);
 }
 
 
 /*****************************
- Using an external allocation
+   Using external allocation
 *****************************/
-
 int LZ4_sizeofStateHC() { return sizeof(LZ4HC_Data_Structure); }
 
 
@@ -838,7 +848,7 @@ int LZ4_compressHC_withStateHC (void* state, const char* source, char* dest, int
 {
     if (((size_t)(state)&(sizeof(void*)-1)) != 0) return 0;   /* Error : state is not aligned for pointers (32 or 64 bits) */
     LZ4_initHC ((LZ4HC_Data_Structure*)state, (const BYTE*)source);
-    return LZ4HC_compress_generic (state, source, dest, inputSize, 0, noLimit);
+    return LZ4HC_compress_generic (state, source, dest, inputSize, 0, 0, noLimit);
 }
 
 
@@ -846,21 +856,21 @@ int LZ4_compressHC_limitedOutput_withStateHC (void* state, const char* source, c
 {
     if (((size_t)(state)&(sizeof(void*)-1)) != 0) return 0;   /* Error : state is not aligned for pointers (32 or 64 bits) */
     LZ4_initHC ((LZ4HC_Data_Structure*)state, (const BYTE*)source);
-    return LZ4HC_compress_generic (state, source, dest, inputSize, maxOutputSize, limitedOutput);
+    return LZ4HC_compress_generic (state, source, dest, inputSize, maxOutputSize, 0, limitedOutput);
 }
 
 
 /****************************
- Stream functions
+   Stream functions
 ****************************/
 
 int LZ4_compressHC_continue (void* LZ4HC_Data, const char* source, char* dest, int inputSize)
 {
-    return LZ4HC_compress_generic (LZ4HC_Data, source, dest, inputSize, 0, noLimit);
+    return LZ4HC_compress_generic (LZ4HC_Data, source, dest, inputSize, 0, 0, noLimit);
 }
 
 int LZ4_compressHC_limitedOutput_continue (void* LZ4HC_Data, const char* source, char* dest, int inputSize, int maxOutputSize)
 {
-    return LZ4HC_compress_generic (LZ4HC_Data, source, dest, inputSize, maxOutputSize, limitedOutput);
+    return LZ4HC_compress_generic (LZ4HC_Data, source, dest, inputSize, maxOutputSize, 0, limitedOutput);
 }
 
