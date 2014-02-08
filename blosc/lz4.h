@@ -38,18 +38,17 @@ extern "C" {
 #endif
 
 
-
 /**************************************
- Compiler Options
+   Compiler Options
 **************************************/
 #if (defined(__GNUC__) && defined(__STRICT_ANSI__)) || (defined(_MSC_VER) && !defined(__cplusplus))   /* Visual Studio */
 #  define inline __inline           /* Visual C is not C99, but supports some kind of inline */
 #endif
 
 
-/****************************
- Simple Functions
-****************************/
+/**************************************
+   Simple Functions
+**************************************/
 
 int LZ4_compress        (const char* source, char* dest, int inputSize);
 int LZ4_decompress_safe (const char* source, char* dest, int inputSize, int maxOutputSize);
@@ -72,9 +71,9 @@ LZ4_decompress_safe() :
 */
 
 
-/****************************
- Advanced Functions
-****************************/
+/**************************************
+   Advanced Functions
+**************************************/
 #define LZ4_MAX_INPUT_SIZE        0x7E000000   /* 2 113 929 216 bytes */
 #define LZ4_COMPRESSBOUND(isize)  ((unsigned int)(isize) > (unsigned int)LZ4_MAX_INPUT_SIZE ? 0 : (isize) + ((isize)/255) + 16)
 static inline int LZ4_compressBound(int isize)  { return LZ4_COMPRESSBOUND(isize); }
@@ -136,9 +135,6 @@ LZ4_decompress_safe_partial() :
 */
 
 
-/*****************************
- Using an external allocation
-*****************************/
 int LZ4_sizeofState();
 int LZ4_compress_withState               (void* state, const char* source, char* dest, int inputSize);
 int LZ4_compress_limitedOutput_withState (void* state, const char* source, char* dest, int inputSize, int maxOutputSize);
@@ -156,17 +152,16 @@ They just use the externally allocated memory area instead of allocating their o
 */
 
 
-/****************************
- Streaming Functions
-****************************/
-
+/**************************************
+   Streaming Functions
+**************************************/
 void* LZ4_create (const char* inputBuffer);
 int   LZ4_compress_continue (void* LZ4_Data, const char* source, char* dest, int inputSize);
 int   LZ4_compress_limitedOutput_continue (void* LZ4_Data, const char* source, char* dest, int inputSize, int maxOutputSize);
 char* LZ4_slideInputBuffer (void* LZ4_Data);
 int   LZ4_free (void* LZ4_Data);
 
-/* 
+/*
 These functions allow the compression of dependent blocks, where each block benefits from prior 64 KB within preceding blocks.
 In order to achieve this, it is necessary to start creating the LZ4 Data Structure, thanks to the function :
 
@@ -180,11 +175,11 @@ The input buffer must be already allocated, and size at least 192KB.
 
 All blocks are expected to lay next to each other within the input buffer, starting from 'inputBuffer'.
 To compress each block, use either LZ4_compress_continue() or LZ4_compress_limitedOutput_continue().
-Their behavior are identical to LZ4_compress() or LZ4_compress_limitedOutput(), 
+Their behavior are identical to LZ4_compress() or LZ4_compress_limitedOutput(),
 but require the LZ4 Data Structure as their first argument, and check that each block starts right after the previous one.
 If next block does not begin immediately after the previous one, the compression will fail (return 0).
 
-When it's no longer possible to lay the next block after the previous one (not enough space left into input buffer), a call to : 
+When it's no longer possible to lay the next block after the previous one (not enough space left into input buffer), a call to :
 char* LZ4_slideInputBuffer(void* LZ4_Data);
 must be performed. It will typically copy the latest 64KB of input at the beginning of input buffer.
 Note that, for this function to work properly, minimum size of an input buffer must be 192KB.
@@ -231,17 +226,15 @@ int LZ4_decompress_fast_withPrefix64k (const char* source, char* dest, int outpu
 */
 
 
-/****************************
- Obsolete Functions
-****************************/
-
-static inline int LZ4_uncompress (const char* source, char* dest, int outputSize) { return LZ4_decompress_fast(source, dest, outputSize); }
-static inline int LZ4_uncompress_unknownOutputSize (const char* source, char* dest, int isize, int maxOutputSize) { return LZ4_decompress_safe(source, dest, isize, maxOutputSize); }
-
+/**************************************
+   Obsolete Functions
+**************************************/
 /*
 These functions are deprecated and should no longer be used.
 They are provided here for compatibility with existing user programs.
 */
+static inline int LZ4_uncompress (const char* source, char* dest, int outputSize) { return LZ4_decompress_fast(source, dest, outputSize); }
+static inline int LZ4_uncompress_unknownOutputSize (const char* source, char* dest, int isize, int maxOutputSize) { return LZ4_decompress_safe(source, dest, isize, maxOutputSize); }
 
 
 
