@@ -25,20 +25,20 @@
   #include <windows.h>
   #include "mex.h"
 #else
-  #include <string.h>
+  #include <cstring>
+  #include <ctype.h>
   #define _strcmpi strcasecmp
   #define _snprintf snprintf
-  #include <ctype.h>
   #include "mex.h"
 #endif
 
-#include <math.h>
-#include <assert.h>
-#include <limits.h>
+#include <cmath>
+#include <cassert>
+#include <climits>
+#include <cstdint>
 #include "sqlite/sqlite3.h"
-#define SQLITE_VERSION_STRING SQLITE_VERSION
 #include "deelx/deelx.h"
-#define DEELX_VERSION_STRING "1.2"
+        
 extern "C"
 {
   #include "blosc/blosc.h"
@@ -50,38 +50,17 @@ extern "C"
 #define EARLY_BIND_SERIALIZE 0
 #endif
 
-/* Versionstring */
+/* Versionstrings */
+#define SQLITE_VERSION_STRING SQLITE_VERSION
+#define DEELX_VERSION_STRING "1.2"
 #define MKSQLITE_VERSION_STRING "1.14"
-
-/* Default Busy Timeout */
-#define DEFAULT_BUSYTIMEOUT 1000
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
 
-// Data representation 
-//(ref http://www.agner.org/optimize/calling_conventions.pdf, chapter 3)
-// #include <stdint.h> doesn't compile with current MSVC and older matlab versions
-#ifndef int32_t
-#if UINT_MAX > 65535
-  typedef signed   int         int32_t;  // int is usually 32 bits long
-  typedef unsigned int         uint32_t; 
-#else
-  typedef signed   long        int32_t;  // except on 16-Bit Windows platform
-  typedef unsigned long        uint32_t; 
-#endif 
-#endif
-#ifndef int8_t
-  typedef signed   char        int8_t;
-  typedef unsigned char        uint8_t;
-#endif
-#ifndef int16_t
-  typedef signed   short int   int16_t;
-  typedef unsigned short int   uint16_t;
-#endif
-#ifndef INT32_MAX
-#define INT32_MAX (0x3FFFFFFF)
-#endif
+/* Default Busy Timeout */
+#define DEFAULT_BUSYTIMEOUT 1000
+
 
 // SQLite itself limits BLOBs to 1MB, mksqlite limits to INT32_MAX
 #define MKSQLITE_MAX_BLOB_SIZE ((mwSize)INT32_MAX)
@@ -191,11 +170,6 @@ static const char BLOSC_LZ4HC_ID[COMPRID_MAXLEN]    = BLOSC_LZ4HC_COMPNAME;
 static const char BLOSC_DEFAULT_ID[COMPRID_MAXLEN]  = BLOSC_BLOSCLZ_COMPNAME;
 
 // typed BLOB header agreement
-// References:
-// https://www.mathworks.com/matlabcentral/fileexchange/29457-serializedeserialize (Tim Hutt)
-// https://www.mathworks.com/matlabcentral/fileexchange/34564-fast-serializedeserialize (Christian Kothe)
-// http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data (Christian Kothe)
-// getByteStreamFromArray(), getArrayFromByteStream() (undocumented Matlab functions)
 // typed_BLOB_header_base is the unique and mandatory header prelude for typed blob headers
 struct typed_BLOB_header_base 
 {
@@ -513,6 +487,11 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double*
 int blob_unpack( const void* pBlob, size_t blob_bytes, mxArray** ppItem, double* pProcess_time );
 
 // (de-)serializing functions
+// References:
+// https://www.mathworks.com/matlabcentral/fileexchange/29457-serializedeserialize (Tim Hutt)
+// https://www.mathworks.com/matlabcentral/fileexchange/34564-fast-serializedeserialize (Christian Kothe)
+// http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data (Christian Kothe)
+// getByteStreamFromArray(), getArrayFromByteStream() (undocumented Matlab functions)
 bool haveSerialize();
 bool canSerialize();
 bool serialize( const mxArray* pItem, mxArray*& pByteStream );
@@ -780,7 +759,7 @@ public:
     
                 Value()  : m_Type(0), m_Size(0), 
                             m_StringValue(0), m_NumericValue(0.0) {}
-    virtual    ~Value()    { if( m_StringValue ) delete [] m_StringValue; } 
+    virtual    ~Value()    { delete [] m_StringValue; } 
 };
 
 /*
@@ -2497,8 +2476,15 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
 {
     assert( NULL != ppBlob && NULL != pBlob_bytes && NULL != pProcess_time );
     
-    mxArray* pItemCopy = mxDuplicateArray( pItem );
-    bool bIsByteStream = false;
+    mxArray*      pItemCopy       = mxDuplicateArray( pItem );
+    bool          bIsByteStream   = false;
+    size_t        szElement       = 0;      // size of one element in bytes
+    size_t        cntElements     = 0;      // number of elements
+    mwSize        nDims           = 0;      // number of data dimensions
+    const void*   odata           = NULL;   // raw data 
+    size_t        odata_bytes     = 0;      // size of raw data in bytes
+    void*         cdata           = NULL;   // compressed data
+    size_t        cdata_bytes     = 0;      // size of compressed data in bytes    
     
     *ppBlob = NULL;
     *pProcess_time = 0.0;
@@ -2529,13 +2515,13 @@ int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_bytes, double 
      * create a typed blob. Header information is generated
      * according to value and type of the matrix and the machine
      */
-    size_t        szElement   = mxGetElementSize( pItemCopy );        // size of one element in bytes
-    size_t        cntElements = mxGetNumberOfElements( pItemCopy );   // number of elements
-    mwSize        nDims       = mxGetNumberOfDimensions( pItemCopy ); // number of data dimensions
-    const void*   odata       = mxGetData( pItemCopy );               // raw data 
-    size_t        odata_bytes = cntElements * szElement;              // size of raw data in bytes
-    void*         cdata       = NULL;                                 // compressed data
-    size_t        cdata_bytes = 0;                                    // size of compressed data in bytes    
+    szElement   = mxGetElementSize( pItemCopy );        // size of one element in bytes
+    cntElements = mxGetNumberOfElements( pItemCopy );   // number of elements
+    nDims       = mxGetNumberOfDimensions( pItemCopy ); // number of data dimensions
+    odata       = mxGetData( pItemCopy );               // raw data 
+    odata_bytes = cntElements * szElement;              // size of raw data in bytes
+    cdata       = NULL;                                 // compressed data
+    cdata_bytes = 0;                                    // size of compressed data in bytes    
     
 
 
