@@ -24,12 +24,15 @@
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
   #include "mex.h"
+  #define GCC_PACKED_STRUCT
+  #pragma pack(1)
 #else
   #include <cstring>
   #include <ctype.h>
   #define _strcmpi strcasecmp
   #define _snprintf snprintf
   #include "mex.h"
+  #define GCC_PACKED_STRUCT __attribute__((packed))
 #endif
 
 #include <cmath>
@@ -53,7 +56,7 @@ extern "C"
 /* Versionstrings */
 #define SQLITE_VERSION_STRING SQLITE_VERSION
 #define DEELX_VERSION_STRING "1.2"
-#define MKSQLITE_VERSION_STRING "1.14"
+#define MKSQLITE_VERSION_STRING "1.14candidate"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -171,7 +174,7 @@ static const char BLOSC_DEFAULT_ID[COMPRID_MAXLEN]  = BLOSC_BLOSCLZ_COMPNAME;
 
 // typed BLOB header agreement
 // typed_BLOB_header_base is the unique and mandatory header prelude for typed blob headers
-struct typed_BLOB_header_base 
+struct GCC_PACKED_STRUCT typed_BLOB_header_base 
 {
   char m_magic[TBH_MAGIC_MAXLEN];   // + 14 small fail-safe header check
   int16_t m_ver;                    // +  2 Struct size as kind of header version number for later backwards compatibility (may increase only!)
@@ -261,7 +264,7 @@ struct typed_BLOB_header_base
  * Reason: Size of struct wouldn't match since a hidden vtable pointer 
  *         would be attached then!
  */
-struct typed_BLOB_header_blosc : public typed_BLOB_header_base {
+struct GCC_PACKED_STRUCT typed_BLOB_header_blosc : public typed_BLOB_header_base {
   /* name of the compression algorithm used. Other algorithms
    * possible in future..?
    */
@@ -282,7 +285,7 @@ struct typed_BLOB_header_blosc : public typed_BLOB_header_base {
 
 /* Template to append data and its dimensions uniquely to a typed BLOB header */
 template< typename header_base >
-struct TBH_data : public header_base
+struct GCC_PACKED_STRUCT TBH_data : public header_base
 {
   // Number of dimensions, followed by sizes of each dimension
   int32_t m_nDims[1];  
@@ -429,8 +432,15 @@ namespace old_version {
     static const char TBH_MAGIC[] = "mkSQLite.tbh";
     static char g_platform[11]    = {0};
     static char g_endian[2]       = {0};
+
     // typed BLOB header agreement
     // native and free of matlab types, to provide data sharing with other applications
+
+#ifdef _WIN32
+#pragma pack( push )
+#pragma pack()
+#endif
+
     typedef struct {
       char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
       int16_t ver;                    // Struct size as kind of header version number for later backwards compatibility (may increase only!)
@@ -440,6 +450,10 @@ namespace old_version {
       int32_t sizeDims[1];            // Number of dimensions, followed by sizes of each dimension
                                       // First byte after header at &tbh->sizeDims[tbh->sizeDims[0]+1]
     } typed_BLOB_header;
+
+#ifdef _WIN32
+#pragma pack( pop )
+#endif
 
 #define TBH_DATA(tbh)            ((void*)&tbh->sizeDims[tbh->sizeDims[0]+1])
 #define TBH_DATA_OFFSET(nDims)   ((ptrdiff_t)&((typed_BLOB_header*) 0)->sizeDims[nDims+1])
@@ -524,7 +538,7 @@ static int Language = -1;
 #define MSG_BUSYTIMEOUTFAIL     messages[Language][14]
 #define MSG_MSGUNIQUEWARN       messages[Language][15]
 #define MSG_UNEXPECTEDARG       messages[Language][16]
-#define MSG_MISSINGARG          messages[Language][17]
+#define MSG_MISSINGARGL         messages[Language][17]
 #define MSG_ERRMEMORY           messages[Language][18]
 #define MSG_UNSUPPVARTYPE       messages[Language][19]
 #define MSG_UNSUPPTBH           messages[Language][20]   
@@ -538,6 +552,10 @@ static int Language = -1;
 #define MSG_ERRCANTCLOSE        messages[Language][28]
 #define MSG_ERRCLOSEDBS         messages[Language][29]
 #define MSG_ERRNOTSUPPORTED     messages[Language][30]
+#define MSG_EXTENSION_EN        messages[Language][31]
+#define MSG_EXTENSION_DIS       messages[Language][32]
+#define MSG_EXTENSION_FAIL      messages[Language][33]
+#define MSG_MISSINGARG          messages[Language][34]
 
 
 /* 0 = english message table */
@@ -582,7 +600,11 @@ static const char* messages_0[] =
     "unknown threading mode (only 'single', 'multi' or 'serial' accepted)",
     "cannot close connection",
     "not all connections could be closed",
-    "this Matlab version doesn't support this feature"
+    "this Matlab version doesn't support this feature",
+    "extension loading enabled for this db",
+    "extension loading disabled for this db",
+    "failed to set extension loading feature",
+    "missing argument",
 };
 
 /* 1 = german message table */
@@ -627,7 +649,11 @@ static const char* messages_1[] =
     "unbekannter Threadingmodus (nur 'single', 'multi' oder 'serial' möglich)",
     "die Datenbank kann nicht geschlossen werden",
     "nicht alle Datenbanken konnten geschlossen werden",
-    "Feature wird von dieser Matlab Version nicht unterstützt "
+    "Feature wird von dieser Matlab Version nicht unterstützt",
+    "DLL Erweiterungen für diese db aktiviert",
+    "DLL Erweiterungen für diese db deaktiviert",
+    "Einstellung für DLL Erweiterungen nicht möglich",
+    "Parameter fehlt",
 };
 
 /*
@@ -1359,6 +1385,30 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             }
         }
     }
+    else if( !strcmp( command, "enable extension" ) )
+    {
+        /*
+         * There should be one Argument to enable extension
+         */
+        FINALIZE_IF( NumArgs < 1, MSG_MISSINGARG );
+        FINALIZE_IF( NumArgs > 1, MSG_UNEXPECTEDARG );
+        FINALIZE_IF( !mxIsNumeric( prhs[FirstArg] ), MSG_INVALIDARG );
+        FINALIZE_IF( !g_dbs[db_id], MSG_DBNOTOPEN );
+        
+        int flagOnOff = getInteger( prhs[FirstArg] );
+        
+        if( SQLITE_OK == sqlite3_enable_load_extension( g_dbs[db_id], flagOnOff ) )
+        {
+            if( flagOnOff )
+            {
+                mexPrintf( "%s\n", MSG_EXTENSION_EN );
+            } else {
+                mexPrintf( "%s\n", MSG_EXTENSION_DIS );
+            }
+        } else {
+            mexPrintf( "%s\n", MSG_EXTENSION_FAIL );
+        }
+    }
     else if( !strcmp( command, "status" ) )
     {
         /*
@@ -1594,7 +1644,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
         
         // if parameters needed for parameter binding, 
         // at least one parameter has to be passed 
-        FINALIZE_IF( !pArgs, MSG_MISSINGARG );
+        FINALIZE_IF( !pArgs, MSG_MISSINGARGL );
 
         for( int iParam = 0; iParam < bind_names_count; iParam++ )
         {
