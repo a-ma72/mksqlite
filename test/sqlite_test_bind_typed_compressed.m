@@ -13,34 +13,41 @@ function sqlite_test_bind_typed_compressed ()
              'Level, PackRatio, PackTime, UnpackTime, MD5)'] );
 
   for n = 1:10000;
-    type = randi(3);
     compression_level = randi(10)-1;
     use_typed_blobs = randi(2)-1;
-
-    switch type
-      case 1
-        data = randn( 1 + randi( 10 ) );
-      case 2
-        data = randn( 10000 + randi(1e4), 1);
-      case 3
-        data = cumsum( randn( 10000 + randi(1e4), 1) );
-    end
-
-    nElements = numel( data );
-
-    % In typed blob you're not limited in mixing compressed and uncompressed data!
-    mksqlite( 'typedBLOBs', use_typed_blobs ); % Typisierung der BLOBs
-    mksqlite( 'compression', 'blosclz', compression_level ); % Kompression der BLOBs
-
+    
     if ~use_typed_blobs
       compression_level = 0;
     end
+
+    data = [];
+    
+    while isempty( data )
+      type = randi(3);
+      switch type
+        case 1
+          if use_typed_blobs % Arrays assume typed blobs
+            data = randn( 1 + randi( 10 ) );
+          end
+        case 2
+          data = randn( 10000 + randi(1e4), 1);
+        case 3
+          data = cumsum( randn( 10000 + randi(1e4), 1) );
+      end
+    end
+
+    nElements = numel( data );
+    
+    % You're not limited in mixing compressed and uncompressed data in the data base!
+    mksqlite( 'typedBLOBs', use_typed_blobs ); % Typisierung der BLOBs
+    mksqlite( 'compression', 'blosclz', compression_level ); % Kompression der BLOBs
 
     mksqlite( 'insert or replace into demo (ID, Type, Data, Size, Level) values (?,?,?,?,?)', ...
               n, type, data, nElements, compression_level );
     clc, fprintf( '%d\n', n );
   end
 
+  fprintf( 'Please wait, while updating database...\n' );
   mksqlite( 'update demo set PackRatio=BDCRatio(Data), PackTime=BDCPackTime(Data), UnpackTime=BDCUnpackTime(Data), MD5=MD5(Data)' );
 
   % Kompressionsrate für "echte" Zufallszahlen zu gering:

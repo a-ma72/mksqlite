@@ -80,9 +80,9 @@ uuid   = [];
 
 % get the mex arguments
 if buildrelease
-    buildargs = ['-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_ENABLE_LOAD_EXTENSION=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O mksqlite.cpp ', sqlite, blosc, md5, uuid];
+    buildargs = ['-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O mksqlite.cpp ', sqlite, blosc, md5, uuid];
 else
-    buildargs = ['-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_ENABLE_LOAD_EXTENSION=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v mksqlite.cpp ', sqlite, blosc, md5, uuid];
+    buildargs = ['-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v mksqlite.cpp ', sqlite, blosc, md5, uuid];
 end
 
 % additional libraries
