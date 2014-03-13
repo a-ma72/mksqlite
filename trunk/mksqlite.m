@@ -118,7 +118,7 @@
 %
 % (Siehe auch Beispiel "sqlite_test_bind_typed_compressed.m" und
 % "sqlite_test_md5_and_packaging.m")
-% Zur Komprimierung wird BLOSC (http://blosc.pytables.org/trac) verwendet.
+% Zur Komprimierung wird z.B. BLOSC (http://blosc.pytables.org/trac) verwendet.
 % Nach dem Komprimieren der Daten werden sie erneut entpackt und mit dem
 % Original verglichen. Weichen die Daten ab, wird eine entsprechende Fehlermeldung
 % ausgegeben. Wenn diese Funktionalität nicht gewünscht ist (Daten werden ungeprüft
@@ -139,6 +139,22 @@
 % Kompressionsrate für randomisierte Zahlen (double) schlecht (~95%).
 % Wenn viele gleiche Zahlen, z.B. durch Quantisierung, vorliegen wird die
 % Kompressionsrate deutlich besser ausfallen...
+%
+% Weitere Kompressionsverfahren:
+% "QLIN16":
+% QLIN16 ist ein verlustbehaftetes Kompressionsverfahren. Die Daten werden
+% linear quantisiert (in 65529 Stufen diskretisiert) und als 16-Bit Wert
+% gespeichert. Die Null, sowie Infinity und NaN können überdies verwendet
+% werden, da sie als spezielle Zahl (65529..65535) abgelegt werden.
+% Unterschiedliche Kompressionsraten werden nicht unterstützt, sie sollte
+% für diesen Kompressor immer auf 1 gesetzt werden.
+% 
+% "QLOG16":
+% Arbeitet wie QLIN16, die Quantisierung erfolgt jedoch über die
+% logarithmierten Werte, daher sind hier keine negativen Werte erlaubt.
+% Null, NaN und Infinity werden trotzdem akzeptiert.
+% Unterschiedliche Kompressionsraten werden auch hier nicht unterstützt, 
+% sie sollten ebenfalls immer auf 1 gesetzt werden.
 %
 % =======================================================================
 %

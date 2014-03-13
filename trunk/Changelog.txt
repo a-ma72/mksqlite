@@ -1,11 +1,27 @@
-Version 1.14 (build 60 - 24. Feb 2014 )
+Version 1.14candidate (build 61 - 13. Mar 2014 )
 - Supporting storage of any combination of structs, cells and complex 
-  numbers as blob using an undocumented Matlab feature. 
+  numbers as blob using an undocumented Matlab feature to get a byte stream
+  from any MATLAB variable.
   Please bear in mind, that nevertheless, there can be no guarantee that 
-  this feature will work in future Matlab versions. But for now it works
+  this feature will work in future MATLAB versions. But for now it works
   excellent.
-- SQLite update 3.8.3.1
-- Added option mksqlite( db, 'enable extension', 0|1 ), untested!
+  If this feature is activated via mksqlite('typedBLOBs',2) you can't pass
+  multiple arguments for parameter binding in one cell anymore (because
+  this cell would be passed as argument for the first SQL parameter).
+  Each parameter has to be passed as argument list then.
+- SQLite update 3.8.4.1
+- Added option mksqlite( db, 'enable extension', 0|1 ) to support
+  additional libraries. For further information about extensions 
+  see www.sqlite.org.
+- Added two additional compressors 'qlin16' and 'qlog16' (for double 
+  arrays only). Doubles are stored quantized to 16-bit to optain a compression
+  ratio of 25%. Due to the quantization, this compression method is a lossy one,
+  but reasonable in most cases.
+  Use linear quantization (qlin16) for an uniform quantization error over 
+  the whole range, or logarithmic quantization (qlog16)for an uniform 
+  value-relative quantization error.
+- Added function sql.m as example how to simplyfy mksqlite calls with more
+  complex SQL string generation.
 
 Version 1.13 (build 53 - 23. Jan 2014 )
 - SQLite Engine updated to Version 3.8.2

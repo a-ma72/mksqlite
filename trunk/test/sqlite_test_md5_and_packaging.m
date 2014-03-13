@@ -22,10 +22,9 @@ function sqlite_test_md5_and_packaging ()
   
   % Packaging Time für Zufallszahlen
   
-  mksqlite( 'open', '' ); % Dummy Datenbank im Speicher erzeugen
   fprintf( 'BLOSC Test Suite:\n\n' );
   
-  compressor = 'lz4hc';   % blosclz, lz4, lz4hc
+  compressor = 'blosclz';   % blosclz, lz4, lz4hc, qlin16, qlog16
   
   % Nur typisierte BLOBs lassen die Komprimierung zu!
   mksqlite( 'typedBLOBs', 1 );
@@ -34,8 +33,6 @@ function sqlite_test_md5_and_packaging ()
   fprintf( '\n1.000.000 Zufallszahlen:\n' );
   
   data = randn( 1e6, 1 );
-  mksqlite( 'compression', 'lz4', 9 );
-  q = mksqlite( 'select BDCPackTime(?) as t_pack', data );
   
   for level = 9:-1:0
     mksqlite( 'compression', compressor, level );
@@ -61,6 +58,39 @@ function sqlite_test_md5_and_packaging ()
     q = mksqlite( 'select BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data );
     fprintf( 'Level %d: pack(%gs), unpack(%gs), ratio(%g%%)\n', level, q.t_pack, q.t_unpack, q.ratio*100 );
   end
+  
+  
+  fprintf( '\n\nQLIN16/QLOG16 Test Suite:\n' );
+  
+  fprintf( '\nVerlusbehaftete Komprimierung "QLIN16":\n(Auflösung über den gesamten Wertebereich konstant)\n' );
+  
+  level = 1; % Immer 1
+  data = cumsum( randn( 1e6, 1 ) );
+  mksqlite( 'compression', 'QLIN16', level );
+  q = mksqlite( 'select ? as data, BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data, data );
+  fprintf( 'Level %d: pack(%gs), unpack(%gs), ratio(%g%%)\n', level, q.t_pack, q.t_unpack, q.ratio*100 );
+  
+  figure
+  plot( data, 'displayname', 'Original' ), hold all
+  plot( q.data, 'displayname', 'Kopie' )
+  grid
+  legend( 'show' )
+  title( 'QLIN16' );
+  
+  fprintf( '\nVerlusbehaftete Komprimierung "QLOG16":\n(Auflösung nimmt zu großen Werten hin ab)\n' );
+  
+  level = 1; % Immer 1
+  data = data - min(data); % Erlaubt sind nur positive Werte (auch 0, NaN, +Inf und -Inf)
+  mksqlite( 'compression', 'QLOG16', level );
+  q = mksqlite( 'select ? as data, BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data, data );
+  fprintf( 'Level %d: pack(%gs), unpack(%gs), ratio(%g%%)\n', level, q.t_pack, q.t_unpack, q.ratio*100 );
+  
+  figure
+  plot( data, 'displayname', 'Original' ), hold all
+  plot( q.data, 'displayname', 'Kopie' )
+  grid
+  legend( 'show' )
+  title( 'QLOG16' );
   
   % Packaging Time, Bilddaten
   % Bildschirmausschnitt (figure) als RGB-Matrix erzeugen...
