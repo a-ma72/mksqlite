@@ -207,21 +207,28 @@ fprintf ('packing mksqlite release files\n');
 copyfile('README.TXT',    reldir);
 copyfile('Changelog.txt', reldir);
 copyfile('mksqlite.m',    reldir);
+copyfile('sql.m',         reldir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
-if exist('mksqlite.mexw32', 'file' )
+if exist( 'mksqlite.mexw32', 'file' )
   copyfile('mksqlite.mexw32', reldir);
 end
 
 % x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexw64', 'file' )
+if exist( 'mksqlite.mexw64', 'file' )
   copyfile('mksqlite.mexw64', reldir);
 end
 
 % x86 64-bit version (gcc 4.1.2 20080704 / Red Hat 4.1.2-52)
 % MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexa64', 'file' )
+if exist( 'mksqlite.mexa64', 'file' )
   copyfile('mksqlite.mexa64', reldir);
+end
+
+% Mac OSX 10.9.2, 64 bit
+% MATLAB Version R214a, compiled by Stefan Balke
+if exist( 'mksqlite.mexmaci64', 'file' )
+  copyfile('mksqlite.mexmaci64', reldir);
 end
 
 copyfile('docu/', [reldir '/docu']);
@@ -232,6 +239,7 @@ copyfile('README.TXT',         srcdir);
 copyfile('Changelog.txt',      srcdir);
 copyfile('buildit.m',          srcdir);
 copyfile('mksqlite.m',         srcdir);
+copyfile('sql.m',              srcdir);
 copyfile('mksqlite.cpp',       srcdir);
 copyfile('sqlite/',           [srcdir '/sqlite']);
 copyfile('blosc/',            [srcdir '/blosc']);
@@ -244,19 +252,25 @@ copyfile('svn_revision.h',     srcdir);
 copyfile('svn_revision.tmpl',  srcdir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
-if exist('mksqlite.mexw32', 'file' )
+if exist( 'mksqlite.mexw32', 'file' )
   copyfile('mksqlite.mexw32', srcdir);
 end
 
 % x86 64-bit version (MSVC 2010 / Win7) / MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexw64', 'file' )
+if exist( 'mksqlite.mexw64', 'file' )
   copyfile('mksqlite.mexw64', srcdir);
 end
 
 % x86 64-bit version (gcc 4.1.2 20080704 / Red Hat 4.1.2-52)
 % MATLAB Version 7.13.0.564 (R2011b)
-if exist('mksqlite.mexa64', 'file' )
+if exist( 'mksqlite.mexa64', 'file' )
   copyfile('mksqlite.mexa64', srcdir);
+end
+
+% Mac OSX 10.9.2, 64 bit
+% MATLAB Version R214a, compiled by Stefan Balke
+if exist( 'mksqlite.mexmaci64', 'file' )
+  copyfile('mksqlite.mexmaci64', srcdir);
 end
 
 % save the current directory

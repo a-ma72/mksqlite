@@ -1268,10 +1268,13 @@ template <class CHART> CPosixElxT <CHART> :: CPosixElxT(const char * posix, int 
 	else                                  m_posixfun = 0         ;
 }
 
+#if !defined(__APPLE__) && !defined(TARGET_OS_X)
 inline int isblank(int c)
 {
 	return c == 0x20 || c == '\t';
 }
+#endif
+
 
 template <class CHART> int CPosixElxT <CHART> :: Match(CContext * pContext) const
 {

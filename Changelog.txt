@@ -1,4 +1,4 @@
-Version 1.14candidate (build 61 - 13. Mar 2014 )
+Version 1.14candidate (build 63 - 13. Mar 2014 )
 - Supporting storage of any combination of structs, cells and complex 
   numbers as blob using an undocumented Matlab feature to get a byte stream
   from any MATLAB variable.
@@ -22,6 +22,7 @@ Version 1.14candidate (build 61 - 13. Mar 2014 )
   value-relative quantization error.
 - Added function sql.m as example how to simplyfy mksqlite calls with more
   complex SQL string generation.
+- Added patch to be conform with Mac OSX and binary (thanks to Stefan Balke)
 
 Version 1.13 (build 53 - 23. Jan 2014 )
 - SQLite Engine updated to Version 3.8.2
