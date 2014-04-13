@@ -37,10 +37,10 @@ function [result, count] = sql( first_arg, varargin )
   % remaining arguments are for SQL parameter binding (via ?)
   args = { db{:}, s, varargin{:} };
   
-  query = mksqlite( args{:} );
-
-  if nargout > 0
-      result = query;
+  if ~nargout
+      mksqlite( args{:} );
+  else
+      result = mksqlite( args{:} );
   end
   
   if nargout > 1

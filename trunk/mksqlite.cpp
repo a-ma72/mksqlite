@@ -39,10 +39,19 @@
 #include <cmath>
 #include <cassert>
 #include <climits>
-#include <cstdint>
+
+// Patch for Mac:
+// Tested on Mac OSX 10.9.2, Malab R2014a, 64 bit (Stefan Balke)
+#if defined(__APPLE__) || defined(TARGET_OS_X)
+    #include <tr1/cstdint>
+#else
+    #include <cstdint>
+#endif
+
+
 #include "sqlite/sqlite3.h"
 #include "deelx/deelx.h"
-        
+
 extern "C"
 {
   #include "blosc/blosc.h"
@@ -419,7 +428,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
       }
       
       // release dummy item
-      DestroyArray( pItem );
+      destroy_array( pItem );
     }
     
     return data_size;
@@ -633,19 +642,19 @@ static const char* messages_0[] =
     
     "invalid database handle",
     "function not possible",
-    "Usage: mksqlite([dbid,] command [, databasefile])\n",
+    "usage: mksqlite([dbid,] command [, databasefile])\n",
     "no or wrong argument",
     "mksqlite: closing open databases",
-    "Can\'t copy string in getstring()",
-    "Open without Databasename",
-    "No free databasehandle available",
-    "cannot open database (check access privileges and existance of database)",
+    "can\'t copy string in getstring()",
+    "open without database name",
+    "no free database handle available",
+    "cannot open database (check access privileges and existence of database)",
     "database not open",
-    "invalid query string (Semicolon?)",
+    "invalid query string (semicolon?)",
     "cannot create output matrix",
     "unknown SQLITE data type",
-    "cannot set busytimeout",
-    "could not build unique fieldname for %s",
+    "cannot set busy timeout",
+    "could not build unique field name for %s",
     "unexpected arguments passed",
     "missing argument list",
     "memory allocation error",
@@ -656,8 +665,8 @@ static const char* messages_0[] =
     "BLOB exceeds maximum allowed size",
     "error while compressing data",
     "unknown compressor",
-    "choosed compressor accepts 'double' type only",
-    "choosed compressor accepts positive values only",
+    "chosen compressor accepts 'double' type only",
+    "chosen compressor accepts positive values only",
     "unknown open modus (only 'ro', 'rw' or 'rwc' accepted)",
     "unknown threading mode (only 'single', 'multi' or 'serial' accepted)",
     "cannot close connection",
@@ -695,7 +704,7 @@ static const char* messages_1[] =
     "Datenbank nicht geöffnet",
     "ungültiger query String (Semikolon?)",
     "Kann Ausgabematrix nicht erstellen",
-    "unbek. SQLITE Datentyp",
+    "unbekannter SQLITE Datentyp",
     "busytimeout konnte nicht gesetzt werden",
     "konnte keinen eindeutigen Bezeichner für Feld %s bilden",
     "Argumentliste zu lang",
@@ -708,9 +717,9 @@ static const char* messages_1[] =
     "BLOB ist zu groß",
     "Fehler während der Kompression aufgetreten",
     "unbekannte Komprimierung",
-    "gewähler Kompressor erlaubt nur Datentyp 'double'",
-    "gewähler Kompressor erlaubt nur positive Werte",
-    "unbekannzer Zugriffmodus (nur 'ro', 'rw' oder 'rwc' möglich)",
+    "gewählter Kompressor erlaubt nur Datentyp 'double'",
+    "gewählter Kompressor erlaubt nur positive Werte",
+    "unbekannter Zugriffmodus (nur 'ro', 'rw' oder 'rwc' möglich)",
     "unbekannter Threadingmodus (nur 'single', 'multi' oder 'serial' möglich)",
     "die Datenbank kann nicht geschlossen werden",
     "nicht alle Datenbanken konnten geschlossen werden",
@@ -1624,7 +1633,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             int new_compression_level = 0;
             const char* new_compressor = NULL;
             
-            FINALIZE_IF(     NumArgs != 2 
+            FINALIZE_IF(   NumArgs != 2 
                         || !mxIsChar( prhs[FirstArg] )
                         || !mxIsNumeric( prhs[FirstArg+1] ), MSG_INVALIDARG );
             
@@ -1810,7 +1819,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                     // matrix arguments are omitted as blobs, except string arguments
                     // data is attached as is, no header information here
                     const void* blob = mxGetData( pItem );
-                    // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
+                    // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
                     if( SQLITE_OK != sqlite3_bind_blob( st, iParam+1, blob, 
                                                         (int)(cntElements * szElement),
                                                         SQLITE_TRANSIENT ) )
@@ -1880,7 +1889,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                                 FINALIZE( MSG_ERRMEMORY );
                             }
                         }
-                        // SQLite makes a lokal copy of the blob (thru SQLITE_TRANSIENT)
+                        // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
                         if( SQLITE_OK != sqlite3_bind_text( st, iParam+1, str_value, -1, SQLITE_TRANSIENT ) )
                         {
                             free_ptr( str_value );  // Needless due to mexErrMsgTxt(), but clean
@@ -1915,7 +1924,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
             /*
              * Get the column names of the result set
              */
-            for( int iCol=0; iCol<ncol; iCol++ )
+            for( int iCol = 0; iCol < ncol; iCol++ )
             {
                 const char *cname = sqlite3_column_name( st, iCol );
                 
@@ -1937,7 +1946,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                 if( fieldnames[iCol][0] == '_' )
                 {
                     fieldnames[iCol][0] = 'X';  // fieldnames must not start with an underscore
-                                          // TODO: Any other ideas?
+                                                // TODO: Any other ideas?
                 }
             }
             /*
