@@ -310,7 +310,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderCompressed : public TypedBLOBHeaderBase
           strCompressorType = BLOSC_DEFAULT_ID;
       }
 
-      strncpy( m_compression, strCompressorType, sizeof( strCompressorType ) );
+      strncpy( m_compression, strCompressorType, sizeof( m_compression ) );
   }
   
   // for now, all compressor types should be valid
@@ -1805,12 +1805,13 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                 }
                 /* otherwise fallthrough */
               case TC_SIMPLE_ARRAY:
-                // multidimensional non-complex numeric or char arrays (SQLite typed BLOB)
-                // can only be stored in typed BLOBs
-                if( TYBLOB_NO == g_typed_blobs_mode )
-                {
-                    FINALIZE( MSG_INVALIDARG );
-                }
+                // multidimensional non-complex numeric or char arrays
+                // will be stored as vector(!).
+                // Caution: Array dimensions are lost!
+//                if( TYBLOB_NO == g_typed_blobs_mode )
+//                {
+//                    FINALIZE( MSG_INVALIDARG );
+//                }
                 /* otherwise fallthrough */
               case TC_SIMPLE_VECTOR:
                 // non-complex numeric vectors (SQLite BLOB)
@@ -2531,9 +2532,12 @@ void BDC_ratio_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
             {
                 sqlite3_result_error( ctx, "BDCRatio(): an error while unpacking occured!", -1 );
             }
+            else
+            {
+                sqlite3_result_double( ctx, ratio );
+            }
             
             destroy_array( pItem );
-            sqlite3_result_double( ctx, ratio );
         }
     } 
     else 
@@ -2624,13 +2628,17 @@ void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv 
         {
             mxArray *pItem = NULL;;
 
-            blob_unpack( (void*)tbh2, blob_size, &pItem, &process_time, &ratio );
+            if( !blob_unpack( (void*)tbh2, blob_size, &pItem, &process_time, &ratio ) )
+            {
+              sqlite3_result_error( ctx, "BDCUnpackTime(): an error while unpacking occured!", -1 );
+            }
+            else
+            {
+                sqlite3_result_double( ctx, process_time );
+            }
 
             destroy_array( pItem );
         }
-
-        sqlite3_result_double( ctx, process_time );
-        
     } 
     else 
     {

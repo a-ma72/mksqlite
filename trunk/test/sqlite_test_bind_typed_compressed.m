@@ -12,7 +12,7 @@ function sqlite_test_bind_typed_compressed ()
   mksqlite( ['create table demo (ID primary key, Type, Data, Size, ', ...
              'Level, PackRatio, PackTime, UnpackTime, MD5)'] );
 
-  for n = 1:10000;
+  for n = 1:10000
     compression_level = randi(10)-1;
     use_typed_blobs = randi(2)-1;
     
