@@ -40,18 +40,22 @@ function sqlite_test_bind_typed ()
   mksqlite( 'insert into demo values (?,?,?,?)', ...
             size( data, 1 ), size( data, 2 ), size( data, 3 ), data );
           
-  % Erweiterte Typisierung der BLOBs aktivieren. Damit jetzt auch Strukturen, 
-  % Cell-Arrays und komplexe Zahlen als BLOB in der Datenbank gespeichert werden.
-  mksqlite( 'typedBLOBs', 2 ); 
+  try
+    % Erweiterte Typisierung der BLOBs aktivieren. Damit jetzt auch Strukturen, 
+    % Cell-Arrays und komplexe Zahlen als BLOB in der Datenbank gespeichert werden.
+    mksqlite( 'typedBLOBs', 2 );
+  catch
+  end
   
-  data_complex = struct;
-  data_complex.String = 'Name';
-  data_complex.Complex = 3+4i;
-  data_complex.Cell = { 1:10, 'Text', 1+2i };
+  if mksqlite( 'typedBLOBs' ) == 2
+    data_complex = struct;
+    data_complex.String = 'Name';
+    data_complex.Complex = 3+4i;
+    data_complex.Cell = { 1:10, 'Text', 1+2i };
 
-  mksqlite( 'insert into demo values (?,?,?,?)', ...
-            0, 0, 0, data_complex );
- 
+    mksqlite( 'insert into demo values (?,?,?,?)', ...
+              0, 0, 0, data_complex );
+  end 
           
           
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
@@ -90,10 +94,14 @@ function sqlite_test_bind_typed ()
   catch
   end
   
-  
-  % Komplexe Datenstrukturen
-  fprintf( '---> Komplexe Datenstruktur: ' );
-  query(5).Data
+  if mksqlite( 'typedBLOBs' ) == 2
+    % Komplexe Datenstrukturen
+    fprintf( '---> Komplexe Datenstruktur: ' );
+    query(5).Data
+  else
+    fprintf( ['\nDiese MATLAB Version unterstützt keine Serialisierung von Variablen.\n', ...
+              'Der Test zu komplexen Datenstrukturen wird übersprungen\n'] );
+  end
   
   mksqlite( 'close' );
 end
