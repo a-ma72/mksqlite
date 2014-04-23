@@ -66,7 +66,7 @@ extern "C"
 /* Versionstrings */
 #define SQLITE_VERSION_STRING SQLITE_VERSION
 #define DEELX_VERSION_STRING "1.2"
-#define MKSQLITE_VERSION_STRING "1.14candidate"
+#define MKSQLITE_VERSION_STRING "1.14"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
@@ -428,7 +428,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
       }
       
       // release dummy item
-      destroy_array( pItem );
+      mxDestroyArray( pItem );
     }
     
     return data_size;
@@ -638,7 +638,7 @@ static const char* messages_0[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
     "   \n"
-    "UTF-8, parameter binding, regex and (compressed) typed BLOBs: A.Martin, 2014-01-23\n\n",
+    "UTF-8, parameter binding, regex and (compressed) typed BLOBs: A.Martin, 2014-04-23\n\n",
     
     "invalid database handle",
     "function not possible",
@@ -690,7 +690,7 @@ static const char* messages_1[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
     "   \n"
-    "UTF-8, parameter binding, regex und (komprimierte) typisierte BLOBs: A.Martin, 2014-01-23\n\n",
+    "UTF-8, parameter binding, regex und (komprimierte) typisierte BLOBs: A.Martin, 2014-04-23\n\n",
     
     "ungültiger Datenbankhandle",
     "Funktion nicht möglich",
