@@ -856,14 +856,16 @@ static char* strnewdup(const char* s)
 class Value
 {
 public:
-    int         m_Type;
-    int         m_Size;
+    int             m_Type;
+    int             m_Size;
 
-    char*       m_StringValue;
-    double      m_NumericValue;
+    char*           m_StringValue;
+    double          m_DoubleValue;
+    sqlite3_int64   m_LongIntValue;
     
                 Value()  : m_Type(0), m_Size(0), 
-                            m_StringValue(0), m_NumericValue(0.0) {}
+                           m_StringValue(0), 
+                           m_DoubleValue(0.0), m_LongIntValue(0) {}
     virtual    ~Value()    { delete [] m_StringValue; } 
 };
 
@@ -1862,6 +1864,13 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                             FINALIZE( SQL_ERR );
                         }
                         break;
+                    case mxINT64_CLASS:
+                        // special case 64-bit signed integer
+                        if( SQLITE_OK != sqlite3_bind_int64( st, iParam+1, *(sqlite3_int64*)mxGetData( pItem ) ) )
+                        {
+                            FINALIZE( SQL_ERR );
+                        }
+                        break;
                     case mxDOUBLE_CLASS:
                     case mxSINGLE_CLASS:
                         // scalar floating point value
@@ -2046,9 +2055,9 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                      
                      switch( fieldtype )
                      {
-                         case SQLITE_NULL:      v->m_NumericValue = g_NaN;                                                       break;
-                         case SQLITE_INTEGER:   v->m_NumericValue = (double)sqlite3_column_int64( st, jCol );                    break;
-                         case SQLITE_FLOAT:     v->m_NumericValue = (double)sqlite3_column_double( st, jCol );                   break;
+                         case SQLITE_NULL:      v->m_DoubleValue  = g_NaN;                                                       break;
+                         case SQLITE_INTEGER:   v->m_LongIntValue = sqlite3_column_int64( st, jCol );                            break;
+                         case SQLITE_FLOAT:     v->m_DoubleValue  = (double)sqlite3_column_double( st, jCol );                   break;
                          case SQLITE_TEXT:      v->m_StringValue  = strnewdup( (const char*)sqlite3_column_text( st, jCol ) );   break;
                          case SQLITE_BLOB:      
                             {
@@ -2125,7 +2134,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                     
                     for( int fieldnr = 0; fieldnr < ncol; fieldnr++, recordvalue++ )
                     {
-                        if( recordvalue -> m_Type == SQLITE_TEXT )
+                        if( recordvalue->m_Type == SQLITE_TEXT )
                         {
                             mxArray* c = mxCreateString( recordvalue->m_StringValue );
                             mxSetFieldByNumber( plhs[0], index, fieldnr, c );
@@ -2169,9 +2178,29 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
                                 mxSetFieldByNumber( plhs[0], index, fieldnr, out_double );
                             }
                         } 
-                        else 
+                        else if( recordvalue->m_Type == SQLITE_INTEGER )
                         {
-                            mxArray* out_double = mxCreateDoubleScalar( recordvalue->m_NumericValue );
+                            double checkval_dbl = (double)recordvalue->m_LongIntValue;
+							sqlite3_int64 checkval_i64 = (sqlite3_int64)checkval_dbl;
+                            
+                            // if double type cannot hold the exact value, it has to be returned as pure integer type
+                            if( checkval_i64 != recordvalue->m_LongIntValue )
+                            {
+                                // SQLite integer types are always 8-byte signed integer!
+                                mwSize dims[] = {1,1};
+                                mxArray* out_int = mxCreateNumericArray( 2, dims, mxINT64_CLASS, mxREAL );
+                                *(sqlite3_int64*)mxGetData( out_int ) = recordvalue->m_LongIntValue;
+                                mxSetFieldByNumber( plhs[0], index, fieldnr, out_int );
+                            }
+                            else
+                            {
+                                mxArray* out_double = mxCreateDoubleScalar( (double)recordvalue->m_LongIntValue );
+                                mxSetFieldByNumber( plhs[0], index, fieldnr, out_double );
+                            }
+                        }
+                        else
+                        {
+                            mxArray* out_double = mxCreateDoubleScalar( recordvalue->m_DoubleValue );
                             mxSetFieldByNumber( plhs[0], index, fieldnr, out_double );
                         }
                     }
