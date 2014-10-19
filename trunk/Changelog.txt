@@ -1,3 +1,8 @@
+Version 1.15 (build 71 - 13. Oct 2014)
+- Large integer values (INT64) suffered from numeric fuzziness of double types.
+  They now will be returned as INT64 MATLAB type. (Thanks to Alan Race)
+- Added english translation "mksqlite_en.m"  (Thanks to Walter Blume)
+
 Version 1.14 (build 65 - 23. Apr 2014 )
 - Supporting storage of any combination of structs, cells and complex 
   numbers as blob using an undocumented Matlab feature to get a byte stream
