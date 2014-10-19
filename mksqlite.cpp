@@ -66,7 +66,7 @@ extern "C"
 /* Versionstrings */
 #define SQLITE_VERSION_STRING SQLITE_VERSION
 #define DEELX_VERSION_STRING "1.2"
-#define MKSQLITE_VERSION_STRING "1.14"
+#define MKSQLITE_VERSION_STRING "1.15"
 
 /* get the SVN Revisionnumber */
 #include "svn_revision.h"
