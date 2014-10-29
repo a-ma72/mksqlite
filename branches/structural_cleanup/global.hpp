@@ -49,6 +49,13 @@
     #include <cstdint>
 #endif
         
+/* MATLAB IEEE representation functions */
+#define DBL_ISFINITE mxIsFinite
+#define DBL_ISINF    mxIsInf
+#define DBL_ISNAN    mxIsNaN
+#define DBL_INF      mxGetInf()
+#define DBL_NAN      mxGetNaN()
+        
 /* Versionstrings */
 #define SQLITE_VERSION_STRING     SQLITE_VERSION
 #define DEELX_VERSION_STRING      "1.2"
@@ -60,75 +67,53 @@ extern "C" mxArray* mxSerialize(const mxArray*);
 extern "C" mxArray* mxDeserialize(const void*, size_t);
 #endif
 
-// (un-)packing functions (definition in mksqlite.cpp)
-int blob_pack( const mxArray* pItem, void** ppBlob, size_t* pBlob_size, double* pProcess_time, double* pdRatio );
-int blob_unpack( const void* pBlob, size_t blob_size, mxArray** ppItem, double* pProcess_time, double* pdRatio );
+typedef unsigned char byte;
 
+#undef MEM_ALLOC
+#undef MEM_FREE 
 
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-/*
- * Minimal structured "exception" handling with goto's, hence
- * a finally-block is missed to use try-catch-blocks here efficiently.
- * pseudo-code:
- **** %< ****
- * try-block
- * 
- * catch ( e )
- *  ->free local variables<-
- *  exit mex function and report error
- * 
- * catch (...)
- *  ->free local variables<-
- *  rethrow exception
- * 
- * ->free local variables<-
- * exit normally
- **** >% ****
- * 
- * Here, exception handling is done with goto's. Goto's are ugly and 
- * should be avoided in modern art of programming.
- * error handling is the lonely reason to use them: try-catch mechanism 
- * does the same but encapsulated and in a friendly and safe manner...
- */
-#define SETERR( msg )             ( g_finalize_msg = msg )
-#define FINALIZE( msg )           { SETERR(msg); goto finalize; }
-#define FINALIZE_IF( cond, msg )  { if(cond) FINALIZE( msg ) }
-
-/* common global states */
-        
-extern const double g_NaN;
-extern bool         g_NULLasNaN;
-extern bool         g_is_initialized;
-extern bool         g_convertUTF8;
-extern bool         g_check4uniquefields;
-extern int          g_compression_level;
-extern const char*  g_compression_type;
-extern int          g_compression_check;
-extern const char*  g_finalize_msg;
-
+#if 0
+    // mxCalloc() and mxFree() are extremely slow!
+    #define MEM_ALLOC( count, bytes ) ( (void*)mxCalloc( count, bytes ) )
+    #define MEM_FREE( ptr ) mxFree( ptr )
+#else
+    #define MEM_ALLOC( count, bytes ) ( (void*)new char[count*bytes] )
+    #define MEM_FREE( ptr ) ( delete[] ptr )
+#endif
 
 #ifdef MAIN_MODULE
 
 
-// Used by SETERR:
-// if assigned, function returns with an appropriate error message
-const char*     g_finalize_msg          = NULL;              
+/* common global states */
 
 /* Flag: Show the welcome message, initializing... */
-bool            g_is_initialized        = false;
+int             g_is_initialized        = 0;
+
+/* Max. length for fieldnames in MATLAB */
+int             g_namelengthmax         = 63;
 
 /* Flag: return NULL as NaN  */
-bool            g_NULLasNaN             = CONFIG_NULL_AS_NAN;
+int             g_NULLasNaN             = CONFIG_NULL_AS_NAN;
 const double    g_NaN                   = mxGetNaN();
 
 /* Flag: Check for unique fieldnames */
-bool            g_check4uniquefields    = CONFIG_CHECK_4_UNIQUE_FIELDS;
+int             g_check4uniquefields    = CONFIG_CHECK_4_UNIQUE_FIELDS;
 
+/* Compression settings for typed BLOBs */
 int             g_compression_level     = CONFIG_COMPRESSION_LEVEL;    
 const char*     g_compression_type      = CONFIG_COMPRESSION_TYPE; 
 int             g_compression_check     = CONFIG_COMPRESSION_CHECK;
 
-bool            g_convertUTF8           = CONFIG_CONVERT_UTF8;
+/* Flag: String representation (utf8 or ansi) */
+int             g_convertUTF8           = CONFIG_CONVERT_UTF8;
+
+/* Flag: Allow streaming */
+int             g_streaming             = CONFIG_STREAMING;
+
+/* Data organisation of returning query results */
+int             g_result_type           = CONFIG_RESULT_TYPE;
+
+/* Wrap parameters */
+int             g_wrap_parameters       = CONFIG_WRAP_PARAMETERS;
 
 #endif

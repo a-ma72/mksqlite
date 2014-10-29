@@ -75,6 +75,8 @@ blosc  = [' blosc/blosc.c', ...
 
 md5    = [' md5/md5.c '];
 
+ufuncts = [ ' sql_user_functions.cpp' ];
+
 uuid   = [];
 
 

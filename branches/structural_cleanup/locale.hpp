@@ -8,8 +8,6 @@
 
 #pragma once
 
-/* (Error-) Messages */
-
 #include "config.h"
 #include "global.hpp"
 #include "svn_revision.h" /* get the SVN revision number */
@@ -20,58 +18,144 @@ extern "C"
 
 /* Localization, declaration */
 
-const char*   getMessage    ( int iMsgNr );
-void          setLanguage   ( int iLang );
-int           getLanguage   ();
+const char*   getLocaleMsg  ( int iMsgNr );
+void          setLocale     ( int iLang );
+int           getLocale     ();
 
-
-#ifdef MAIN_MODULE
-
-/* Implementations */
 
 /*
  * a poor man localization.
  * every language have a table of messages.
  */
 
-#define MSG_HELLO                0
-#define MSG_INVALIDDBHANDLE      1
-#define MSG_IMPOSSIBLE           2
-#define MSG_USAGE                3
-#define MSG_INVALIDARG           4
-#define MSG_CLOSINGFILES         5
-#define MSG_CANTCOPYSTRING       6
-#define MSG_NOOPENARG            7
-#define MSG_NOFREESLOT           8
-#define MSG_CANTOPEN             9
-#define MSG_DBNOTOPEN           10
-#define MSG_INVQUERY            11
-#define MSG_CANTCREATEOUTPUT    12
-#define MSG_UNKNWNDBTYPE        13
-#define MSG_BUSYTIMEOUTFAIL     14
-#define MSG_MSGUNIQUEWARN       15
-#define MSG_UNEXPECTEDARG       16
-#define MSG_MISSINGARGL         17
-#define MSG_ERRMEMORY           18
-#define MSG_UNSUPPVARTYPE       19
-#define MSG_UNSUPPTBH           20   
-#define MSG_ERRPLATFORMDETECT   21
-#define MSG_WARNDIFFARCH        22
-#define MSG_BLOBTOOBIG          23
-#define MSG_ERRCOMPRESSION      24
-#define MSG_UNKCOMPRESSOR       25
-#define MSG_ERRCOMPRARG         26
-#define MSG_ERRCOMPRLOGMINVALS  27
-#define MSG_ERRUNKOPENMODE      28
-#define MSG_ERRUNKTHREADMODE    29
-#define MSG_ERRCANTCLOSE        30
-#define MSG_ERRCLOSEDBS         31
-#define MSG_ERRNOTSUPPORTED     32
-#define MSG_EXTENSION_EN        33
-#define MSG_EXTENSION_DIS       34
-#define MSG_EXTENSION_FAIL      35
-#define MSG_MISSINGARG          36
+#define MSG_PURESTRING            -2
+#define MSG_NOERROR               -1
+#define MSG_HELLO                  0
+#define MSG_INVALIDDBHANDLE        1
+#define MSG_IMPOSSIBLE             2
+#define MSG_USAGE                  3
+#define MSG_INVALIDARG             4
+#define MSG_CLOSINGFILES           5
+#define MSG_CANTCOPYSTRING         6
+#define MSG_NOOPENARG              7
+#define MSG_NOFREESLOT             8
+#define MSG_CANTOPEN               9
+#define MSG_DBNOTOPEN             10
+#define MSG_INVQUERY              11
+#define MSG_CANTCREATEOUTPUT      12
+#define MSG_UNKNWNDBTYPE          13
+#define MSG_BUSYTIMEOUTFAIL       14
+#define MSG_MSGUNIQUEWARN         15
+#define MSG_UNEXPECTEDARG         16
+#define MSG_MISSINGARGL           17
+#define MSG_ERRMEMORY             18
+#define MSG_UNSUPPVARTYPE         19
+#define MSG_UNSUPPTBH             20   
+#define MSG_ERRPLATFORMDETECT     21
+#define MSG_WARNDIFFARCH          22
+#define MSG_BLOBTOOBIG            23
+#define MSG_ERRCOMPRESSION        24
+#define MSG_UNKCOMPRESSOR         25
+#define MSG_ERRCOMPRARG           26
+#define MSG_ERRCOMPRLOGMINVALS    27
+#define MSG_ERRUNKOPENMODE        28
+#define MSG_ERRUNKTHREADMODE      29
+#define MSG_ERRCANTCLOSE          30
+#define MSG_ERRCLOSEDBS           31
+#define MSG_ERRNOTSUPPORTED       32
+#define MSG_EXTENSION_EN          33
+#define MSG_EXTENSION_DIS         34
+#define MSG_EXTENSION_FAIL        35
+#define MSG_MISSINGARG            36
+#define MSG_NUMARGEXPCT           37
+#define MSG_SINGLECELLNOTALLOWED  38
+#define MSG_ERRVARNAME            39
+#define MSG_STREAMINGNEEDTYBLOBS  40
+#define MSG_STREAMINGNOTSUPPORTED 41
+#define MSG_RESULTTYPE            42
 
+
+
+class Err
+{
+    const char* m_err_msg;
+    char m_err_string[1024];
+    bool m_isPending;
+    int  m_errId;
+    
+public:
+    
+    Err() 
+    { 
+        clear(); 
+    }
+    
+    void set( const char* strMsg )
+    {
+         m_err_msg    = strMsg;
+        *m_err_string = 0;
+         m_isPending  = true;
+         m_errId      = MSG_PURESTRING;
+    }
+    
+    void set( char* strMsg )
+    {
+        m_isPending   = true;
+        m_errId       = MSG_PURESTRING;
+        m_err_msg     = NULL;
+        
+        if( !strMsg ) 
+        { 
+            strMsg        = "";
+            m_isPending   = false;
+            m_errId       = MSG_NOERROR;
+        }
+        
+        _snprintf( m_err_string, sizeof(m_err_string), "%s", strMsg );
+    }
+    
+    void set( int iMessageNr )
+    {
+         set( ::getLocaleMsg( iMessageNr ) );
+         if( iMessageNr == MSG_NOERROR )
+         {
+            m_isPending = false;
+         }
+         m_errId = iMessageNr;
+    }
+    
+    void clear()
+    {
+        set( MSG_NOERROR );
+    }
+    
+    const char* get()
+    {
+        return m_err_msg ? m_err_msg : m_err_string;
+    }
+    
+    int getErrId()
+    {
+        return m_errId;
+    }
+    
+    bool isPending()
+    { 
+        return m_isPending;
+    }
+    
+    void warn( int iMessageNr )
+    {
+        mexWarnMsgTxt( ::getLocaleMsg( iMessageNr ) );
+    }
+
+};
+
+
+
+#ifdef MAIN_MODULE
+
+/* Implementations */
 
 /* 0 = english message table */
 static const char* messages_0[] = 
@@ -122,6 +206,12 @@ static const char* messages_0[] =
     "extension loading disabled for this db",
     "failed to set extension loading feature",
     "missing argument",
+    "numeric argument expected",
+    "single cell argument not allowed when streaming enabled",
+    "unable to create fieldname from column name",
+    "streaming of variables needs typed BLOBs! Streaming is off",
+    "streaming not supported in this MATLAB version",
+    "Result type is ",
 };
 
 
@@ -174,6 +264,19 @@ static const char* messages_1[] =
     "DLL Erweiterungen für diese db deaktiviert",
     "Einstellung für DLL Erweiterungen nicht möglich",
     "Parameter fehlt",
+    "numerischer Parameter erwartet",
+    "einzelnes Argument vom Typ Cell ist nicht erlaubt, wenn das Streaming eingeschaltet ist",
+    "aus dem Spaltennamen konnte kein gültiger Feldname erzeugt werden",
+    "für das Streamen von Variablen sind typisierte BLOBS erforderlich! Streaming ist ausgeschaltet",
+    "Streaming wird von dieser MATLAB Version nicht unterstützt",
+    "Rückgabetyp ist ",
+};
+
+/* RESULT_TYPE constants defined in config.h */
+const char* STR_RESULT_TYPE[] = {
+    "array of structs", 
+    "struct of arrays", 
+    "matrix/cell array" 
 };
 
 
@@ -189,17 +292,17 @@ static const char **messages[] =
     messages_1    /* German messages  */
 };
 
-const char* getMsg( int iMsgNr )
+const char* getLocaleMsg( int iMsgNr )
 {
-    return messages[Language][iMsgNr];
+    return (iMsgNr < 0) ? NULL : messages[Language][iMsgNr];
 }
 
-void setLanguage( int iLang )
+void setLocale( int iLang )
 {
     Language = iLang;
 }
 
-int getLanguage()
+int getLocale()
 {
     return Language;
 }

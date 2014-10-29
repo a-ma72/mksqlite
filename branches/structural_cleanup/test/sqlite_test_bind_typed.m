@@ -44,10 +44,11 @@ function sqlite_test_bind_typed ()
     % Erweiterte Typisierung der BLOBs aktivieren. Damit jetzt auch Strukturen, 
     % Cell-Arrays und komplexe Zahlen als BLOB in der Datenbank gespeichert werden.
     mksqlite( 'typedBLOBs', 2 );
+    mksqlite( 'streaming', 1 );
   catch
   end
   
-  if mksqlite( 'typedBLOBs' ) == 2
+  if mksqlite( 'streaming' ) == 1
     data_complex = struct;
     data_complex.String = 'Name';
     data_complex.Complex = 3+4i;
@@ -94,7 +95,7 @@ function sqlite_test_bind_typed ()
   catch
   end
   
-  if mksqlite( 'typedBLOBs' ) == 2
+  if mksqlite( 'streaming' ) == 1
     % Komplexe Datenstrukturen
     fprintf( '---> Komplexe Datenstruktur: ' );
     query(5).Data
