@@ -69,11 +69,15 @@ bool deserialize( const mxArray* pByteStream, mxArray*& pItem )
 }
 
 
-// return true, if Matlab version have function getByteStreamFromArray()
+// return true, if Matlab version supports serialization
 bool have_serialize()
 {
+#if CONFIG_EARLY_BIND_SERIALIZE
+    static int flagHaveSerialize = 1;
+#else
     static int flagHaveSerialize = -1;
-    
+#endif
+        
     if( flagHaveSerialize < 0 ) 
     {
         mxArray* pResult = NULL;
@@ -82,23 +86,19 @@ bool have_serialize()
         flagHaveSerialize =    pFuncName
                             && 0 == mexCallMATLAB( 1, &pResult, 1, &pFuncName, "exist" )
                             && pResult
-                            && 5 == get_integer( pResult );
+                            && 1 == Value( pResult ).GetInt();
 
-        destroy_array( pFuncName );
-        destroy_array( pResult );
+        utils_destroy_array( pFuncName );
+        utils_destroy_array( pResult );
     }
     
     return flagHaveSerialize > 0;
 }
 
 
-// return true, if Matlab version supports serialization
 bool can_serialize()
 {
-#if CONFIG_EARLY_BIND_SERIALIZE
-    return true
-#endif
-    return have_serialize();
+    return g_streaming && have_serialize();
 }
 
 

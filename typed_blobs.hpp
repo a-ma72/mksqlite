@@ -10,6 +10,7 @@
 
 #include "config.h"
 #include "global.hpp"
+#include "utils.hpp"
 
 #ifdef _WIN32
   #define GCC_PACKED_STRUCT
@@ -17,7 +18,21 @@
 #else
   #define GCC_PACKED_STRUCT __attribute__((packed))
 #endif
+  
+  /* $$$
+   * Ob es sich um Type 1 oder Type 2 handelt wird mit der Headergröße festgelegt
+   * mxUnknown_Class sollte wie mxChar_Class behandelt werden und signalisiert, das
+   * es sich um eine serialisierte Variable handelt.
+   * Vor dem Verpacken als Blob muss die aufrufende Funktion sicherstellen, dass
+   * nicht fälschlicherweise ein mxUnknown_Class Typ übergeben wird.
+   *
+   * In diesem Modul sollte es egal sein, ob eine Variable serialisiert wurde. In 
+   * diesem Fall ist es sowieso ein Char-Array und als solches kann es auch gespeichert
+   * werden. Die benutzende Funktion sollte vielmehr diesen Fall abdecken und den Typ jeweils
+   * außerhalb der Paketierung wechseln mxCHAR_CLASS <-> mxUNKNOWN_CLASS
+   */
 
+  
 /* Store type and dimensions of MATLAB vectors/arrays in BLOBs 
  * native and free of matlab types, to provide data sharing 
  * with other applications
@@ -25,15 +40,14 @@
  * where <integer value> is one of enum typed_blobs_e:
  */
 typedef enum {
-  TYBLOB_NO = 0,     // no typed blobs
-  TYBLOB_ARRAY,      // storage of multidimensional non-complex arrays as typed blobs
-  TYBLOB_BYSTREAM    // storage of complex data structures as byte stream in a typed blob
+  TYBLOB_NO = 0,       // no typed blobs
+  TYBLOB_ARRAYS,       // ability of storaging multidimensional non-complex arrays as typed blobs
+  TYBLOB_COMPRESSED,   // ability of storing compressed data
+  
+  // Limit for bound checking only
+  TYBLOB_MAX_ID = TYBLOB_COMPRESSED
 } typed_blobs_e;
 
-/* manage functions for typed blob mode */
-void            typed_blobs_mode_set    ( typed_blobs_e mode );
-typed_blobs_e   typed_blobs_mode_get    ();
-bool            typed_blobs_mode_check  ( typed_blobs_e mode );
 
 /* length definitions for typed header fields */
 #define TBH_MAGIC_MAXLEN      14
@@ -55,6 +69,25 @@ extern       char  TBH_endian[];    /* set by main module */
 
 static typed_blobs_e typed_blobs_mode = TYBLOB_NO; // Default is off
 
+namespace old_version { int check_compatibility(void); };
+
+void typed_blobs_init()
+{
+    mxArray *plhs[3] = {0};
+    
+    assert( old_version::check_compatibility() );
+    
+    if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
+    {
+        mxGetString( plhs[0], TBH_platform, TBH_PLATFORM_MAXLEN );
+        mxGetString( plhs[2], TBH_endian, TBH_ENDIAN_MAXLEN );
+
+        utils_destroy_array( plhs[0] );
+        utils_destroy_array( plhs[1] );
+        utils_destroy_array( plhs[2] );
+    }
+}
+
 void typed_blobs_mode_set( typed_blobs_e mode )
 {
     typed_blobs_mode = mode;
@@ -70,9 +103,9 @@ bool typed_blobs_mode_check( typed_blobs_e mode )
     return typed_blobs_mode == mode;
 }
 
-const char  TBH_MAGIC[TBH_MAGIC_MAXLEN]         = "mkSQLite.tbh\0";
-      char  TBH_platform[TBH_PLATFORM_MAXLEN]   = {0};
-      char  TBH_endian[TBH_ENDIAN_MAXLEN]       = {0};
+static const char  TBH_MAGIC[TBH_MAGIC_MAXLEN]         = "mkSQLite.tbh\0";
+static       char  TBH_platform[TBH_PLATFORM_MAXLEN]   = {0};
+static       char  TBH_endian[TBH_ENDIAN_MAXLEN]       = {0};
 
 #endif
 
@@ -103,7 +136,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
     return 0 == strncmp( m_magic, TBH_MAGIC, TBH_MAGIC_MAXLEN );
   }
   
-  
+  // check if MATLAB variable has valid class id to store in a typed blob
   static
   bool validClsid( mxClassID clsid )
   {
@@ -123,10 +156,6 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
       case   mxINT64_CLASS:
       case  mxUINT64_CLASS:
         return true;
-      case mxUNKNOWN_CLASS:
-        // serialized complex data types are marked as "unknown"
-        // these types are valid only, if serializing of object is available.
-        return typed_blobs_mode_check( TYBLOB_BYSTREAM );
       default:
         // no other types supported
         return false;
@@ -175,7 +204,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
 };
 
 
-// 2nd version with compression feature
+// 2nd version of typed blobs with compression feature
 /* 
  * IMPORTANT: NEVER ADD VIRTUAL FUNCTIONS TO HEADER CLASSES DERIVED FROM BASE!
  * Reason: Size of struct wouldn't match since a hidden vtable pointer 
@@ -274,7 +303,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   size_t dataOffset( mwSize nDims )
   {
     //return offsetof( TBHData, m_nDims[nDims+1] ); /* doesn't work on linux gcc 4.1.2 */
-    TBHData* p = (TBHData*)1024;
+    TBHData* p = (TBHData*)1024; // p must be something other than 0, due to compiler checking
     return (char*)&p->m_nDims[nDims+1] - (char*)p;
   }
   
@@ -286,21 +315,13 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   }
   
   
-  // get data size in bytes
+  // get data size in bytes, returns 0 on error
   size_t getDataSize()
   {
     mwSize nDims = (mwSize)m_nDims[0];
     mxArray* pItem = NULL;
     size_t data_size = 0;
     mxClassID clsid = (mxClassID)this->m_clsid;
-    
-    // serialized data is marked as unknown
-    // data is stored as byte stream then
-    if( clsid == mxUNKNOWN_CLASS )
-    {
-        assert( typed_blobs_mode_check( TYBLOB_BYSTREAM ) );
-        clsid = mxUINT8_CLASS;
-    }
     
     // dummy item to check size of one data element
     pItem = nDims ? mxCreateNumericMatrix( 1, 1, clsid, mxREAL ) : NULL;
@@ -316,7 +337,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
       }
       
       // release dummy item
-      destroy_array( pItem );
+      utils_destroy_array( pItem );
     }
     
     return data_size;
@@ -331,12 +352,6 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
     mwSize* dimensions = new mwSize[nDims];
     mxArray* pItem = NULL;
     mxClassID clsid = (mxClassID)this->m_clsid;
-    
-    if( clsid == mxUNKNOWN_CLASS )
-    {
-      assert( typed_blobs_mode_check( TYBLOB_BYSTREAM ) );
-      clsid = mxUINT8_CLASS;
-    }
     
     for( int i = 0; i < nDims; i++ )
     {
@@ -371,8 +386,7 @@ typedef TBHData<TypedBLOBHeaderCompressed> TypedBLOBHeaderV2;
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
-/* Test backward compatibility */
-#if 0
+/* Test backward compatibility, will be removed in future releases */
 namespace old_version {
     /* Store type and dimensions of MATLAB vectors/arrays in BLOBs */
     static bool use_typed_blobs   = false;
@@ -429,4 +443,3 @@ namespace old_version {
 #undef TBH_DATA
 #undef TBH_DATA_OFFSET
 };
-#endif

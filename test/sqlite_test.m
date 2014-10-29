@@ -1,102 +1,105 @@
 function mksqlite_test ()
 
+clc
+
 database = 'my_testdb';
-table = 'testtabelle';
+table = 'test_table';
 
 NumOfSamples = 100000;
 
 try
     delete (database);
 catch
-    error ('Konnte db nicht löschen');
+    error ('Unable to delete database');
 end
 
-% Datenbank öffnen
+% Open database
 mksqlite('open', database);
 mksqlite('PRAGMA synchronous = OFF');
 
-% Testtabelle erzeugen
-fprintf ('Erstelle neue Tabelle\n');
-mksqlite(['create table ' table ' (Eintrag char(32), GrosserFloat double, KleinerFloat float, Zahl int, Zeichen tinyint, Boolean bit, VieleZeichen char(255))']);
+% Create table
+fprintf ('Create new table\n');
+mksqlite(['create table ' table ' (Entry char(32), BigFloat double, SmallFloat float, Value int, Chars tinyint, Boolean bit, ManyChars char(255))']);
 
 disp ('------------------------------------------------------------');
 
-fprintf ('Erstelle %d Einträge in einer Transaction\n', NumOfSamples);
-% Einträge erstellen
-VieleZeichen = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890';
+fprintf ('Create %d records in one single transaction\n', NumOfSamples);
+% Create datasets
+ManyChars = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890';
 tic;
 mksqlite('begin');
 try
     for idx=1:NumOfSamples
-        mksqlite(['insert into ' table ' (Eintrag, GrosserFloat, VieleZeichen) values (''' sprintf('Eintrag_%d', idx) ''', ' num2str(idx) ', ''' VieleZeichen ''')']);
+    	mksqlite(['insert into ' table ' (Entry, BigFloat, ManyChars) values (?,?,?)'], sprintf('Entry_%d', idx), idx, ManyChars );
     end
 catch
 end
 mksqlite('commit');
 toc
-fprintf ('Einträge erstellt\n');
+fprintf ('Done!\n');
 
-fprintf ('Frage Anzahl der Einträge ab\n')
-res = mksqlite(['select count(*) as anzahl from ' table]);
-fprintf ('select count(*) liefert als Ergebnis %d\n', res.anzahl);
+fprintf ('Query amount of records\n')
+res = mksqlite(['select count(*) as count from ' table]);
+fprintf ('select count(*) returned %d\n', res.count);
 
-fprintf ('Summiere alle Werte zwischen 10 und 75 auf\n');
-res = mksqlite(['select sum(GrosserFloat) as summe from ' table ' where GrosserFloat between 10 and 75']);
-fprintf ('sum liefert %d\n', res.summe);
+fprintf ('Cumulate all values between 10 and 75\n');
+res = mksqlite(['select sum(BigFloat) as cumsum from ' table ' where BigFloat between 10 and 75']);
+fprintf ('Sum is %d\n', res.cumsum);
 
 disp ('------------------------------------------------------------');
 mksqlite('close');
 mksqlite('open', database);
 
-disp ('Lese alle Records in ein Array ein');
+disp ('Read all records as array of structs');
 tic;
 res = mksqlite(['SELECT * FROM ' table]);
 a = toc;
-fprintf ('fertig, %f sekunden = %d Records pro Sekunde\n', a, int32(NumOfSamples/a));
-disp ('fertig.');
+fprintf ('ready, %f seconds = %d records per second\n\n', a, int32(NumOfSamples/a));
 
-% Datenbank weder schliessen
+% Close database
 mksqlite('close');
 
-% Datenbank in memory kopieren
+% Copy database to an in-memory one
 
 disp (' ');
-disp ('-- In Memory test --');
+disp ('-- in-memory test --');
 
-disp ('kopieren Datenbank in memory');
-% In mem Datenbank erstellen
+disp ('copy database in-memory');
+% Create in-memory database
 mksqlite('open', ':memory:');
 
-% Original attachen
+% Attach original
 mksqlite(['ATTACH DATABASE ''' database ''' AS original']);
 mksqlite('begin');
-% Alle Tabellen kopieren
+% Copy each table
 tables = mksqlite('SELECT name FROM original.sqlite_master WHERE type = ''table''');
 for idx=1:length(tables)
     mksqlite(['CREATE TABLE ''' tables(idx).name ''' AS SELECT * FROM original.''' tables(idx).name '''']);
 end
-% Alle Inicies kopieren
+% Copy all indexing tables
 tables = mksqlite('SELECT sql FROM original.sqlite_master WHERE type = ''index''');
 for idx=1:length(tables)
     mksqlite(tables(idx).sql);
 end
-% Original Detachen
+% Detach original
 mksqlite('commit');
 mksqlite('DETACH original');
-disp ('kopieren fertig.');
+disp ('Copying done.');
 
-% Nun den Test inmemory durchführen
-fprintf ('Frage Anzahl der Einträge ab\n')
-res = mksqlite(['select count(*) as anzahl from ' table]);
-fprintf ('select count(*) liefert als Ergebnis %d\n', res.anzahl);
+% Process in-memory test
+fprintf ('Query record count\n')
+res = mksqlite(['select count(*) as count from ' table]);
+fprintf ('select count(*) returned %d\n', res.count);
 
-fprintf ('Summiere alle Werte zwischen 10 und 75 auf\n');
-res = mksqlite(['select sum(GrosserFloat) as summe from ' table ' where GrosserFloat between 10 and 75']);
-fprintf ('sum liefert %d\n', res.summe);
-disp ('Lese alle Records in ein Array ein');
+fprintf ('Cumulate all values between 10 and 75\n');
+res = mksqlite(['select sum(BigFloat) as cumsum from ' table ' where BigFloat between 10 and 75']);
+fprintf ('Sum is %d\n', res.cumsum);
+disp ('Query all records into an array');
 tic;
 res = mksqlite(['SELECT * FROM ' table]);
 a = toc;
-fprintf ('fertig, %f sekunden = %d Records pro Sekunde\n', a, int32(NumOfSamples/a));
-disp ('fertig.');
+fprintf ('ready, %f seconds = %d records per second\n', a, int32(NumOfSamples/a));
+disp ('ready.');
+
+% Close database
 mksqlite('close');
