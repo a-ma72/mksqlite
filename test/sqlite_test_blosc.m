@@ -1,12 +1,13 @@
 function sqlite_test_bind_typed_compressed ()
 
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % Datenbank und Inhalt erzeugen  %
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  % Create database with some records  %
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
   close all
   clear all
   clc
+  
   if isempty( mfilename )
     pack
   end
@@ -17,15 +18,13 @@ function sqlite_test_bind_typed_compressed ()
     delete( 'TBH_data.db' );
   end
   
-  mksqlite( 'open', 'TBH_data.db' ); % Datenbank als Datei erzeugen
-  mksqlite( 'drop table if exists demo' );
-  mksqlite( 'vacuum' );
+  mksqlite( 'open', 'TBH_data.db' ); % Create one-file database
 
   % Tabelle anlegen
   mksqlite( ['create table demo (ID primary key, Type, Data, Size, ', ...
              'Level, PackRatio, PackTime, UnpackTime, MD5)'] );
 
-  use_typed_blobs = 2; % This may be unsupported by erlier MATLAB versions. Use 1 instead then
+  use_typed_blobs = 2;   % Use typed BLOBs with compression feature
   compressor = 'QLIN16';
   %compressor = 'lz4hc';
   compression_level = 0;
@@ -33,7 +32,7 @@ function sqlite_test_bind_typed_compressed ()
   % You're not limited in mixing compressed and uncompressed data in the data base!
   mksqlite( 'typedBLOBs', use_typed_blobs ); % Typisierung der BLOBs
   mksqlite( 'compression', compressor, compression_level ); % Kompression der BLOBs
-  mksqlite( 'compression_check', 1 );
+  mksqlite( 'compression_check', 1 ); % Checking of compressed data is on
   
   for n = 1:10000;
     

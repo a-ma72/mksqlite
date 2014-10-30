@@ -1,20 +1,24 @@
 function sqlite_test_bind_typed_compressed ()
 
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % Datenbank und Inhalt erzeugen  %
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  % Create database with some records  %
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  clear all
+  close all
+  clc
 
-  mksqlite( 'open', 'TBH_data.db' ); % Datenbank als Datei erzeugen
+  mksqlite( 'open', 'TBH_data.db' ); % Create one-file database
   mksqlite( 'drop table if exists demo' );
   mksqlite( 'vacuum' );
 
-  % Tabelle anlegen
+  % Create table
   mksqlite( ['create table demo (ID primary key, Type, Data, Size, ', ...
              'Level, PackRatio, PackTime, UnpackTime, MD5)'] );
 
   for n = 1:10000
     compression_level = randi(10)-1;
-    use_typed_blobs = randi(2)-1;
+    use_typed_blobs   = randi(2)-1;
     
     if ~use_typed_blobs
       compression_level = 0;
@@ -39,26 +43,28 @@ function sqlite_test_bind_typed_compressed ()
     nElements = numel( data );
     
     % You're not limited in mixing compressed and uncompressed data in the data base!
-    mksqlite( 'typedBLOBs', use_typed_blobs ); % Typisierung der BLOBs
-    mksqlite( 'compression', 'blosclz', compression_level ); % Kompression der BLOBs
+    mksqlite( 'typedBLOBs', use_typed_blobs ); % Using typed BLOBs
+    mksqlite( 'compression', 'blosclz', compression_level ); % Set compression for typed BLOBs
 
     mksqlite( 'insert or replace into demo (ID, Type, Data, Size, Level) values (?,?,?,?,?)', ...
               n, type, data, nElements, compression_level );
+          
     clc, fprintf( '%d\n', n );
   end
 
   fprintf( 'Please wait, while updating database...\n' );
   mksqlite( 'update demo set PackRatio=BDCRatio(Data), PackTime=BDCPackTime(Data), UnpackTime=BDCUnpackTime(Data), MD5=MD5(Data)' );
 
-  % Kompressionsrate für "echte" Zufallszahlen zu gering:
+  % Compression of "real" random numers is poor:
   query = mksqlite( 'select Type, Size, Level, PackRatio, PackTime, UnpackTime from demo where type<3' );
   figure, hist( [query.PackRatio]', 50 )
 
-  % Kompressionsrate für "echte" Zufallszahlen zu gering:
+  % Compression of "real" random numers is poor:
   min_level = 1;
   query = mksqlite( 'select Type, Size, Level, PackRatio, PackTime, UnpackTime from demo where type=3 and Level>=?', min_level );
   figure, hist( [query.PackRatio]', 50 )
-
+  
+  % Close all databases
   mksqlite( 0, 'close' );
 
 end
