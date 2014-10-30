@@ -23,7 +23,7 @@ template<class T> void    utils_free_ptr          ( T *&pmxarr );
 
 
 /*
- * class Value never takes custody of a MATLAB memory object
+ * class Value never takes custody of a MATLAB memory object!
  */
 class Value
 {

@@ -1,5 +1,5 @@
 function sqlite_test_md5_and_packaging ()
-  mksqlite( 'open', '' ); % Dummy Datenbank im Speicher erzeugen
+  mksqlite( 'open', '' ); % Create in-memory database
   
   % MD5 Test Suite
   % (ref: http://tools.ietf.org/html/rfc1321)
@@ -20,17 +20,17 @@ function sqlite_test_md5_and_packaging ()
   fprintf( '"12345678901234567890123456789012345678901234567890123456789012345678901234567890":\n%s\n%s\n\n', lower( q.MD5 ), '57edf4a22be3c955ac49da2e2107b67a' );
   
   
-  % Packaging Time für Zufallszahlen
+  % Packaging time for random numbers
   
-  fprintf( 'BLOSC Test Suite:\n\n' );
+  fprintf( 'BLOSC test suite:\n\n' );
   
   compressor = 'blosclz';   % blosclz, lz4, lz4hc, qlin16, qlog16
   
-  % Nur typisierte BLOBs lassen die Komprimierung zu!
-  mksqlite( 'typedBLOBs', 1 );
+  % Using typed BLOBs with compression feature
+  mksqlite( 'typedBLOBs', 2 );
   mksqlite( 'compression_check', 1 );
   
-  fprintf( '\n1.000.000 Zufallszahlen:\n' );
+  fprintf( '\n1.000.000 random numbers:\n' );
   
   data = randn( 1e6, 1 );
   
@@ -42,7 +42,7 @@ function sqlite_test_md5_and_packaging ()
   
   data = cumsum( data );
   
-  fprintf( '\nDieselben Zufallszahlen, kumuliert:\n' );
+  fprintf( '\nSame random numbers, cumulated:\n' );
   
   for level = 9:-1:0
     mksqlite( 'compression', compressor, level );
@@ -50,9 +50,10 @@ function sqlite_test_md5_and_packaging ()
     fprintf( 'Level %d: pack(%gs), unpack(%gs), ratio(%g%%)\n', level, q.t_pack, q.t_unpack, q.ratio*100 );
   end
   
-  fprintf( '\nDieselben Zufallszahlen, erste Hälfte konstant 0:\n' );
+  fprintf( '\nSame random numbers, half constant 0:\n' );
   
   data( 1:500000 ) = 0;
+  
   for level = 9:-1:0
     mksqlite( 'compression', compressor, level );
     q = mksqlite( 'select BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data );
@@ -60,11 +61,11 @@ function sqlite_test_md5_and_packaging ()
   end
   
   
-  fprintf( '\n\nQLIN16/QLOG16 Test Suite:\n' );
+  fprintf( '\n\nQLIN16/QLOG16 test suite:\n' );
   
-  fprintf( '\nVerlusbehaftete Komprimierung "QLIN16":\n(Auflösung über den gesamten Wertebereich konstant)\n' );
+  fprintf( '\nLossy compression "QLIN16":\n(Unique resolution over entire value range)\n' );
   
-  level = 1; % Immer 1
+  level = 1; % Always 1, ratio is always constant 1:4
   data = cumsum( randn( 1e6, 1 ) );
   mksqlite( 'compression', 'QLIN16', level );
   q = mksqlite( 'select ? as data, BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data, data );
@@ -77,10 +78,10 @@ function sqlite_test_md5_and_packaging ()
   legend( 'show' )
   title( 'QLIN16' );
   
-  fprintf( '\nVerlusbehaftete Komprimierung "QLOG16":\n(Auflösung nimmt zu großen Werten hin ab)\n' );
+  fprintf( '\nLossy compression "QLOG16":\n(Lesser resolution for bigger values)\n' );
   
-  level = 1; % Immer 1
-  data = data - min(data); % Erlaubt sind nur positive Werte (auch 0, NaN, +Inf und -Inf)
+  level = 1; % Always 1, ratio is always constant 1:4
+  data = data - min(data); % Only positive numbers allowed (and 0, NaN, +Inf und -Inf)
   mksqlite( 'compression', 'QLOG16', level );
   q = mksqlite( 'select ? as data, BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data, data );
   fprintf( 'Level %d: pack(%gs), unpack(%gs), ratio(%g%%)\n', level, q.t_pack, q.t_unpack, q.ratio*100 );
@@ -92,9 +93,9 @@ function sqlite_test_md5_and_packaging ()
   legend( 'show' )
   title( 'QLOG16' );
   
-  % Packaging Time, Bilddaten
-  % Bildschirmausschnitt (figure) als RGB-Matrix erzeugen...
-  fprintf( '\nBilddaten:\n' );
+  % Packaging time for screenshot data
+  % Screenshot (figure) as (RGB-matrix)
+  fprintf( '\nScreenshot data:\n' );
   
   h = figure;
   set( h, 'units', 'normalized', 'position', [0.5,0.5,0.2,0.2] );
@@ -110,5 +111,5 @@ function sqlite_test_md5_and_packaging ()
   q = mksqlite( 'select BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data );
   fprintf( 'Level %d: pack(%gs), unpack(%gs), ratio(%g%%)\n', level, q.t_pack, q.t_unpack, q.ratio*100 );
   
-  mksqlite( 0, 'close' ); % Alle Datenbanken schließen
+  mksqlite( 0, 'close' ); % Close all databases
 end

@@ -1,27 +1,33 @@
 function sqlite_test_bind ()
+
+  clear all
+  close all
+  clc
+  mksqlite('version mex');
   
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % Datenbank und Inhalt erzeugen  %
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  % Create database with some records  %
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   
-  mksqlite( 'open', ':memory:' ); % "in-memory"-Datenbank
+  fprintf( 'Creating in-memory database...\n' );
+  mksqlite( 'open', ':memory:' ); % "in-memory"-database
   
-  %          |Vorname   |Name         |Ort          |Testdaten
+  %          |First name |Last name    |City         |Random data
   mydata = { ...
-             'Gunther', 'Meyer',      'München',    []; ...
-             'Holger',  'Michelmann', 'Garbsen',    rand( 1, 10 ); ...
-             'Knuth',   'Almeroth',   'Wehnsen',    'Arbeitskollege' ...
+             'Gunther',  'Meyer',      'München',    []; ...
+             'Holger',   'Michelmann', 'Garbsen',    rand( 1, 10 ); ...
+             'Knuth',    'Almeroth',   'Wehnsen',    'Arbeitskollege' ...
            }; 
   
-  % Tabelle anlegen
+  % Create table
   mksqlite( 'create table demo (Col_1, Col_2, Col_3, Data)' );
   
-  % Datenfelder erzeugen
+  % Create records
   for i = 1:size( mydata, 1 )
     mksqlite( 'insert into demo values (?,?,?,?)', mydata{i,:} );
   end
 
-  % Bildschirmausschnitt (figure) als RGB-Matrix erzeugen...
+  % Take screenshot (figure) as RGB-matrix...
   h = figure;
   set( h, 'units', 'normalized', 'position', [0.5,0.5,0.2,0.2] );
   x = linspace(0,2*pi,20);
@@ -31,33 +37,32 @@ function sqlite_test_bind ()
   delete(h);
   data = F.cdata;
   
-  % ... und als BLOB in die Datenbank schreiben
+  % ... write back as BLOB
   mksqlite( 'insert into demo values (?,?,?,?)', ...
             size( data, 1 ), size( data, 2 ), size( data, 3 ), data );
   
           
           
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
-  % Daten aus der Datenbank wieder auslesen %
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
+  %%%%%%%%%%%%%%%%%
+  % Read database %
+  %%%%%%%%%%%%%%%%%
   
-  clc
-  fprintf( 'BLOB Datentypen in urspüngliche Typen zurückführen...\n\n' )
+  fprintf( 'Restore BLOB records...\n\n' )
   
   query = mksqlite( 'select * from demo' );
   
-  fprintf( '---> Leeres Array: ' ), ...
+  fprintf( '---> Empty array: ' ), ...
            query(1).Data
          
-  fprintf( '---> 10 Zufallszahlen zwischen 0 und 1: ' ), ...
+  fprintf( '---> 10 random numbers between 0 and 1: ' ), ...
            typecast( query(2).Data, 'double' )
          
   fprintf( '---> Text: ' ), ...
            cast( query(3).Data, 'char' )
          
-  fprintf( '---> Image: (s.Figure) \n\n' )
+  fprintf( '---> Image: (see figure) \n\n' )
   
-  % Vektor in mehrdimensionale RGB Matrix zurückwandeln:
+  % Reshape vector as multidimensional array (RGB matrix):
   img = reshape( query(4).Data, query(4).Col_1, query(4).Col_2, query(4).Col_3 );
   
   h = image( img );

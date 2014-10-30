@@ -19,17 +19,15 @@
   #define GCC_PACKED_STRUCT __attribute__((packed))
 #endif
   
-  /* $$$
-   * Ob es sich um Type 1 oder Type 2 handelt wird mit der Headergröße festgelegt
-   * mxUnknown_Class sollte wie mxChar_Class behandelt werden und signalisiert, das
-   * es sich um eine serialisierte Variable handelt.
-   * Vor dem Verpacken als Blob muss die aufrufende Funktion sicherstellen, dass
-   * nicht fälschlicherweise ein mxUnknown_Class Typ übergeben wird.
+  /* 
+   * Size of blob-header identifies type 1 or type 2 (with compression feature).
    *
-   * In diesem Modul sollte es egal sein, ob eine Variable serialisiert wurde. In 
-   * diesem Fall ist es sowieso ein Char-Array und als solches kann es auch gespeichert
-   * werden. Die benutzende Funktion sollte vielmehr diesen Fall abdecken und den Typ jeweils
-   * außerhalb der Paketierung wechseln mxCHAR_CLASS <-> mxUNKNOWN_CLASS
+   * Blobs of type mxUnknown_Class respects serialized (streamed) data and should be handled
+   * as mxChar_Class thus. Before packing data into a typed blob the caller is 
+   * responsible to ensure not to deal with mxUnknown_Class data.
+   *
+   * In this module it's countless if the data is serialized or not, since it's a simple char
+   * array in that case. 
    */
 
   

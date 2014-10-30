@@ -67,8 +67,6 @@ public:
     bool                    m_rdata_is_double_type;   // Flag type is mxDOUBLE_CLASS
     void*                   m_cdata;                  // compressed data
     size_t                  m_cdata_size;             // size of compressed data in bytes
-    mxArray* m_pItem;
-    bool m_bIsByteStream;
 private:
     
     void*                   (*m_Allocator)( size_t szBytes );
@@ -212,6 +210,12 @@ public:
     {
         return m_strCompressorType;
     }
+
+
+    bool isLossy()
+    {
+        return m_eCompressorType == CT_QLIN16 || m_eCompressorType == CT_QLOG16;
+    }
     
     
     // calls the qualified compressor (deflate) which always allocates sufficient memory (m_cdata)
@@ -255,7 +259,7 @@ public:
     
     
     // calls the qualified compressor (inflate)
-    bool unpack( void* cdata, size_t cdata_size, void* rdata, size_t rdata_size )
+    bool unpack( void* cdata, size_t cdata_size, void* rdata, size_t rdata_size, size_t rdata_element_size )
     {
         bool status = false;
 
@@ -269,6 +273,7 @@ public:
         m_cdata_size          = cdata_size;
         m_rdata               = rdata;
         m_rdata_size          = rdata_size;
+        m_rdata_element_size  = rdata_element_size;
         
         switch( m_eCompressorType )
         {
@@ -374,7 +379,7 @@ private:
         uint16_t* pUintData;
         
         // compressor works for double type only
-        if( m_rdata_is_double_type )
+        if( !m_rdata_is_double_type )
         {
             m_err.set( MSG_ERRCOMPRARG );
             return false;

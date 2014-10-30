@@ -558,7 +558,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
             memcpy( (char*)tbh2->getData(), numericSequence.m_result, numericSequence.m_result_size );
             
             // check if compressed data equals to original?
-            if( g_compression_check )
+            if( g_compression_check && !numericSequence.isLossy() )
             {
                 mxArray* unpacked = NULL;
                 bool is_equal = false;
@@ -722,7 +722,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
               size_t cdata_size = blob_size - tbh2->dataOffset();
               
               // data will be unpacked directly into MATLAB variable data space
-              if( !numericSequence.unpack( cdata, cdata_size, Value(pItem).Data(), Value(pItem).ByData() ) )
+              if( !numericSequence.unpack( cdata, cdata_size, Value(pItem).Data(), Value(pItem).ByData(), Value(pItem).ByElement() ) )
               {
                   err.set( MSG_ERRCOMPRESSION );
                   goto finalize;

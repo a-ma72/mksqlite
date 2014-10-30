@@ -1,6 +1,6 @@
 function sqlite_test_access_mode ()
   clear all
-  mksqlite( 'version mex' ); % Information bei erstem Funktionsaufruf verwerfen
+  mksqlite( 'version mex' ); % Discard startup information
   clc
   
   db_name = 'sql_test_access2.db';
@@ -10,49 +10,47 @@ function sqlite_test_access_mode ()
   end
   
   try
-    % Ohne das Recht die Datenbank erzeugen zu dürfen, misslingt dieser
-    % Befehl:
+    % Without write access the following command will fail...
     s = 'mksqlite( ''open'', db_name, ''RO'' );';
     fprintf( [s,'\n'] );
-    eval( s ); % Datenbank mit Lese-/Schreibrecht erzeugen (Single-Threaded)
+    eval( s ); % Try to create database with read-only-access (single-thread)
   catch
-    fprintf( 'Catch block: Datenbank konnte mit Read-Only Zugriffsrecht nicht erzeugt werden. Test erfolgreich\n' );
+    fprintf( 'Catch block: Unable to create database with read-only-access, test succeeded!\n' );
   end
   
-  % mksqlite( 'open', db_name ) öffnet mit Defaultwerten und entspricht
-  % einem Aufruf wie:
+  % mksqlite( 'open', db_name ) opens the database with default access rights
+  % and is the same as:
   % mksqlite( 'open', db_name, 'RWC', 'Single' )
   
-  % Datenbank mit Inhalt erzeugen
-  mksqlite( 'open', db_name ); % Datenbank erzeugen und mit Lese-/Schreibrecht öffnen (Single-Threaded)
+  % Create database with some records
+  mksqlite( 'open', db_name ); % Open with read/write-access (single-thread)
   
   mksqlite( 'create table data (Col_1)' );
   mksqlite( 'insert into data (Col_1) values( "A String")' );
   mksqlite( 0, 'close' );
-  fprintf( 'Datenbank mit Inhalt (%s) wurde erzeugt\n', db_name );
+  fprintf( 'Database with one record (%s) has been created\n', db_name );
 
-  % Da die Datenbank jetzt existiert, kann sie auch im Read-Only Modus
-  % geöffnet werden:
-  fprintf( 'Datenbank im Read-Only Modus öffnen\n' );
-  s = 'mksqlite( ''open'', db_name, ''RO'' );'; % Datenbank mit Nur-Leserecht öffnen (Single-Threaded)
+  % Now since the database is existing, we're able to open it with read-only access:
+  fprintf( 'Open database with read-only access:\n' );
+  s = 'mksqlite( ''open'', db_name, ''RO'' );'; % Open read-only (single-thread)
   fprintf( [s,'\n'] );
   eval( s );
   
-  % Schreibend kann jedoch nicht zugegriffen werden:
+  % Write into database is not possible:
   try
     s = 'mksqlite( ''insert into data (Col_1) values( "A String")'' );';
     fprintf( [s,'\n'] );
     eval( s );
   catch
-    fprintf( 'Catch block: Schreibzugriff war nicht möglich, Test erfolgreich\n' );
+    fprintf( 'Catch block: Write access denied, test succeeded!\n' );
   end
   
-  fprintf( 'Öffne Datenbank in Multithreading Modi...\n');
-  mksqlite( 0, 'close' ); % Alle Datenbanken schließen
-  mksqlite( 'open', db_name, 'RW', 'Multi' ); % Datenbank im Multithread-Modus öffnen
-  mksqlite( 0, 'close' ); % Alle Datenbanken schließen
-  mksqlite( 'open', db_name, 'RW', 'Serial' ); % Datenbank im Multithread-Modus (Serialized) öffnen
-  mksqlite( 0, 'close' ); % Alle Datenbanken schließen
+  fprintf( 'Open database in multithreading mode...\n');
+  mksqlite( 0, 'close' ); % Close all open databases
+  mksqlite( 'open', db_name, 'RW', 'Multi' ); % Open in multithread-mode
+  mksqlite( 0, 'close' ); % Close all open databases
+  mksqlite( 'open', db_name, 'RW', 'Serial' ); % Open in multithread-mode (serialized)
+  mksqlite( 0, 'close' ); % Close all open databases
   
-  fprintf( 'Tests abgeschlossen\n' );
+  fprintf( 'Tests done.\n' );
 end
