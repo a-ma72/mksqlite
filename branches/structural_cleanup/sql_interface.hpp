@@ -13,249 +13,15 @@
 #include "sqlite/sqlite3.h"
 #include "sql_user_functions.hpp"
 #include "utils.hpp"
+#include "value.hpp"
 #include "locale.hpp"
-#include <valarray>
-#include <vector>
-#include <utility>
-#include <string>
-#include <algorithm>
 
-using namespace std;
 
 // For SETERR usage:
 #define SQL_ERR        "SQL_ERR"          /* if attached to g_finalize_msg, function returns with least SQL error message */
 #define SQL_ERR_CLOSE  "SQL_ERR_CLOSE"    /* same as SQL_ERR, additionally the responsible db will be closed */
 
-class ValueCol;
-
-typedef vector<ValueCol>       ValueCols;
-typedef vector<string>         StringList;
-typedef pair<string,string>    StringPair;
-typedef vector<StringPair>     StringPairList;
-
-
-class ValueSQL
-{
-public:
-    int                 m_sqlType; // SQLITE_INTEGER, SQLITE_FLOAT, SQLITE_TEXT, SQLITE_BLOB, SQLITE_NULL ( unused: SQLITE3_TEXT )
-    bool                m_isConst; // if flagged as non-const, class has memory ownership (custody over m_text and m_blob)
-    union
-    {
-      double            m_float;
-      long long         m_integer;
-      const char*       m_text;
-      const mxArray*    m_blob;
-      
-    };
-    
-
-    explicit
-    ValueSQL()
-    {
-        m_isConst = true;
-        m_sqlType = SQLITE_NULL;
-    }
-
-    explicit
-    ValueSQL( double dValue )
-    {
-        m_isConst = true;
-        m_float   = dValue;
-        m_sqlType = SQLITE_FLOAT;
-    }
-    
-    explicit
-    ValueSQL( long long iValue )
-    {
-        m_isConst = true;
-        m_integer = iValue;
-        m_sqlType = SQLITE_INTEGER;
-    }
-    
-    explicit
-    ValueSQL( const char* txtValue )
-    {
-        m_isConst = true;
-        m_text    = txtValue;
-        m_sqlType = SQLITE_TEXT;
-    }
-    
-    explicit
-    ValueSQL( const mxArray* blobValue )
-    {
-        m_isConst = true;
-        m_blob    = blobValue;
-        m_sqlType = SQLITE_BLOB;
-    }
-
-    void adopt()
-    {
-        m_isConst = false;
-    }
-    
-    void release()
-    {
-        m_isConst = true;
-    }
-    
-    void Destroy()
-    {
-        if( !m_isConst )
-        {
-            if( m_sqlType == SQLITE_TEXT && m_text )
-            {
-                MEM_FREE( const_cast<char*>(m_text) );
-                m_text = NULL;
-            }
-            
-            if( m_sqlType == SQLITE_BLOB && m_blob )
-            {
-                mxDestroyArray( const_cast<mxArray*>(m_blob) );
-                m_blob = NULL;
-            }
-        }
-        
-        m_sqlType = SQLITE_NULL;
-    }
-};
-
-
-class ValueCol
-{
-public:
-    string m_col_name;
-    string m_name;
-    bool   m_isAnyType;
-
-    vector<ValueSQL>  m_any;
-    vector<double>    m_float;
-    
-    ValueCol( StringPair name )
-    : m_col_name(name.first), m_name(name.second), m_isAnyType(false)
-    {
-    }
-    
-    ~ValueCol()
-    {
-        for( int i = 0; i < (int)m_any.size(); i++ )
-        {
-            m_any[i].Destroy();
-        }
-    }
-
-    void Destroy( int row )
-    {
-        if( row < (int)m_any.size() )
-        {
-            m_any[row].Destroy();
-        }
-    }
-    
-    size_t size()
-    {
-        return m_isAnyType ? m_any.size() : m_float.size();
-    }
-    
-    ValueSQL operator[]( int index )
-    {
-        // Always returns a copy of the original!
-        return m_isAnyType ? m_any[index] : ValueSQL( m_float[index] );
-    }
-    
-    void swapToAnyType()
-    {
-        if( !m_isAnyType )
-        {
-            assert( !m_any.size() );
-            
-            for( int i = 0; i < (int)m_float.size(); i++ )
-            {
-                m_any.push_back( ValueSQL(m_float[i]) );
-            }
-
-            m_float.clear();
-            m_isAnyType = true;
-        }
-    }
-    
-    void append( double value )
-    {
-        if( m_isAnyType )
-        {
-            m_any.push_back( ValueSQL(value) );
-        }
-        else
-        {
-            m_float.push_back( value );
-        }
-    }
-    
-    void append( long long value )
-    {
-        /* Test if integer value can be represented by a double */
-        double    dVal  = (double)(value);
-        long long llVal = (long long) dVal;
-
-        if( llVal == value )
-        {
-            // double type is equivalent, and thus preferred
-            append( dVal );
-        }
-        else
-        {
-            swapToAnyType();
-            m_any.push_back( ValueSQL(value) );
-        }
-    }
-    
-    void append( const char* value )
-    {
-        swapToAnyType();
-        m_any.push_back( ValueSQL(value) );
-    }
-
-    void append( const mxArray* value )
-    {
-        swapToAnyType();
-        m_any.push_back( ValueSQL(value) );
-    }
-    
-    void append( const ValueSQL& item )
-    {
-        switch( item.m_sqlType )
-        {
-          case SQLITE_FLOAT:
-            append( item.m_float );
-            return;
-            
-          case SQLITE_INTEGER:
-            append( item.m_integer );
-            return;
-            
-          case SQLITE_NULL:
-            if( g_NULLasNaN )
-            {
-                append( DBL_NAN );
-            }
-            else
-            {
-                swapToAnyType();
-                m_any.push_back( ValueSQL() );
-            }
-            return;
-            
-          case SQLITE_TEXT:
-          case SQLITE_BLOB:
-            swapToAnyType();
-            m_any.push_back( item );
-            break;
-            
-          default:
-            assert( false );
-            break;
-        }
-    }
-};
+typedef vector<ValueSQLCol>       ValueSQLCols;
 
 
 
@@ -523,12 +289,12 @@ public:
   
   bool bindParameter( int index, const mxArray* pItem, bool bStreamable )
   {
-      Value value( pItem );
-      int iTypeComplexity = pItem ? value.Complexity( bStreamable ) : Value::TC_EMPTY;
+      ValueMex value( pItem );
+      int iTypeComplexity = pItem ? value.Complexity( bStreamable ) : ValueMex::TC_EMPTY;
 
       switch( iTypeComplexity )
       {
-        case Value::TC_COMPLEX:
+        case ValueMex::TC_COMPLEX:
           // structs, cells and complex data 
           // can only be stored as officially undocumented byte stream feature
           // (SQLite typed ByteStream BLOB)
@@ -539,14 +305,14 @@ public:
           }
           
           /* fallthrough */
-        case Value::TC_SIMPLE_ARRAY:
+        case ValueMex::TC_SIMPLE_ARRAY:
           // multidimensional non-complex numeric or char arrays
           // will be stored as vector(!).
           // Caution: Array dimensions are lost, if you don't use typed blobs
           // nor serialization
             
           /* fallthrough */
-        case Value::TC_SIMPLE_VECTOR:
+        case ValueMex::TC_SIMPLE_VECTOR:
           // non-complex numeric vectors (SQLite BLOB)
           if( typed_blobs_mode_check(TYBLOB_NO) )
           {
@@ -587,7 +353,7 @@ public:
           }
           break;
           
-        case Value::TC_SIMPLE:
+        case ValueMex::TC_SIMPLE:
           // 1-value non-complex scalar, char or simple string (SQLite simple types)
           switch( value.ClassID() )
           {
@@ -639,7 +405,7 @@ public:
           } // end switch
           break;
           
-        case Value::TC_EMPTY:
+        case ValueMex::TC_EMPTY:
           if( SQLITE_OK != sqlite3_bind_null( m_stmt, index ) )
           {
               m_lasterr.set( SQL_ERR );
@@ -703,17 +469,18 @@ public:
   }
   
   
-  int getColNames( StringPairList& names )
+  struct to_alphanum
+  {
+      char operator()( char a )
+      {
+          return ::isalnum(a) ? a : '_';
+      }
+  };
+  
+  int getColNames( ValueSQLCol::StringPairList& names )
   {
       names.clear();
       
-      struct to_alphanum
-      {
-          char operator()( char a )
-          {
-              return ::isalnum(a) ? a : '_';
-          }
-      };
       
       for( int i = 0; i < colCount(); i++ )
       {
@@ -722,7 +489,7 @@ public:
           item.second = item.second.substr( 0, g_namelengthmax );
           
           // only alphanumeric characters allowed
-          transform( item.second.begin(), item.second.end(), item.second.begin(), to_alphanum() );
+          std::transform( item.second.begin(), item.second.end(), item.second.begin(), to_alphanum() );
           
           if( item.second.size() > 0 && item.second[0] == '_' )
           {
@@ -746,7 +513,7 @@ public:
                       int   str_number_len;
 
                       str_number_len = _snprintf( str_number, g_namelengthmax+1, "_%d", number );
-                      _snprintf( buffer, g_namelengthmax+1, "%.*s%s", g_namelengthmax - str_number_len, item.second, str_number );
+                      _snprintf( buffer, g_namelengthmax+1, "%.*s%s", g_namelengthmax - str_number_len, item.second.c_str(), str_number );
                       new_name = buffer;
 
                       delete[] str_number;
@@ -789,16 +556,16 @@ public:
       m_stmt = NULL;
   }
       
-  bool fetch( ValueCols& cols )
+  bool fetch( ValueSQLCols& cols )
   {
-    StringPairList  names;
+    ValueSQLCol::StringPairList  names;
     
     getColNames( names );
     cols.clear();
 
     for( int i = 0; i < (int)names.size(); i++ )
     {
-        cols.push_back( ValueCol(names[i]) );
+        cols.push_back( ValueSQLCol(names[i]) );
     }
     
     names.clear();
@@ -847,7 +614,6 @@ public:
 
                  case SQLITE_TEXT:
                    value = ValueSQL( (char*)utils_strnewdup( (const char*)colText( jCol ) ) );
-                   value.adopt();
                    break;
 
                  case SQLITE_BLOB:      
@@ -859,13 +625,11 @@ public:
                     if( item )
                     {
                         value = ValueSQL(item);
-                        value.adopt();
 
                         if( bytes )
                         {
-                            Value v(item);
+                            ValueMex v(item);
                             memcpy( v.Data(), colBlob( jCol ), bytes );
-                            bytes++;
                         }
                     }
                     else
@@ -883,7 +647,6 @@ public:
             }
             
             cols[jCol].append( value );
-            value.release();
         }
     }
     

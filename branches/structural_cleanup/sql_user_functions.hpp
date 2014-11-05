@@ -460,7 +460,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
     
     assert( pcItem && ppBlob && pBlob_size && pdProcess_time && pdRatio );
     
-    Value             value( pcItem );
+    ValueMex          value( pcItem );
     mxArray*          byteStream        = NULL;
     NumberCompressor  numericSequence;
     
@@ -469,7 +469,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
     // 2. Compress
     // 3. Encapsulate (typed BLOBs)
     
-    if( value.Complexity() == Value::TC_COMPLEX )
+    if( value.Complexity() == ValueMex::TC_COMPLEX )
     {
         if( !bStreamable || !serialize( pcItem, byteStream ) )
         {
@@ -477,7 +477,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
             goto finalize;
         }
         
-        value = Value( byteStream );
+        value = ValueMex( byteStream );
     }
     
     
@@ -573,7 +573,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
                     goto finalize;
                 }
 
-                is_equal = ( memcmp( value.Data(), Value(unpacked).Data(), value.ByData() ) == 0 );
+                is_equal = ( memcmp( value.Data(), ValueMex(unpacked).Data(), value.ByData() ) == 0 );
                 utils_destroy_array( unpacked );
 
                 // check if uncompressed data equals original
@@ -722,7 +722,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
               size_t cdata_size = blob_size - tbh2->dataOffset();
               
               // data will be unpacked directly into MATLAB variable data space
-              if( !numericSequence.unpack( cdata, cdata_size, Value(pItem).Data(), Value(pItem).ByData(), Value(pItem).ByElement() ) )
+              if( !numericSequence.unpack( cdata, cdata_size, ValueMex(pItem).Data(), ValueMex(pItem).ByData(), ValueMex(pItem).ByElement() ) )
               {
                   err.set( MSG_ERRCOMPRESSION );
                   goto finalize;
@@ -730,7 +730,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
               
               *pdProcess_time = utils_get_wall_time() - start_time;
 
-              if( Value(pItem).ByData() > 0 )
+              if( ValueMex(pItem).ByData() > 0 )
               {
                   *pdRatio = (double)cdata_size / numericSequence.m_result_size;
               }

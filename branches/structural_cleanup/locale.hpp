@@ -106,7 +106,7 @@ public:
         
         if( !strMsg ) 
         { 
-            strMsg        = "";
+            m_err_msg     = "";
             m_isPending   = false;
             m_errId       = MSG_NOERROR;
         }
