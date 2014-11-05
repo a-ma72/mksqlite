@@ -1,9 +1,17 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file
+ *  @brief     Global definitions.
+ *  @details   
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 #pragma once
@@ -59,7 +67,7 @@
 /* Versionstrings */
 #define SQLITE_VERSION_STRING     SQLITE_VERSION
 #define DEELX_VERSION_STRING      "1.2"
-#define MKSQLITE_VERSION_STRING   "1.15candidate"
+#define MKSQLITE_VERSION_STRING   "2.0 candidate"
 
 
 #if (CONFIG_EARLY_BIND_SERIALIZE)
@@ -74,10 +82,12 @@ typedef unsigned char byte;
 
 #if 0
     // mxCalloc() and mxFree() are extremely slow!
-    #define MEM_ALLOC( count, bytes ) ( (void*)mxCalloc( count, bytes ) )
+    #define MEM_ALLOC( count, bytes ) ( (void*)mxMalloc( count, bytes ) )
     #define MEM_FREE( ptr ) mxFree( ptr )
 #else
+    /// Global memory allocator
     #define MEM_ALLOC( count, bytes ) ( (void*)new char[count*bytes] )
+    /// Global memory deallocator
     #define MEM_FREE( ptr ) ( delete[] ptr )
 #endif
 

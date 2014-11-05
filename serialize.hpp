@@ -13,6 +13,7 @@
 #include "config.h"
 #include "global.hpp"
 #include "utils.hpp"
+#include "value.hpp"
 
 
 // (de-)serializing functions
@@ -86,7 +87,7 @@ bool have_serialize()
         flagHaveSerialize =    pFuncName
                             && 0 == mexCallMATLAB( 1, &pResult, 1, &pFuncName, "exist" )
                             && pResult
-                            && 1 == Value( pResult ).GetInt();
+                            && 5 == ValueMex( pResult ).GetInt();  // getByteStreamFromArray must be a build-in function
 
         utils_destroy_array( pFuncName );
         utils_destroy_array( pResult );

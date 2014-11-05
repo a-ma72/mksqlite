@@ -249,7 +249,7 @@ public:
             return false;
         }
         
-        refValue = Value( m_parg[0] ).GetInt();
+        refValue = ValueMex( m_parg[0] ).GetInt();
         if( asBoolInt )
         {
             refValue = ( refValue != 0 );
@@ -319,7 +319,7 @@ public:
             /*
              * Get the m_command string
              */
-            m_command = Value( m_parg[0] ).GetString();
+            m_command = ValueMex( m_parg[0] ).GetString();
             m_parg++;
             m_narg--;
             
@@ -544,8 +544,8 @@ public:
                 return false;
             }
             
-            new_compressor        = Value( m_parg[0] ).GetString();
-            new_compression_level = Value( m_parg[1] ).GetInt();
+            new_compressor        = ValueMex( m_parg[0] ).GetString();
+            new_compression_level = ValueMex( m_parg[1] ).GetInt();
 
             if( new_compression_level < 0 || new_compression_level > 9 )
             {
@@ -871,7 +871,7 @@ public:
             return false;
         }
         
-        char* dbname = Value( m_parg[0] ).GetString();
+        char* dbname = ValueMex( m_parg[0] ).GetString();
         m_parg++;
         m_narg--;
 
@@ -908,7 +908,7 @@ public:
          */
         if( m_narg > 0 && !errPending() )
         {
-            char* iomode = Value( m_parg[0] ).GetString();
+            char* iomode = ValueMex( m_parg[0] ).GetString();
             
             m_parg++;
             m_narg--;
@@ -943,7 +943,7 @@ public:
          */
         if( m_narg > 0 && !errPending() )
         {
-            char* threadmode = Value( m_parg[0] ).GetString();
+            char* threadmode = ValueMex( m_parg[0] ).GetString();
             
             m_parg++;
             m_narg--;
@@ -1049,11 +1049,11 @@ public:
     }
     
     
-    mxArray* createItemFromValueSQL( ValueSQL& value )
+    mxArray* createItemFromValueSQL( const ValueSQL& value )
     {
         mxArray* item = NULL;
 
-        switch( value.m_sqlType )
+        switch( value.m_typeID )
         {
           case SQLITE_NULL:
             item = mxCreateDoubleMatrix( 0, 0, mxREAL );
@@ -1078,7 +1078,7 @@ public:
 
           case SQLITE_BLOB:
           {
-            Value blob(value.m_blob);
+            ValueMex blob(value.m_blob);
             size_t blob_size = blob.ByData();
 
             if( blob_size > 0 )
@@ -1089,12 +1089,12 @@ public:
 
                     if(item)
                     {
-                        memcpy( Value(item).Data(), blob.Data(), blob_size );
+                        memcpy( ValueMex(item).Data(), blob.Data(), blob_size );
                     }
                 } 
                 else 
                 {
-                    const void* blob         = Value( value.m_blob ).Data();
+                    const void* blob         = ValueMex( value.m_blob ).Data();
                     double      process_time = 0.0;
                     double      ratio = 0.0;
                     int         err_id;
@@ -1127,7 +1127,7 @@ public:
     }
     
     
-    mxArray* createResultColNameMatrix( ValueCols& cols )
+    mxArray* createResultColNameMatrix( const ValueSQLCols& cols )
     {
         mxArray* colNames = mxCreateCellMatrix( (int)cols.size(), (int)cols.size() ? 1 : 0 );
         
@@ -1154,7 +1154,7 @@ public:
     }
     
     
-    mxArray* createResultAsArrayOfStructs( ValueCols& cols )
+    mxArray* createResultAsArrayOfStructs( ValueSQLCols& cols )
     {
         /*
          * Allocate an array of MATLAB structs to return as result
@@ -1195,7 +1195,7 @@ public:
     }
     
     
-    mxArray* createResultAsStructOfArrays( ValueCols& cols )
+    mxArray* createResultAsStructOfArrays( ValueSQLCols& cols )
     {
         /*
          * Allocate a MATLAB struct of arrays to return as result
@@ -1221,7 +1221,7 @@ public:
             {
                 for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
                 {
-                    assert( cols[i][row].m_sqlType == SQLITE_FLOAT );
+                    assert( cols[i][row].m_typeID == SQLITE_FLOAT );
                     mxGetPr(column)[row] = cols[i][row].m_float;
                 } /* end for (rows) */
             }
@@ -1260,7 +1260,7 @@ public:
     }
     
     
-    mxArray* createResultAsMatrix( ValueCols& cols )
+    mxArray* createResultAsMatrix( ValueSQLCols& cols )
     {
         bool allFloat = true;
         
@@ -1293,7 +1293,7 @@ public:
             {
                 if( allFloat )
                 {
-                    assert( cols[i][row].m_sqlType == SQLITE_FLOAT );
+                    assert( cols[i][row].m_typeID == SQLITE_FLOAT );
                     double dVal = cols[i][row].m_float;
 
                     mxGetPr(result)[i * (int)cols[0].size() + row] = dVal;
@@ -1382,13 +1382,13 @@ public:
 
         /*** Progress parameters for subsequent queries ***/
 
-        ValueCols       cols;
+        ValueSQLCols    cols;
         const mxArray** nextBindParam   = m_parg;
         int             countBindParam  = m_narg;
         int             argsNeeded      = Sql.current().getParameterCount();
 
         // Check if a lonely cell argument is passed
-        if( countBindParam == 1 && Value(*nextBindParam).IsCell() )
+        if( countBindParam == 1 && ValueMex(*nextBindParam).IsCell() )
         {
             // Only allowed, when streming is off
             if( g_streaming )
@@ -1398,8 +1398,8 @@ public:
             }
             
             // redirect cell elements as bind arguments
-            countBindParam = (int)Value(*nextBindParam).NumElements();
-            nextBindParam = (const mxArray**)Value(*nextBindParam).Data();
+            countBindParam = (int)ValueMex(*nextBindParam).NumElements();
+            nextBindParam = (const mxArray**)ValueMex(*nextBindParam).Data();
         }
 
         if( g_wrap_parameters )

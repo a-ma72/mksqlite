@@ -101,9 +101,9 @@ bool typed_blobs_mode_check( typed_blobs_e mode )
     return typed_blobs_mode == mode;
 }
 
-static const char  TBH_MAGIC[TBH_MAGIC_MAXLEN]         = "mkSQLite.tbh\0";
-static       char  TBH_platform[TBH_PLATFORM_MAXLEN]   = {0};
-static       char  TBH_endian[TBH_ENDIAN_MAXLEN]       = {0};
+/*static*/ const char  TBH_MAGIC[TBH_MAGIC_MAXLEN]         = "mkSQLite.tbh\0";
+/*static*/       char  TBH_platform[TBH_PLATFORM_MAXLEN]   = {0};
+/*static*/       char  TBH_endian[TBH_ENDIAN_MAXLEN]       = {0};
 
 #endif
 
@@ -316,29 +316,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   // get data size in bytes, returns 0 on error
   size_t getDataSize()
   {
-    mwSize nDims = (mwSize)m_nDims[0];
-    mxArray* pItem = NULL;
-    size_t data_size = 0;
-    mxClassID clsid = (mxClassID)this->m_clsid;
-    
-    // dummy item to check size of one data element
-    pItem = nDims ? mxCreateNumericMatrix( 1, 1, clsid, mxREAL ) : NULL;
-    
-    if( pItem )
-    {
-      data_size = mxGetElementSize( pItem );
-    
-      // calculate the size of the entire array in bytes
-      for( mwSize i = 0; i < nDims; i++ )
-      {
-          data_size *= (mwSize)m_nDims[i+1];
-      }
-      
-      // release dummy item
-      utils_destroy_array( pItem );
-    }
-    
-    return data_size;
+    return utils_elbytes( (mxClassID)HeaderBaseType::m_clsid );
   }
   
   
@@ -349,7 +327,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
     mwSize nDims = m_nDims[0];
     mwSize* dimensions = new mwSize[nDims];
     mxArray* pItem = NULL;
-    mxClassID clsid = (mxClassID)this->m_clsid;
+    mxClassID clsid = (mxClassID)HeaderBaseType::m_clsid;
     
     for( int i = 0; i < nDims; i++ )
     {

@@ -209,6 +209,7 @@ fprintf ('packing mksqlite release files\n');
 copyfile('README.TXT',    reldir);
 copyfile('Changelog.txt', reldir);
 copyfile('mksqlite.m',    reldir);
+copyfile('mksqlite_en.m', reldir);
 copyfile('sql.m',         reldir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
@@ -241,6 +242,7 @@ copyfile('README.TXT',         srcdir);
 copyfile('Changelog.txt',      srcdir);
 copyfile('buildit.m',          srcdir);
 copyfile('mksqlite.m',         srcdir);
+copyfile('mksqlite_en.m',      srcdir);
 copyfile('sql.m',              srcdir);
 copyfile('mksqlite.cpp',       srcdir);
 copyfile('sqlite/',           [srcdir '/sqlite']);
