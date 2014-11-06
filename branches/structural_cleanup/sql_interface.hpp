@@ -1,9 +1,18 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      sql_interface.hpp
+ *  @brief     SQL accessing functions, for one single database 
+ *  @details   
+ *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 #pragma once
@@ -18,12 +27,11 @@
 
 
 // For SETERR usage:
-#define SQL_ERR        "SQL_ERR"          /* if attached to g_finalize_msg, function returns with least SQL error message */
-#define SQL_ERR_CLOSE  "SQL_ERR_CLOSE"    /* same as SQL_ERR, additionally the responsible db will be closed */
+#define SQL_ERR        "SQL_ERR"          ///< if attached to g_finalize_msg, function returns with least SQL error message
+#define SQL_ERR_CLOSE  "SQL_ERR_CLOSE"    ///< same as SQL_ERR, additionally the responsible db will be closed
 
-typedef vector<ValueSQLCol>       ValueSQLCols;
-
-
+/// type for column container
+typedef vector<ValueSQLCol> ValueSQLCols;
 
 class SQL
 {

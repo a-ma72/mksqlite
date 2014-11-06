@@ -1,9 +1,17 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      locale.hpp
+ *  @brief     (Error-)messages in english and german.
+ *  @details   
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 #pragma once

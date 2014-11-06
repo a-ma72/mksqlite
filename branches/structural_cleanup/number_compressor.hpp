@@ -1,14 +1,23 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      number_compressor.hpp
+ *  @brief     Compression of numeric (real number) arrays
+ *  @details   Using "blosc" as lossless compressor and a lossy quantising compressor
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 #pragma once
 
-/*
+/**
+ * @file
  * The compressor squeezes an array of numeric values using one of 
  * the available packing algorithms (blosc, lc4, qlin16, qlog16).
  * qlin16 and qlog16 are lossy compression algorithms and only available for 
@@ -30,13 +39,10 @@ extern "C"
 #define QLIN16_ID               "QLIN16"
 #define QLOG16_ID               "QLOG16"
 
-/* Which compression method is to use, if its name is empty */
+/// Which compression method is to use, if its name is empty
 #define COMPRESSOR_DEFAULT_ID   BLOSC_DEFAULT_ID
 
-
-
-/* compressor class */
-
+/// compressor class
 class NumberCompressor 
 {
 public:

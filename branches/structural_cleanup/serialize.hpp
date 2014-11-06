@@ -1,14 +1,21 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      serialize.hpp
+ *  @brief     MATLAB hidden (officially undocumented) feature of serializing data
+ *  @details   
+ *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 #pragma once
-
-/* serialization of MATLAB variables with an undocumented feature */
 
 #include "config.h"
 #include "global.hpp"

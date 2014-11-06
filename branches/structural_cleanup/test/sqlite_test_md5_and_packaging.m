@@ -73,7 +73,7 @@ function sqlite_test_md5_and_packaging ()
   
   figure
   plot( data, 'displayname', 'Original' ), hold all
-  plot( q.data, 'displayname', 'Kopie' )
+  plot( q.data, 'displayname', 'Copy' )
   grid
   legend( 'show' )
   title( 'QLIN16' );
@@ -88,7 +88,7 @@ function sqlite_test_md5_and_packaging ()
   
   figure
   plot( data, 'displayname', 'Original' ), hold all
-  plot( q.data, 'displayname', 'Kopie' )
+  plot( q.data, 'displayname', 'Copy' )
   grid
   legend( 'show' )
   title( 'QLOG16' );
