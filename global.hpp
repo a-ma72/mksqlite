@@ -1,11 +1,11 @@
 /**
  *  mksqlite: A MATLAB Interface to SQLite
  * 
- *  @file
+ *  @file      global.hpp
  *  @brief     Global definitions.
  *  @details   
  *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
  *  @version   2.0
  *  @date      2008-2014
  *  @copyright Distributed under LGPL
@@ -69,7 +69,7 @@
 #define DEELX_VERSION_STRING      "1.2"
 #define MKSQLITE_VERSION_STRING   "2.0 candidate"
 
-
+/* early bind of serializing functions (earlier MATLAB versions only) */
 #if (CONFIG_EARLY_BIND_SERIALIZE)
 extern "C" mxArray* mxSerialize(const mxArray*);
 extern "C" mxArray* mxDeserialize(const void*, size_t);
@@ -82,48 +82,64 @@ typedef unsigned char byte;
 
 #if 0
     // mxCalloc() and mxFree() are extremely slow!
-    #define MEM_ALLOC( count, bytes ) ( (void*)mxMalloc( count, bytes ) )
-    #define MEM_FREE( ptr ) mxFree( ptr )
+    #define MEM_ALLOC( count, bytes )   ( (void*)mxMalloc( count, bytes ) )
+    #define MEM_FREE( ptr )             mxFree( ptr )
+    #define MEM_REALLOC( ptr, bytes )   mxRealloc( ptr, bytes )
 #else
     /// Global memory allocator
-    #define MEM_ALLOC( count, bytes ) ( (void*)new char[count*bytes] )
+    #define MEM_ALLOC( count, bytes )   ( (void*)new char[count*bytes] )
     /// Global memory deallocator
-    #define MEM_FREE( ptr ) ( delete[] ptr )
+    #define MEM_FREE( ptr )             ( delete[] ptr )
+    /// Global memory deallocator
+    #define MEM_REALLOC( ptr, size )    HC_ASSERT_ERROR
 #endif
 
+#if CONFIG_USE_HEAP_CHECK
+// memory macros (MEM_ALLOC, MEM_REALLOC and MEM_FREE) used by heap_check.hpp
+#include "heap_check.hpp"
+        
+// Now redirect memory macros to heap checking functions
+#undef MEM_ALLOC
+#undef MEM_FREE 
+        
+#define MEM_ALLOC( count, bytes )   (HeapCheck.New( count * bytes, __FUNCTION__, /*notes*/ "", __LINE__ ))
+#define MEM_FREE( ptr )             (HeapCheck.Free( ptr ))
+#endif // CONFIG_USE_HEAP_CHECK
+
+    
 #ifdef MAIN_MODULE
 
 
 /* common global states */
 
-/* Flag: Show the welcome message, initializing... */
+/// Flag: Show the welcome message, initializing...
 int             g_is_initialized        = 0;
 
-/* Max. length for fieldnames in MATLAB */
+/// Max. length for fieldnames in MATLAB 
 int             g_namelengthmax         = 63;
 
-/* Flag: return NULL as NaN  */
+/// Flag: return NULL as NaN
 int             g_NULLasNaN             = CONFIG_NULL_AS_NAN;
 const double    g_NaN                   = mxGetNaN();
 
-/* Flag: Check for unique fieldnames */
+/// Flag: Check for unique fieldnames
 int             g_check4uniquefields    = CONFIG_CHECK_4_UNIQUE_FIELDS;
 
-/* Compression settings for typed BLOBs */
+/// Compression settings for typed BLOBs
 int             g_compression_level     = CONFIG_COMPRESSION_LEVEL;    
 const char*     g_compression_type      = CONFIG_COMPRESSION_TYPE; 
 int             g_compression_check     = CONFIG_COMPRESSION_CHECK;
 
-/* Flag: String representation (utf8 or ansi) */
+/// Flag: String representation (utf8 or ansi)
 int             g_convertUTF8           = CONFIG_CONVERT_UTF8;
 
-/* Flag: Allow streaming */
+/// Flag: Allow streaming
 int             g_streaming             = CONFIG_STREAMING;
 
-/* Data organisation of returning query results */
+/// Data organisation of returning query results
 int             g_result_type           = CONFIG_RESULT_TYPE;
 
-/* Wrap parameters */
+/// Wrap parameters
 int             g_wrap_parameters       = CONFIG_WRAP_PARAMETERS;
 
 #endif

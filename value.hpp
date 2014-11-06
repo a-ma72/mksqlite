@@ -1,3 +1,19 @@
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      value.hpp
+ *  @brief     Value wrapper for MATLAB/SQL data
+ *  @details   
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
+ */
+
 #pragma once 
 
 #include "config.h"

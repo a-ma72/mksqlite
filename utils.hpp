@@ -1,9 +1,10 @@
 /**
  *  mksqlite: A MATLAB Interface to SQLite
  * 
- *  @file
+ *  @file      utils.hpp
  *  @brief     Utilities used in all files.
- *  @details   Value class and string support.
+ *  @details   String support.
+ *  @see       http://note.sonots.com/Mex/Matrix.html
  *  @author    Martin Kortmann <mail@kortmann.de>
  *  @author    Andreas Martin
  *  @version   2.0
@@ -14,8 +15,6 @@
  *  @bug       
  */
 
-// http://note.sonots.com/Mex/Matrix.html
-
 #pragma once
 
 #include "config.h"
@@ -24,7 +23,7 @@
 
 /* helper functions, declaration */
 
-                  size_t  utils_elbytes( mxClassID classID );
+                  size_t  utils_elbytes           ( mxClassID classID );
                   int     utils_utf2latin         ( const unsigned char *s, unsigned char *buffer );
                   int     utils_latin2utf         ( const unsigned char *s, unsigned char *buffer );
                   char*   utils_strnewdup         ( const char* s );

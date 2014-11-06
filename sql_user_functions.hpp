@@ -1,9 +1,18 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      sql_user_functions.hpp
+ *  @brief     SQL user defined functions, automatically attached to each database
+ *  @details   Additional functions in SQL statements (MD5, regex, pow, and packing ratio/time)
+ *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 #pragma once

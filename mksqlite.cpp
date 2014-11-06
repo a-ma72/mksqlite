@@ -1,9 +1,17 @@
-/*
- * mksqlite: A MATLAB Interface to SQLite
- *
- * (c) 2008-2014 by M. Kortmann <mail@kortmann.de>
- *               and A.Martin
- * distributed under LGPL
+/**
+ *  mksqlite: A MATLAB Interface to SQLite
+ * 
+ *  @file      mksqlite.cpp
+ *  @brief     Sql class and mksqlite class, main routine
+ *  @details
+ *  @author    Martin Kortmann <mail@kortmann.de>
+ *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @version   2.0
+ *  @date      2008-2014
+ *  @copyright Distributed under LGPL
+ *  @pre       
+ *  @warning   
+ *  @bug       
  */
 
 /* following define is not really used yet, since this is only one module */
@@ -19,9 +27,9 @@
 #include "locale.hpp"               // (Error-)Messages
 #include <vector>
 
-#define STRMATCH(strA,strB) ( (strA) && (strB) && ( 0 == _strcmpi( (strA), (strB) ) ) )
-#define FINALIZE_STR( message ) mexErrMsgTxt( message )
-#define FINALIZE( identifier ) FINALIZE_STR( ::getLocaleMsg( identifier ) )
+#define STRMATCH(strA,strB)       ( (strA) && (strB) && ( 0 == _strcmpi( (strA), (strB) ) ) )
+#define FINALIZE_STR( message )   mexErrMsgTxt( message )
+#define FINALIZE( identifier )    FINALIZE_STR( ::getLocaleMsg( identifier ) )
 
 #define DBID_NEW_OR_ALL -1
 
@@ -205,7 +213,7 @@ public:
     {
         if( m_command )
         {
-            utils_free_ptr( m_command );
+            ::utils_free_ptr( m_command );
         }
     }
     
@@ -525,7 +533,7 @@ public:
         if(1)
         {
             int new_compression_level = 0;
-            const char* new_compressor = NULL;
+            char* new_compressor = NULL;
 
             if( m_narg < 2 ) 
             {
@@ -1366,7 +1374,7 @@ public:
             }
             
             sprintf( new_command, "%s;", m_command );
-            utils_free_ptr( m_command );
+            ::utils_free_ptr( m_command );
             m_command = new_command;
             
             m_query = m_command;
