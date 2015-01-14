@@ -1,13 +1,17 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      value.hpp
- *  @brief     Value wrapper for MATLAB/SQL data
- *  @details   
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin
+ *  @brief     Value container for MATLAB/SQL data
+ *  @details   Classes for value interchange between MATLAB and SQL.
+ *             - ValueBase as common root
+ *             - ValueMex holding MATLAB arrays
+ *             - ValueSQL holding SQL values (single table element)
+ *             - ValueSQLCol holding a complete table column
+ *  @authors   Martin Kortmann <mail@kortmann.de>, 
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -16,7 +20,7 @@
 
 #pragma once 
 
-#include "config.h"
+//#include "config.h"
 #include "global.hpp"
 #include "sqlite/sqlite3.h"
 #include <string>
@@ -39,11 +43,16 @@ class   ValueSQLCol;
 struct  tagNativeArray;
 
 
-
+/**
+ * \brief Base class for ValueMex and ValueSQL
+ *
+ * Member \p m_largest_field is only used to copy the content of the union.
+ * 
+ */
 class ValueBase
 {
 public:
-    bool                m_isConst;        ///< if flagged as non-const, class has memory ownership (custody over m_text and m_blob)
+    bool                m_isConst;        ///< if flagged as non-const, class has memory ownership (custody)
     union
     {
       double            m_float;          ///< floating point representation
@@ -53,47 +62,51 @@ public:
       const mxArray*    m_pcItem;         ///< MATLAB variable representation
       tagNativeArray*   m_array;          ///< self allocated variable representation
       
-      long long         m_largest_field;  ///< lagest member used to copy entire union
+      long long         m_largest_field;  ///< largest member used to copy entire union (dummy field)
     };
     
+    /// Dtor
     ~ValueBase()
     {
+        // Class ValueBase manages no memory, so constant fields are assumed!
         assert( m_isConst || !m_largest_field );
     }
     
-// Only derived classes may create Value instances
+// Only derived classes may create class instances
 protected:
     
+    /// Standard ctor
     ValueBase()
     : m_isConst(true),
       m_largest_field(0)
     {
     }
     
-    // Copy ctor
+    /// Copy ctor for constant objects
     ValueBase( const ValueBase& other )
     {
         *this       = other;
         m_isConst   = true;
     }
     
-    // Move ctor for lvalues
+    /// Move ctor for lvalues
     ValueBase( ValueBase& other )
     {
         *this           = other;
-        other.m_isConst = true;
+        other.m_isConst = true;   // taking ownership
     }
     
-    // Move ctor for rvalues (temporary objects)
+    /// Move ctor for rvalues (temporary objects)
     ValueBase( ValueBase&& other )
     {
         *this           = std::move(other);
-        other.m_isConst = true;
+        other.m_isConst = true;   // taking ownership
     }
     
-    // assignment operator 
+    /// Assignment operator 
     ValueBase& operator=( const ValueBase& other )
     {
+        // checking self assignment
         if( this != &other )
         {
             m_isConst       = true;
@@ -103,29 +116,31 @@ protected:
         return *this;
     }
     
-    // assignment operator for lvalues
+    /// Assignment operator for lvalues
     ValueBase& operator=( ValueBase& other )
     {
+        // checking self assignment
         if( this != &other )
         {
             m_isConst       = other.m_isConst;
             m_largest_field = other.m_largest_field;
 
-            other.m_isConst = true;
+            other.m_isConst = true;   // taking ownership
         }
         
         return *this;
     }
     
-    // assignment operator for rvalues (temporary objects)
+    /// Assignment operator for rvalues (temporary objects)
     ValueBase& operator=( ValueBase&& other )
     {
+        // checking self assignment
         if( this != &other )
         {
             m_isConst       = other.m_isConst;
             m_largest_field = other.m_largest_field;
 
-            other.m_isConst = true;
+            other.m_isConst = true;   // taking ownership
         }
         
         return *this;
@@ -134,16 +149,18 @@ protected:
 
 
 /**
- * @brief Encapsulating a MATLAB mxArray.
+ * \brief Encapsulating a MATLAB mxArray.
  * 
- * Class Value never takes custody of a MATLAB memory object!
+ * Class ValueMex never takes custody of a MATLAB memory object! \n
+ * Even though there is a function Destroy() which frees the MATLAB object,
+ * this class has no destructor which automatically does.
  *
  * It's intended that this class allocates and tends memory space 
  * through other functions than mxCreate*() functions, since these are very 
- * slow.
+ * slow. (see \ref tagNativeArray)
  *
  * Since a dtor is declared, we have to fulfil the "rule of three"
- * @sa <a href="http://en.wikipedia.org/wiki/Rule_of_three_%28C%2B%2B_programming%29">Wikipedia</a>
+ * \sa <a href="http://en.wikipedia.org/wiki/Rule_of_three_%28C%2B%2B_programming%29">Wikipedia</a>
  */
 
 class ValueMex : public ValueBase
@@ -163,11 +180,12 @@ public:
     } type_complexity_e;
     
     
+    /// Standard ctor
     ValueMex() : ValueBase()
     {
     }
     
-    /// Copy ctor
+    /// Copy ctor for const objects
     ValueMex( const ValueMex& other ) : ValueBase( other )
     {
     }
@@ -182,28 +200,32 @@ public:
     {
     }
     
-    // assignment operator
+    /// Assignment operator for const objects
     ValueMex& operator=( const ValueMex& other )
     {
         ValueBase::operator=( other );
         return *this;
     }
     
-    // assignment operator for lvalues
+    /// Assignment operator for lvalues
     ValueMex& operator=( ValueMex& other )
     {
         ValueBase::operator=( other );
         return *this;
     }
     
-    // assignment operator for rvalues (temporary objects)
+    /// Assignment operator for rvalues (temporary objects)
     ValueMex& operator=( ValueMex&& other )
     {
         ValueBase::operator=( std::move(other) );
         return *this;
     }
     
-    /// @param pxItem externally allocated MATLAB array
+    /**
+     * \brief Copy ctor for mxArrays
+     * 
+     *  \param[in] pcItem MATLAB array
+     */
     explicit
     ValueMex( const mxArray* pcItem )
     {
@@ -212,8 +234,13 @@ public:
     }
     
    
-    /// allocating ctor
-    /// @param pxItem externally allocated MATLAB array
+    /**
+     * \brief Ctor allocating new MATLAB matrix object
+     *
+     * \param[in] m Number of rows
+     * \param[in] n Number of columns
+     * \param[in] clsid Class ID of value type (refer MATLAB manual)
+     */
     ValueMex( mwIndex m, mwIndex n, int clsid )
     {
         m_pcItem  = mxCreateNumericMatrix( m, n, (mxClassID)clsid, mxREAL );
@@ -221,6 +248,7 @@ public:
     }
     
 /*
+    // \hide
     void adopt()
     {
         m_isConst = false;
@@ -230,8 +258,13 @@ public:
     {
         m_isConst = true;
     }
+    // \endhide
 */ 
-    /// @brief deallocator
+    /**
+     * \brief Dtor
+     *
+     * If this class has its custody, memory is freed.
+     */
     void Destroy()
     {
         if( !m_isConst && m_pcItem )
@@ -241,7 +274,9 @@ public:
         }
     }
     
-    /// @returns hosted MATLAB array m_pcItem
+    /**
+     * \brief Returns hosted MATLAB array
+     */
     inline
     const mxArray* Item() const
     {
@@ -249,99 +284,129 @@ public:
     }
 
 
-    /// @returns the row count (1st dimension)
+    /**
+     * \brief Returns row count (1st dimension)
+     */
     inline
     size_t GetM() const
     {
         return mxGetM(m_pcItem);
     }
     
-    /// @returns the col count (2nd dimension)
+    /**
+     * \brief Returns col count (2nd dimension)
+     */
     inline
     size_t GetN() const
     {
         return mxGetN(m_pcItem);
     }
     
-    /// @returns true when m_pcItem is NULL or empty ([])
+    /**
+     * \brief Returns true if item is NULL or empty ([])
+     */
     inline
     bool IsEmpty() const
     {
-        return mxIsEmpty( m_pcItem );
+        return !m_pcItem || mxIsEmpty( m_pcItem );
     }
 
-    /// @returns true when m_pcItem is a cell array
+    /**
+     * \brief Returns true if item is a cell array
+     */
     inline
     bool IsCell() const
     {
         return m_pcItem ? mxIsCell( m_pcItem ) : false;
     }
 
-    /// @returns true when m_pcItem is neither NULL nor complex
+    /**
+     * \brief Returns true if item is not NULL and complex
+     */
     inline
     bool IsComplex() const
     {
         return m_pcItem ? mxIsComplex( m_pcItem ) : false;
     }
 
-    /// @returns true when m_pcItem consists of exact 1 element
+    /**
+     * \brief Returns true if item consists of exact 1 element
+     */
     inline
     bool IsScalar() const
     {
         return NumElements() == 1;
     }
 
-    /// @returns true when m_pcItem is of type 1xN or Mx1
+    /**
+     * \brief Returns true if m_pcItem is of size 1xN or Mx1
+     */
     inline
     bool IsVector() const
     {
         return NumDims() == 2 && min( GetM(), GetN() ) == 1;
     }
     
-    /// @returns true when m_pcItem is of type mxDOUBLE_CLASS
+    /**
+     * \brief Returns true if m_pcItem is of type mxDOUBLE_CLASS
+     */
     inline
     bool IsDoubleClass() const
     {
         return mxDOUBLE_CLASS == ClassID();
     }
 
-    /// @returns the number of elements in m_pcItem
+    /**
+     * \brief Returns number of elements
+     */
     inline
     size_t NumElements() const
     {
         return m_pcItem ? mxGetNumberOfElements( m_pcItem ) : 0;
     }
     
-    /// @returns the size in bytes of one element
+    /**
+     * \brief Returns size in bytes of one element
+     */
     inline
     size_t ByElement() const
     {
         return m_pcItem ? mxGetElementSize( m_pcItem ) : 0;
     }
     
-    /// @returns the number of dimensions for m_pcItem
+    /**
+     * \brief Returns number of dimensions
+     */
     inline
     int NumDims() const
     {
         return m_pcItem ? mxGetNumberOfDimensions( m_pcItem ) : 0;
     }
       
-    /// @returns the data size of a MATLAB variable in bytes
+    /**
+     * \brief Returns data size in bytes
+     */
     inline
     size_t ByData() const
     {
        return NumElements() * ByElement();
     }
     
-    /// @returns the MATLAB class ID for m_pcItem
+    /**
+     * \brief Returns item class ID or mxUNKNOWN_CLASS if item is NULL
+     */
     inline
     mxClassID ClassID() const
     {
         return m_pcItem ? mxGetClassID( m_pcItem ) : mxUNKNOWN_CLASS;
     }
 
-    /// @param bCanSerialize signals, if serialization of variables is enabled
-    /// @returns the complexity of the m_pcItem (for storage issues)
+    /**
+     * \brief Get complexity information. Which storage level is necessary (scalar, vector, matrix, text, blob)
+     *
+     * \param[in] bCanSerialize true if serialization of item is enabled
+     * \returns The item complexity (for storage issues)
+     */
     type_complexity_e Complexity( bool bCanSerialize = false ) const
     {
         if( IsEmpty() ) return TC_EMPTY;
@@ -379,7 +444,9 @@ public:
         }
     }
     
-    /// @returns pointer to raw data
+    /**
+     * \brief Returns pointer to raw data
+     */
     inline
     void* Data() const
     {
@@ -387,11 +454,11 @@ public:
     }
     
     /**
-     * @brief Convert a string to char, due flagUTF converted to utf8
+     * \brief Convert a string to char, due flagUTF converted to utf8
      *
-     * @param flagUTF if true, string will be converted to UTF8
-     * @param [out] format optional format string (see fprintf())
-     * @returns created string (allocator @ref MEM_ALLOC)
+     * \param[in] flagUTF if true, string will be converted to UTF8
+     * \param[out] format optional format string (see fprintf())
+     * \returns created string (allocator \ref MEM_ALLOC)
      */
     char *GetString( bool flagUTF = false, const char* format = NULL ) const
     {
@@ -400,6 +467,7 @@ public:
         mxArray*    new_string      = NULL;
         mxArray*    org_string      = const_cast<mxArray*>(m_pcItem);
         
+        // reformat original string with MATLAB function "sprintf" into new string
         if( format )
         {
             mxArray* args[2] = { mxCreateString( format ), org_string };
@@ -410,20 +478,26 @@ public:
             org_string = new_string;
         }
         
+        // get character stream from original string (MATLAB array)
         if( org_string )
         {
             count   = mxGetM( org_string ) * mxGetN( org_string ) + 1;  // one extra char for NUL
             result  = (char*) MEM_ALLOC( count, sizeof(char) );
         }
 
+        // try to retrieve the character stream
         if( !result || mxGetString( org_string, result, (int)count ) )
         {
-            utils_destroy_array(new_string );
+            // free memory and return with error
+            ::utils_free_ptr( result );
+            ::utils_destroy_array( new_string );
             mexErrMsgTxt( getLocaleMsg( MSG_CANTCOPYSTRING ) );
         }
         
-        utils_destroy_array(new_string );
+        // reformatted string is no longer needed
+        ::utils_destroy_array( new_string );
 
+        // convert to UFT
         if( flagUTF )
         {
             char *buffer = NULL;
@@ -435,14 +509,14 @@ public:
 
             if( !buffer )
             {
-                utils_free_ptr( result ); // Needless due to mexErrMsgTxt(), but clean
+                ::utils_free_ptr( result ); // Needless due to mexErrMsgTxt(), but clean
                 mexErrMsgTxt( getLocaleMsg( MSG_CANTCOPYSTRING ) );
             }
 
             /* encode string to utf now */
-            utils_latin2utf( (unsigned char*)result, (unsigned char*)buffer );
+            ::utils_latin2utf( (unsigned char*)result, (unsigned char*)buffer );
 
-            utils_free_ptr( result );
+            ::utils_free_ptr( result );
 
             result = buffer;
         }
@@ -452,9 +526,9 @@ public:
     
     
     /**
-     * @brief Convert a string to char, due to global flag converted to utf
+     * \brief Returns allocated memory with items test, due to global flag converted to UTF
      *
-     * @returns created string (allocator @ref MEM_ALLOC)
+     * \returns created string (allocator \ref MEM_ALLOC)
      */
     char* GetEncString() const
     {
@@ -463,10 +537,10 @@ public:
 
 
     /**
-     * @brief get the integer m_pcItem from value
+     * \brief Get integer value from item
      *
-     * @param errval value to return in case of wrong variable data type
-     * @returns value of m_pcItem converted to integer type.
+     * \param errval Value to return in case of non-convertible variable data type
+     * \returns Item value converted to integer type.
      */
     int GetInt( int errval = 0 ) const
     {
@@ -485,7 +559,7 @@ public:
         return errval;
     }
     
-    /// @returns scalar variable value or NaN in case it's a non scalar
+    /// \returns Scalar item value (double), or NaN if it's not a scalar
     double GetScalar() const
     {
         return IsScalar() ? mxGetScalar( m_pcItem ) : DBL_NAN;
@@ -493,41 +567,57 @@ public:
 };
 
 
+/**
+ * \brief Class encapsulating a SQL field value
+ *
+ * SQLite supports following types:
+ * - SQLITE_INTEGER
+ * - SQLITE_FLOAT
+ * - SQLITE_TEXT
+ * - SQLITE_BLOB
+ * - SQLITE_NULL
+ * - SQLITE3_TEXT (not supported)
+ *
+ * ValueSQL holds one field value of listed types.
+ */
 class ValueSQL : public ValueBase
 {
 public:
-    int m_typeID;  // SQLITE_INTEGER, SQLITE_FLOAT, SQLITE_TEXT, SQLITE_BLOB, SQLITE_NULL ( unused: SQLITE3_TEXT )
-    
+    /// Type of SQL value as integer ID
+    int m_typeID;
+  
+    /// Dtor
     ~ValueSQL()
     {
         Destroy();
     }
 
+    /// Standard ctor
     ValueSQL()
     {
         m_isConst = true;
         m_typeID  = SQLITE_NULL;
     }
     
-    // copy ctor
+    /// Copy ctor for constant objects
     ValueSQL( const ValueSQL& other ) : ValueBase( other )
     {
         m_typeID = other.m_typeID;
     }
     
-    // copy ctor for lvalues
+    /// Copy ctor for lvalues
     ValueSQL( ValueSQL& other ) : ValueBase( other )
     {
         m_typeID = other.m_typeID;
     }
     
-    // copy ctor for rvalues (temporary objects)
+    /// Copy ctor for rvalues (temporary objects)
     ValueSQL( ValueSQL&& other ) : ValueBase( std::move(other) )
     {
         m_typeID = other.m_typeID;
     }
     
-    // assignment operator
+    /// Assignment operator for constant objects
     ValueSQL& operator=( const ValueSQL& other )
     {
         ValueBase::operator=(other);
@@ -535,7 +625,7 @@ public:
         return *this;
     }
 
-    // assignment operator for lvalues
+    /// Assignment operator for lvalues
     ValueSQL& operator=( ValueSQL& other )
     {
         ValueBase::operator=(other);
@@ -543,7 +633,7 @@ public:
         return *this;
     }
 
-    // assignment operator for rvalues (temporary objects)
+    /// Assignment operator for rvalues (temporary objects)
     ValueSQL& operator=( ValueSQL&& other )
     {
         ValueBase::operator=(std::move(other));
@@ -551,6 +641,7 @@ public:
         return *this;
     }
 
+    /// Ctor for double type initializer
     explicit
     ValueSQL( double dValue )
     {
@@ -559,6 +650,7 @@ public:
         m_typeID  = SQLITE_FLOAT;
     }
     
+    /// Ctor for llong type initializer
     explicit
     ValueSQL( long long iValue )
     {
@@ -567,6 +659,7 @@ public:
         m_typeID  = SQLITE_INTEGER;
     }
     
+    /// Ctor for const char* type initializer
     explicit
     ValueSQL( const char* txtValue )
     {
@@ -575,6 +668,7 @@ public:
         m_typeID  = SQLITE_TEXT;
     }
     
+    /// Ctor for char* type initializer
     explicit
     ValueSQL( char* txtValue )
     {
@@ -583,6 +677,7 @@ public:
         m_typeID  = SQLITE_TEXT;
     }
     
+    /// Ctor for MATLAB const mxArray* type initializer
     explicit
     ValueSQL( const mxArray* blobValue )
     {
@@ -591,6 +686,7 @@ public:
         m_typeID  = SQLITE_BLOB;
     }
 
+    /// Ctor for MATLAB mxArray* type initializer
     explicit
     ValueSQL( mxArray* blobValue )
     {
@@ -599,7 +695,8 @@ public:
         m_typeID  = SQLITE_BLOB;
     }
 
-/*
+/* 
+    // \hide
     void adopt()
     {
         m_isConst = false;
@@ -609,8 +706,15 @@ public:
     {
         m_isConst = true;
     }
+ 
+    // \endhide
 */
     
+    /**
+     * \brief Freeing memory space if having ownership
+     *
+     * Text and BLOB reserve dynamic memory space to store its contents
+     */
     void Destroy()
     {
         if( !m_isConst )
@@ -633,24 +737,43 @@ public:
 };
 
 
+/**
+ * \brief Class encapsulating a complete SQL table column with type and name
+ *
+ * In case of double (integer) type, a complete row may be returned as MATLAB matrix (vector).
+ * If any (row) element is non scalar, or an integer has no acceptable precise double representation,
+ * only a MATALB struct or cell variable can be returned. ValueSQL holds the double type up until
+ * its not tenable any more. Then all rows are stored with its individual value types.
+ */
 class ValueSQLCol
 {
+private:
+    /// Standard ctor (inhibited)
+    ValueSQLCol();
+    
 public:
-    string m_col_name;
-    string m_name;
-    bool   m_isAnyType;
+    string m_col_name;  ///< Table column name (SQL)
+    string m_name;      ///< Table column name (MATLAB)
+    bool   m_isAnyType; ///< true, if it's pure double (integer) type
     
+    /// Holds one table column name (first=SQL name, second=MATLAB name)
     typedef pair<string,string>    StringPair;
-    typedef vector<StringPair>     StringPairList;
+    typedef vector<StringPair>     StringPairList;  ///< list of string pairs
 
-    vector<ValueSQL>  m_any;
-    vector<double>    m_float;
+    vector<ValueSQL>  m_any;    ///< row elements with type information
+    vector<double>    m_float;  ///< row elements as pure double type
     
+    /// Ctor with column name-pair
     ValueSQLCol( StringPair name )
-    : m_col_name(name.first), m_name(name.second), m_isAnyType(false)
+    : m_col_name(name.first)/*SQL*/, m_name(name.second)/*MATLAB*/, m_isAnyType(false)
     {
     }
     
+    /**
+     * \brief Dtor
+     *
+     * Elements taking memory space will be freed.
+     */
     ~ValueSQLCol()
     {
         for( int i = 0; i < (int)m_any.size(); i++ )
@@ -659,41 +782,61 @@ public:
         }
     }
 
+    /**
+     * \brief Deleting a single row element
+     *
+     * \param[in] row Row number (0 based)
+     */
     void Destroy( int row )
     {
-        if( row < (int)m_any.size() )
+        if( m_isAnyType && row < (int)m_any.size() )
         {
             m_any[row].Destroy();
         }
     }
     
+    /// Returns the row count
     size_t size()
     {
         return m_isAnyType ? m_any.size() : m_float.size();
     }
     
-    // Always returns a copy of the original (no reference!)
+    /**
+     * \brief Indexing operator
+     * 
+     * \param[in] index Row number (0 based)
+     * \returns Always returns a copy of the original (no reference!)
+     */
     const ValueSQL operator[]( int index )
     {
         return m_isAnyType ? const_cast<const ValueSQL&>(m_any[index]) : ValueSQL( m_float[index] );
     }
     
+    /**
+     * \brief Transform storage type
+     *
+     * Switches from pure double representation to individual value types.
+     * Each former double element will be converted to ValueSQL type.
+     */
     void swapToAnyType()
     {
         if( !m_isAnyType )
         {
             assert( !m_any.size() );
             
+            // convert each element to ValueSQL type
             for( int i = 0; i < (int)m_float.size(); i++ )
             {
                 m_any.push_back( ValueSQL(m_float[i]) );
             }
 
+            // clear old value vector (double types) and flag new column type
             m_float.clear();
             m_isAnyType = true;
         }
     }
     
+    /// Appends a new row element (floating point)
     void append( double value )
     {
         if( m_isAnyType )
@@ -706,9 +849,10 @@ public:
         }
     }
     
+    /// Appends a new row element (integer)
     void append( long long value )
     {
-        /* Test if integer value can be represented by a double */
+        /* Test if integer value can be represented as double type */
         double    dVal  = (double)(value);
         long long llVal = (long long) dVal;
 
@@ -724,30 +868,35 @@ public:
         }
     }
     
+    /// Appends a new row element (const text)
     void append( const char* value )
     {
         swapToAnyType();
         m_any.push_back( ValueSQL(value) );
     }
 
+    /// Appends a new row element (non-const text)
     void append( char* value )
     {
         swapToAnyType();
         m_any.push_back( ValueSQL(value) );
     }
 
+    /// Appends a new row element (const MATLAB array)
     void append( const mxArray* value )
     {
         swapToAnyType();
         m_any.push_back( ValueSQL(value) );
     }
     
+    /// Appends a new row element (non-const MATLAB array)
     void append( mxArray* value )
     {
         swapToAnyType();
         m_any.push_back( ValueSQL(value) );
     }
     
+    /// Appends a new row element (const SQL value)
     void append( const ValueSQL& item )
     {
         switch( item.m_typeID )
@@ -784,6 +933,7 @@ public:
         }
     }
     
+    /// Appends a new row element (non-const SQL value)
     void append( ValueSQL& item )
     {
         switch( item.m_typeID )
@@ -806,18 +956,30 @@ public:
     }
 };
 
+/**
+ * \brief mxArray replacement for speed improvement
+ *
+ * \todo
+ * Allocating a mxArray is time expensive. BLOB items are handled as
+ * mxArrays. Extensive usage is very slow. It's untested whether SQL or the
+ * mxArray is the bottleneck. Speed improvements may be possible...
+ */
 struct tagNativeArray
 {
     size_t          m_elBytes;      ///< size of one single element in bytes
     size_t          m_dims[1];      ///< count of dimensions
     
+    /// Ctor
     tagNativeArray()
     : m_elBytes(0)
     {
         m_dims[0] = 0;
     }
 
-    
+    /**
+     * \brief Array allocator
+     *
+     */
     static
     tagNativeArray* CreateArray( size_t nDims, size_t dims[], int typeID )
     {
@@ -856,10 +1018,23 @@ struct tagNativeArray
         return pThis;
     }
     
+    /**
+     * \brief Matrix allocator
+     */
     static
     tagNativeArray* CreateMatrix( size_t m, size_t n, int typeID )
     {
         size_t dims[] = {m, n};
         return CreateArray( 2, dims, typeID );
+    }
+    
+    /**
+     * \brief Array deallocator
+     *
+     */
+    static
+    void FreeArray( tagNativeArray* pNativeArray )
+    {
+        MEM_FREE( pNativeArray );
     }
 };

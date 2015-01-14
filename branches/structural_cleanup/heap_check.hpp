@@ -1,14 +1,13 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB interface to SQLite -->
  * 
  *  @file      heap_check.hpp
- *  @brief     Memory manager for leak detection.
+ *  @brief     Memory leak detection helper
  *  @details   Inspired by "Writing Bug-Free C Code" by Jerry Jongerius
  *  @see       http://www.duckware.com/index.html
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @author    Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -21,59 +20,85 @@
 
 #include <vector>
 
-#define HC_ASSERT_ERROR       _HC_DoAssert(__FUNCTION__,__LINE__)
-#define HC_ASSERT(exp)        if (!(exp)) {HC_ASSERT_ERROR;} else
+#define HC_ASSERT_ERROR       _HC_DoAssert(__FILE__,__FUNCTION__,__LINE__) /**< intermediate macro for expanding __FILE__, __FUNCTION__ and __LINE__ */
+#define HC_ASSERT(exp)        if (!(exp)) {HC_ASSERT_ERROR;} else          /**< Assert condition \p exp with reporting */
+#define HC_NOTES(ptr,notes)   HeapCheck.UpdateNotes(ptr,notes)             /**< Update field "notes" in memory block header */
 
-/// HC_COMP_ASSERT() to verify design-time assumptions at compile-time
+/// Verifies design-time assumptions (\p exp) at compile-time
 #define HC_COMP_ASSERT(exp)   extern char _HC_CompAssert[(exp)?1:-1]
 
-#define HC_ABS(x)             (((x)>0)?(x):-(x))                          ///< absolute value
+#define HC_ABS(x)             (((x)>0)?(x):-(x))                          ///< calculate absolute value
 #define HC_ISPOWER2(x)        (!((x)&((x)-1)))                            ///< check if is a power of 2
-#define HC_ALIGNMENT          (sizeof(int))                               ///< memory alignment
-#define HC_DOALIGN(num)       (((num)+HC_ALIGNMENT-1)&~(HC_ALIGNMENT-1))  ///< align to integer
+#define HC_ALIGNMENT          (sizeof(int))                               ///< align to integer
+#define HC_DOALIGN(num)       (((num)+HC_ALIGNMENT-1)&~(HC_ALIGNMENT-1))  ///< memory alignment
 
 
-/// USE_HC_ASSERT must exist in every module which uses assertions
-#define USE_HC_ASSERT                                                   \
-static      char  szFILE[]=__FILE__;                                    \
-extern "C"  void  HC_ReportAssert( const char*, const char*, long );    \
-static      int   _HC_DoAssert( const char* func, int nLine )           \
-{                                                                       \
-    HC_ReportAssert(szFILE, func, nLine);                               \
-    HC_ASSERT(nLine);  /* inhibit removal of unreferenced function */   \
-    return(0);                                                          \
+/// Macro \ref USE_HC_ASSERT must exist in every module which uses macro \ref HC_ASSERT.
+#define USE_HC_ASSERT                                                               \
+extern "C"  void  HC_ReportAssert ( const char*, const char*, long );               \
+static      int   _HC_DoAssert    ( const char* file, const char* func, int nLine ) \
+{                                                                                   \
+    HC_ReportAssert(file, func, nLine);                                             \
+    HC_ASSERT(nLine);  /* inhibit removal of unreferenced function */               \
+    return(0);                                                                      \
 }  
 
 
+/// \cond
 USE_HC_ASSERT;
+/// \endcond
 
 
+/// Helperclass for memory leak and access violation detection
 class HeapCheck
 {
-    struct tagFooter;
+    struct tagFooter;  // forward declaration
+    
+    /** \brief Memory block header
+     *
+     * Each memory block is surrounded by additional information:
+     * A preceding header stores who is responsible to this memory, some
+     * additional notes (comments) an a pointer to the end of the memory
+     * block (footer).
+     * By checking consitency of header and footer, one can test, if any
+     * close memory (write) accesses violation occures.
+     */
     struct tagHeader
     {
-        tagFooter*    lpFooter;         ///< pointer to footer
+        tagFooter*    lpFooter;         ///< pointer to footer, contiguous to memory block
         const char*   lpFilename;       ///< filename or NULL
         const char*   lpFunctionName;   ///< function name
         long          lLineNumber;      ///< line number or 0
-        void*         lpMem;            ///< memory block
+        void*         lpMem;            ///< pointer to memory block (contiguous to this header space)
         const char*   lpNotes;          ///< pointer to further notes or NULL
     };
     
+    /** \brief Memory block footer (end marker)
+     *
+     * The footer only holds a pointer to the memory block header and is
+     * used for consistence check only.
+     */
     struct tagFooter
     {
         tagHeader*    lpHeader;         ///< pointer to header of this memory block
     };
     
-    
+    /// Memory blocks linked list typedef
     typedef std::vector<const tagHeader*> vec_tagHeader;
     
+    /// Linked list of memory blocks used in module scope
     vec_tagHeader m_mem_blocks;
     
 public:
+    /** \brief Destructor
+     *
+     * The destructor frees orphan memory space
+     * while reporting.
+     */
     ~HeapCheck()
     {
+        int count = 0;
+        
         Walk();
         
         for( int i = 0; i < m_mem_blocks.size(); i++ )
@@ -82,10 +107,19 @@ public:
             {
                 MEM_FREE( m_mem_blocks[i] );
                 m_mem_blocks[i] = NULL;
+                count++;
             }
         }
+
+#if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
+        if( !count )
+        {
+            mexPrintf( "Heap check: ok\n" );
+        }
+#endif
     }
     
+    /// Returns the header size in bytes
     static
     size_t GetHeaderSize()
     {
@@ -93,13 +127,23 @@ public:
     }
     
     
+    /** \brief Checks if header pointer \p ptr is well aligned
+     *
+     * Headers are always aligned to \a HC_ALIGNMENT. Any other alignment
+     * inidcates an error.
+     */
     static
-    int IsPtrOk( const void* ptr )
+    int isPtrAligned( const void* ptr )
     {
         return ( (ptr) && (!( (long)ptr & (HC_ALIGNMENT-1) )) );
     }
     
    
+    /** \brief Checks if header pointer \p ptr is valid
+     *
+     * Check if \p ptr is well aligned and header and footer are consistent.
+     * If not, the was an access violation.
+     */
     static
     int VerifyPtr( const void* ptr )
     {
@@ -107,7 +151,7 @@ public:
 
       if( ptr ) 
       {
-          HC_ASSERT( IsPtrOk(ptr) ) 
+          HC_ASSERT( isPtrAligned(ptr) ) 
           {
               tagHeader* header = (tagHeader*)ptr - 1;
               HC_ASSERT( header->lpMem == ptr ) 
@@ -124,14 +168,17 @@ public:
     } 
     
     
+    /// Enqueues new memory block by header pointer \p ptr
     void AddPtr( const tagHeader* ptr )
     {
         m_mem_blocks.push_back( ptr );
     }
     
     
+    /// Removes memory block, identified by \p ptr without freeing it
     void RemovePtr( const tagHeader* ptr )
     {
+        /// \todo SLOW (sorted list facilitates binary search)
         for( int i = 0; i < m_mem_blocks.size(); i++ )
         {
             if( m_mem_blocks[i] == ptr )
@@ -143,45 +190,64 @@ public:
     }
     
 
-    void* New( size_t bytes, const char* fcn, const char* notes, long nLine )
+    /** \brief Allocates a new block of memory with initialized header and footer.
+     *
+     * @param[in] bytes Size of memory needed
+     * @param[in] file Source filename with calling function
+     * @param[in] fcn Name of calling function
+     * @param[in] notes Additional (optional) notes as comment for reporting function
+     * @param[in] nLine Line number of calling function
+     * @returns Pointer to callers memory block (not to header!) or NULL on fail
+     */
+    void* New( size_t bytes, const char* file, const char* fcn, const char* notes, long nLine )
     {
-        const char* file          = szFILE;
         tagHeader*  mem_block     = NULL;
         size_t      bytes_aligned = HC_DOALIGN( bytes );
         
+        // Allocate memory with additional space for header and footer
         mem_block = (tagHeader*)MEM_ALLOC( bytes_aligned + sizeof(tagHeader) + sizeof(tagFooter), 1 );
         
         if( mem_block != NULL )
         {
             mem_block->lpFooter           = (tagFooter*)((char*)(mem_block + 1) + bytes_aligned);
-            mem_block->lpFooter->lpHeader = mem_block;
-            mem_block->lpMem              = mem_block + 1;
+            mem_block->lpFooter->lpHeader = mem_block;      // do link
+            mem_block->lpMem              = mem_block + 1;  // point to users memory block
             mem_block->lpFilename         = file;
             mem_block->lpFunctionName     = fcn;
             mem_block->lpNotes            = notes;
             mem_block->lLineNumber        = nLine;
             
-            memset( mem_block->lpMem, 0, bytes_aligned );
+            memset( mem_block->lpMem, 0, bytes_aligned );   // zero init
             
-            AddPtr( mem_block );
+            AddPtr( mem_block );  // Enqueue
         }
         else
         {
             HC_ASSERT_ERROR;
         }
         
+        
         return mem_block ? (mem_block + 1) : NULL;
     }
     
     
+    /** \brief Reallocates a block of memory allocated with New()
+     *
+     * @param[in] ptr_old Pointer returned by New() or NULL
+     * @param[in] bytes Size of memory needed
+     * @param[in] file Source filename with calling function
+     * @param[in] fcn Name replacement of calling function or NULL if not
+     * @param[in] notes Additional (optional) notes replacement as comment for reporting function or NULL if not
+     * @param[in] nLine Line number replacement of calling functionor 0 if not
+     * @returns Pointer to callers memory block (not to header!) or NULL on fail
+     */
     void* Realloc( void* ptr_old, size_t bytes,
-                     const char* fcn, const char* notes, long nLine )
+                   const char* file, const char* fcn, const char* notes, long nLine )
     {
-        const char* file      = szFILE;
         void*   ptr_new       = NULL;
         size_t  bytes_aligned = HC_DOALIGN(bytes);
 
-        // Try to reallocate
+        // Try to reallocate previously allocated space
         if( ptr_old )
         {
             if( VerifyPtr(ptr_old) )
@@ -220,7 +286,8 @@ public:
         } 
         else 
         {
-            ptr_new = New( bytes_aligned, fcn, notes, nLine );
+            // Pointer was NULL, do a normal allocation
+            ptr_new = New( bytes_aligned, file, fcn, notes, nLine );
         }
 
         // Return address to object
@@ -228,21 +295,39 @@ public:
     }
     
     
+    /// Freeing space returned from New() or Realloc()
     void Free( void* ptr )
     {
-        
         if( VerifyPtr(ptr) ) 
         {
             tagHeader*  header        = (tagHeader*)ptr - 1;
             size_t      bytes_aligned = (char*)(header->lpFooter+1) - (char*)header;
             
-            RemovePtr( header );
-            memset( header, 0, sizeof(tagHeader) );
-            MEM_FREE( header );
+            RemovePtr( header );  // dequeue
+            memset( header, 0, sizeof(tagHeader) );  // set to zero
+            MEM_FREE( header );  // and free
         }
     }
     
     
+    /// Update "notes" field in memory block header
+    void UpdateNotes( void* ptr, const char* notes )
+    {
+        if( VerifyPtr(ptr) ) 
+        {
+            tagHeader*  header = (tagHeader*)ptr - 1;
+
+            header->lpNotes = notes;
+        }
+    }
+    
+    
+    /** \brief Formatted output of memory block information (from its header)
+     *
+     * @param[in] header Pointer to the header identifying the memory block
+     * @param[in,out] lpBuffer Buffer to hold the output (ASCII)
+     * @param[in] szBuffer Size of the buffer \p lpBuffer
+     */
     static 
     void RenderDesc( const tagHeader* header, char* lpBuffer, size_t szBuffer )
     {
@@ -265,7 +350,7 @@ public:
             }
             if( header->lpNotes && (left = (int)szBuffer - (int)strlen(lpBuffer)) > 1 )
             {
-                _snprintf( lpBuffer + strlen(lpBuffer), left, "%s",
+                _snprintf( lpBuffer + strlen(lpBuffer), left, " %s",
                            header->lpNotes );
             }
         } else {
@@ -275,6 +360,10 @@ public:
     }
     
     
+    /** \brief Reporting walk through the linked memory list
+     *
+     * @param[in] text Text which is additionally outputted to each memory block report, or NULL if not
+     */
     void Walk( const char* text = NULL )
     {
         for( int i = 0; i < m_mem_blocks.size(); i++ ) 
@@ -299,6 +388,12 @@ public:
 
 };
 
+/** \brief Standard assert routine used by macro \ref HC_ASSERT
+ *
+ * @param[in] file Callers filename
+ * @param[in] lpFunctionName Callers function name
+ * @param[in] line Callers line numer
+ */
 extern "C"
 void HC_ReportAssert( const char* file, const char* lpFunctionName, long line )
 {
@@ -314,11 +409,13 @@ void HC_ReportAssert( const char* file, const char* lpFunctionName, long line )
 }
 
 // Guaranteeing correct prefix structure alignment
+/// \cond
 HC_COMP_ASSERT( HC_ISPOWER2(HC_ALIGNMENT) );
 HC_COMP_ASSERT( !( sizeof(HeapCheck::GetHeaderSize()) % HC_ALIGNMENT ) );
+/// \endcond
 
 /// Instantiate HeapCheck object
-/// One allocator per Module
+/// One allocator per module
 static HeapCheck HeapCheck;
 
 #endif //  HEAP_CHECK_HPP

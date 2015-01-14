@@ -1,4 +1,4 @@
-function sqlite_test_access_mode ()
+function sqlite_test_access_mode
   clear all
   mksqlite( 'version mex' ); % Discard startup information
   clc

@@ -1,4 +1,4 @@
-function sqlite_test_result_types ()
+function sqlite_test_result_types
 
 clc
 

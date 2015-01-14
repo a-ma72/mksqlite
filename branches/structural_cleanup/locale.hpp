@@ -1,13 +1,14 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      locale.hpp
  *  @brief     (Error-)messages in english and german.
- *  @details   
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @details   All text strings omitted by mksqlite are cumulated in this file
+ *             for the case of further translations.
+ *  @authors   Martin Kortmann <mail@kortmann.de>, 
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -17,7 +18,7 @@
 #pragma once
 
 #include "config.h"
-#include "global.hpp"
+//#include "global.hpp"
 #include "svn_revision.h" /* get the SVN revision number */
 extern "C"
 {
@@ -36,6 +37,18 @@ int           getLocale     ();
  * every language have a table of messages.
  */
 
+/** 
+ * \name Message Identifiers
+ * \anchor MSG_IDS
+ *
+ * Most messages are identified by their identifiers. Each enumerated message
+ * has a representation in english and in german.
+ * 
+ * Other messages, which have no translation have the identifier MSG_PURESTRING and
+ * its text is taken in a buffer \ref Err::m_err_msg.
+ *
+ * @{
+ */
 #define MSG_PURESTRING            -2
 #define MSG_NOERROR               -1
 #define MSG_HELLO                  0
@@ -81,23 +94,34 @@ int           getLocale     ();
 #define MSG_STREAMINGNEEDTYBLOBS  40
 #define MSG_STREAMINGNOTSUPPORTED 41
 #define MSG_RESULTTYPE            42
+#define MSG_DBID_SUPFLOUS         43
+/** @}  */
 
 
-
+/**
+ * \brief Helperclass for error message transport
+ *
+ */
 class Err
 {
-    const char* m_err_msg;
-    char m_err_string[1024];
-    bool m_isPending;
-    int  m_errId;
+    const char* m_err_msg;    ///< Holds pointer to message test if m_errId == MSG_PURESTRING
+    char m_err_string[1024];  ///< Text buffer for non-const (generated) messages
+    bool m_isPending;         ///< Message has still to be handled if this flag is set
+    int  m_errId;             ///< Message ID (see \ref MSG_IDS "Message Identifiers")
     
 public:
     
+    /// Constructor
     Err() 
     { 
         clear(); 
     }
     
+    /**
+     * \brief Set error message to a constant string (without translation)
+     *
+     * \param[in] strMsg Pointer to constant message text
+     */
     void set( const char* strMsg )
     {
          m_err_msg    = strMsg;
@@ -106,6 +130,10 @@ public:
          m_errId      = MSG_PURESTRING;
     }
     
+    /** \brief Set error message to non-constant string (no translation)
+     *
+     * \param[in] strMsg Pointer to message text
+     */
     void set( char* strMsg )
     {
         m_isPending   = true;
@@ -122,6 +150,11 @@ public:
         _snprintf( m_err_string, sizeof(m_err_string), "%s", strMsg );
     }
     
+    /** 
+     * \brief Set error message by identifier (translations available)
+     *
+     * \param[in] iMessageNr Message identifier (see \ref MSG_IDS "Message Identifiers")
+     */
     void set( int iMessageNr )
     {
          set( ::getLocaleMsg( iMessageNr ) );
@@ -132,26 +165,32 @@ public:
          m_errId = iMessageNr;
     }
     
+    /// Reset error message
     void clear()
     {
         set( MSG_NOERROR );
     }
     
+    
+    /// Get the current error message
     const char* get()
     {
         return m_err_msg ? m_err_msg : m_err_string;
     }
     
+    /// Get the current message identifier
     int getErrId()
     {
         return m_errId;
     }
     
+    /// Returns true, if the current error message is still not handled
     bool isPending()
     { 
         return m_isPending;
     }
     
+    /// Omits a warning with the current error message
     void warn( int iMessageNr )
     {
         mexWarnMsgTxt( ::getLocaleMsg( iMessageNr ) );
@@ -165,18 +204,20 @@ public:
 
 /* Implementations */
 
-/* 0 = english message table */
+/**
+ * @brief Message table for english translations (\ref Language==0)
+ */
 static const char* messages_0[] = 
 {
     "mksqlite Version " MKSQLITE_VERSION_STRING " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008-2014 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2015 by Martin Kortmann <mail@kortmann.de>\n"
+    "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite uses further:\n"
     " - DEELX perl compatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
-    "   \n"
-    "UTF-8, parameter binding, regex and (compressed) typed BLOBs: A.Martin, 2014-01-23\n\n",
+    "   \n",
     
     "invalid database handle",
     "function not possible",
@@ -220,21 +261,24 @@ static const char* messages_0[] =
     "streaming of variables needs typed BLOBs! Streaming is off",
     "streaming not supported in this MATLAB version",
     "Result type is ",
+    "Database ID is given, but superflous! ",
 };
 
 
-/* 1 = german message table */
+/**
+ * @brief Message table for german translations (\ref Language=1)
+ */
 static const char* messages_1[] = 
 {
     "mksqlite Version " MKSQLITE_VERSION_STRING " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008-2014 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2015 by Martin Kortmann <mail@kortmann.de>\n"
+    "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
-    "mksqlite verwendet darüberhinaus:\n"
+    "mksqlite verwendet darüber hinaus:\n"
     " - DEELX perl kompatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
-    "   \n"
-    "UTF-8, parameter binding, regex und (komprimierte) typisierte BLOBs: A.Martin, 2014-01-23\n\n",
+    "   \n",
     
     "ungültiger Datenbankhandle",
     "Funktion nicht möglich",
@@ -278,38 +322,64 @@ static const char* messages_1[] =
     "für das Streamen von Variablen sind typisierte BLOBS erforderlich! Streaming ist ausgeschaltet",
     "Streaming wird von dieser MATLAB Version nicht unterstützt",
     "Rückgabetyp ist ",
+    "Datenbank ID wurde angegeben, ist für diesen Befehl jedoch überflüssig! ", 
 };
 
-/* RESULT_TYPE constants defined in config.h */
-const char* STR_RESULT_TYPE[] = {
-    "array of structs", 
-    "struct of arrays", 
-    "matrix/cell array" 
+/**
+ * \brief Text representations
+ * \sa RESULT_TYPES constants defined in config.h
+ */
+const char* STR_RESULT_TYPES[] = {
+    "array of structs",   // RESULT_TYPE_ARRAYOFSTRUCTS
+    "struct of arrays",   // RESULT_TYPE_STRUCTOFARRAYS  
+    "matrix/cell array"   // RESULT_TYPE_MATRIX
 };
 
 
-/* Number of message table to use */
+/**
+ * \brief Number of language in use
+ * 
+ * A number <0 means "uninitialized"
+ */
 static int Language = -1;
 
-/*
- * Message Tables
+
+/**
+ * \brief Message Tables
  */
 static const char **messages[] = 
 {
-    messages_0,   /* English messages */
-    messages_1    /* German messages  */
+    messages_0,   /* English translations */
+    messages_1    /* German translations  */
 };
 
+
+/** 
+ * \brief Returns the translation for a defined message
+ * \param[in] iMsgNr Message identifier (see \ref MSG_IDS "Message Identifier")
+ * \returns Pointer to translation
+ */
 const char* getLocaleMsg( int iMsgNr )
 {
     return (iMsgNr < 0) ? NULL : messages[Language][iMsgNr];
 }
 
+
+/** 
+ * \brief Sets the current locale
+ */
 void setLocale( int iLang )
 {
-    Language = iLang;
+    if( iLang >=0 && iLang < sizeof(messages) )
+    {
+        Language = iLang;
+    }
 }
 
+
+/**
+ * \brief Get current locale id
+ */
 int getLocale()
 {
     return Language;

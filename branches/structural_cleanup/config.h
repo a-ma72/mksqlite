@@ -1,13 +1,13 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      config.h
  *  @brief     Global configuration settings and defaults
- *  @details   
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @details   Configuration file for settings and defaults
+ *  @authors   Martin Kortmann <mail@kortmann.de>,
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -19,19 +19,22 @@
 #define BOOL_TRUE  1
 #define BOOL_FALSE 0
 
-/* result type names defined in locale.hpp */
-enum {
-    RESULT_TYPE_ARRAYOFSTRUCTS, // Array of structs
-    RESULT_TYPE_STRUCTOFARRAYS, // Struct of arrays
-    RESULT_TYPE_MATRIX,         // Matrix/cell array
+/**
+ * \brief result types
+ * \sa STR_RESULT_TYPES in locale.hpp
+ */
+enum RESULT_TYPES {
+    RESULT_TYPE_ARRAYOFSTRUCTS, ///< Array of structs
+    RESULT_TYPE_STRUCTOFARRAYS, ///< Struct of arrays
+    RESULT_TYPE_MATRIX,         ///< Matrix/cell array
     
-    // Limit for bound checking only
+    /// Limit for bound checking only
     RESULT_TYPE_MAX_ID = RESULT_TYPE_MATRIX
 };
 
 #define CONFIG_USE_HEAP_CHECK         BOOL_TRUE     ///< false=standard allocators, true=usage of heap_check.hpp
 #define CONFIG_MAX_NUM_OF_DBS         5             ///< maximum number of databases, simultaneous open
-#define CONFIG_NULL_AS_NAN            BOOL_FALSE    ///< use NAN instead of NULL values by default
+#define CONFIG_NULL_AS_NAN            BOOL_FALSE    ///< use NaN instead of NULL values by default
 #define CONFIG_BUSYTIMEOUT            1000          ///< default SQL busy timeout in seconds (1000)
 #define CONFIG_CHECK_4_UNIQUE_FIELDS  BOOL_TRUE     ///< ensure unique fields in query return structure by default
 
@@ -61,4 +64,4 @@ enum {
 #define CONFIG_RESULT_TYPE            RESULT_TYPE_ARRAYOFSTRUCTS   ///< return array of structs by default
 
 /// Wrap parameters
-#define CONFIG_WRAP_PARAMETERS        BOOL_FALSE    ///< paramter wrapping is off by default
+#define CONFIG_PARAM_WRAPPING         BOOL_FALSE    ///< paramter wrapping is off by default

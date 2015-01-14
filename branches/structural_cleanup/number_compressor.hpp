@@ -1,13 +1,13 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      number_compressor.hpp
  *  @brief     Compression of numeric (real number) arrays
  *  @details   Using "blosc" as lossless compressor and a lossy quantising compressor
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @authors   Martin Kortmann <mail@kortmann.de>,
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -31,13 +31,20 @@ extern "C"
 {
   #include "blosc/blosc.h"
 }
+//#include "global.hpp"
 #include "locale.hpp"
 
+/**
+ * \name blosc IDs
+ *
+ * @{
+ */
 #define BLOSC_LZ4_ID            BLOSC_LZ4_COMPNAME
 #define BLOSC_LZ4HC_ID          BLOSC_LZ4HC_COMPNAME
 #define BLOSC_DEFAULT_ID        BLOSC_BLOSCLZ_COMPNAME
 #define QLIN16_ID               "QLIN16"
 #define QLOG16_ID               "QLOG16"
+/** @} */
 
 /// Which compression method is to use, if its name is empty
 #define COMPRESSOR_DEFAULT_ID   BLOSC_DEFAULT_ID
@@ -46,49 +53,51 @@ extern "C"
 class NumberCompressor 
 {
 public:
-    // categories
+    /// supported compressor types
     typedef enum
     {
-        CT_NONE = 0,
-        CT_BLOSC,
-        CT_QLIN16,
-        CT_QLOG16,
+        CT_NONE = 0,   ///< no compression
+        CT_BLOSC,      ///< using BLOSC compressor (lossless)
+        CT_QLIN16,     ///< using linear quantization (lossy)
+        CT_QLOG16,     ///< using logarithmic quantization (lossy)
     } compressor_type_e;
     
-    bool                    m_result_is_const;
-    void*                   m_result;
-    size_t                  m_result_size;
+    bool                    m_result_is_const;        ///< true, if result is const type
+    void*                   m_result;                 ///< compressor output
+    size_t                  m_result_size;            ///< size of compressor output in bytes
     
 
 private:
-    Err                     m_err;                    // recent error
+    Err                     m_err;                    ///< recent error
     
-    const char*             m_strCompressorType;      // name of compressor to use
-    compressor_type_e       m_eCompressorType;        // enum type of compressor to use
-    int                     m_iCompressionLevel;      // compression level (0 to 9)
+    const char*             m_strCompressorType;      ///< name of compressor to use
+    compressor_type_e       m_eCompressorType;        ///< enum type of compressor to use
+    int                     m_iCompressionLevel;      ///< compression level (0 to 9)
 public:
-    void*                   m_rdata;                  // uncompressed data
-    size_t                  m_rdata_size;             // size of uncompressed data in bytes
-    size_t                  m_rdata_element_size;     // size of one element in bytes
-    bool                    m_rdata_is_double_type;   // Flag type is mxDOUBLE_CLASS
-    void*                   m_cdata;                  // compressed data
-    size_t                  m_cdata_size;             // size of compressed data in bytes
+    void*                   m_rdata;                  ///< uncompressed data
+    size_t                  m_rdata_size;             ///< size of uncompressed data in bytes
+    size_t                  m_rdata_element_size;     ///< size of one element in bytes
+    bool                    m_rdata_is_double_type;   ///< Flag type is mxDOUBLE_CLASS
+    void*                   m_cdata;                  ///< compressed data
+    size_t                  m_cdata_size;             ///< size of compressed data in bytes
 private:
     
-    void*                   (*m_Allocator)( size_t szBytes );
-    void                    (*m_DeAllocator)( void* ptr );
+    void*                   (*m_Allocator)( size_t szBytes );  ///< memory allocator
+    void                    (*m_DeAllocator)( void* ptr );     ///< memory deallocator
 
-    // inhibit copy constructor and assignment operator
+    /// inhibit copy constructor and assignment operator
+    /// @{
     NumberCompressor( const NumberCompressor& );
     NumberCompressor& operator=( const NumberCompressor& );
+    /// @}
     
     
 public:
-    // constructor
+    /// Ctor
     explicit
     NumberCompressor() : m_result(0)
     {
-        m_Allocator   = malloc;
+        m_Allocator   = malloc;  // using C memory allocators
         m_DeAllocator = free;
 
         // no compression is the default
@@ -99,7 +108,7 @@ public:
     }
     
     
-    // clear self created results with deallocation
+    /// Clear self created results with memory deallocation
     void free_result()
     {
         if( m_result && !m_result_is_const )
@@ -112,8 +121,7 @@ public:
     }            
 
     
-    // reset input data (compressed and uncompressed)
-    // without deallocation!
+    /// Reset input data (compressed and uncompressed) memory without deallocation!
     void clear_data()
     {
         m_rdata                 = NULL;
@@ -124,19 +132,21 @@ public:
     }
     
     
+    /// Reset recent error message
     void clear_err()
     {
         m_err.clear();
     }
     
 
+    /// Get recent error message
     int get_err()
     {
         return m_err.getErrId();
     }
     
     
-    // destructor
+    /// Dtor
     ~NumberCompressor()
     {
         clear_data();
@@ -144,6 +154,12 @@ public:
     }
     
     
+    /**
+     * \brief Set memory management
+     *
+     * \param[in] Allocator memory allocating functor
+     * \param[in] DeAllocator memory deallocating functor
+     */
     void setAllocator( void* (*Allocator)(size_t), void (*DeAllocator)(void*) )
     {
         if( Allocator && DeAllocator )
@@ -158,19 +174,27 @@ public:
     }
     
     
-    // converts compressor id string to category enum
+    /**
+     * \brief Converts compressor ID string to category enum
+     *
+     * \param[in] strCompressorType Compressor name as string
+     * \param[in] iCompressionLevel Compression level (compressor dependent)
+     */
     bool setCompressor( const char *strCompressorType, int iCompressionLevel = -1 )
     {
         compressor_type_e eCompressorType = CT_NONE;
         
         m_err.clear();
         
+        // if no compressor or compression is specified, use standard compressor
+        // which leads to no compression
         if( 0 == iCompressionLevel || !strCompressorType || !*strCompressorType )
         {
             strCompressorType = COMPRESSOR_DEFAULT_ID;
             iCompressionLevel = 0;
         }
         
+        // checking compressor names
         if( 0 == _strcmpi( strCompressorType, BLOSC_LZ4_ID ) )
         {
             eCompressorType = CT_BLOSC;
@@ -192,6 +216,7 @@ public:
             eCompressorType = CT_QLOG16;
         } 
 
+        // check and acquire valid settings
         if( CT_NONE != eCompressorType )
         {
             m_strCompressorType = strCompressorType;
@@ -212,19 +237,30 @@ public:
         else return false;
     }
     
+    
+    /// Get compressor name
     const char* getCompressorName()
     {
         return m_strCompressorType;
     }
 
-
+    
+    /// Returns true, if current compressor modifies value data
     bool isLossy()
     {
         return m_eCompressorType == CT_QLIN16 || m_eCompressorType == CT_QLOG16;
     }
     
     
-    // calls the qualified compressor (deflate) which always allocates sufficient memory (m_cdata)
+    /**
+     * \brief Calls the qualified compressor (deflate) which always allocates sufficient memory (m_cdata)
+     *
+     * \param[in] rdata pointer to raw data (byte stream)
+     * \param[in] rdata_size length of raw data in bytes
+     * \param[in] rdata_element_size size of one element in bytes
+     * \param[in] isDoubleClass true, if elements represent double types
+     * \returns true on success
+     */
     bool pack( void* rdata, size_t rdata_size, size_t rdata_element_size, bool isDoubleClass )
     {
         bool status = false;
@@ -233,11 +269,13 @@ public:
         clear_data();
         clear_err();
         
+        // acquire raw data
         m_rdata                 = rdata;
         m_rdata_size            = rdata_size;
         m_rdata_element_size    = rdata_element_size;
         m_rdata_is_double_type  = isDoubleClass;
         
+        // dispatch
         switch( m_eCompressorType )
         {
           case CT_BLOSC:
@@ -256,6 +294,7 @@ public:
             break;
         }
         
+        /// deploy result (compressed data)
         m_result_is_const   = false;
         m_result            = m_cdata;
         m_result_size       = m_cdata_size;
@@ -264,7 +303,16 @@ public:
     }
     
     
-    // calls the qualified compressor (inflate)
+    /**
+     * \brief Calls the qualified compressor (inflate)
+     *
+     * \param[in] cdata pointer to compressed data
+     * \param[in] cdata_size length of compressed data in bytes
+     * \param[in,out] rdata pointer to memory for decompressed data
+     * \param[out] rdata_size available space ar \p rdata in bytes
+     * \param[in] rdata_element_size size of one element in decompressed vector
+     * \returns true on success
+     */
     bool unpack( void* cdata, size_t cdata_size, void* rdata, size_t rdata_size, size_t rdata_element_size )
     {
         bool status = false;
@@ -275,12 +323,14 @@ public:
         clear_data();
         clear_err();
         
+        /// acquire compressed data
         m_cdata               = cdata;
         m_cdata_size          = cdata_size;
         m_rdata               = rdata;
         m_rdata_size          = rdata_size;
         m_rdata_element_size  = rdata_element_size;
         
+        /// dispatch
         switch( m_eCompressorType )
         {
           case CT_BLOSC:
@@ -299,6 +349,7 @@ public:
             break;
         }
         
+        /// deplay result (uncompressed/raw data)
         m_result_is_const   = true;
         m_result            = m_rdata;
         m_result_size       = m_rdata_size;
@@ -308,13 +359,16 @@ public:
     
     
 private:
-    // allocates m_cdata and use it to store compressed data from m_rdata
-    // (lossless data compression)
+    /**
+     * \brief Allocates memory for compressed data and use it to store results (lossless data compression)
+     *
+     * \returns true on success
+     */
     bool bloscCompress()
     {
         assert( m_rdata && !m_cdata );
         
-        // BLOSC grants for compressed data never 
+        // BLOSC grants for that compressed data never 
         // exceeds original size + BLOSC_MAX_OVERHEAD
         m_cdata_size  = m_rdata_size + BLOSC_MAX_OVERHEAD; 
         m_cdata       = m_Allocator( m_cdata_size );
@@ -339,25 +393,31 @@ private:
     }
     
     
-    // uncompress compressed data m_cdata to data m_rdata.
-    // m_rdata must point to writable storage space and
-    // m_rdata_size must specify the legal space.
+    /**
+     * \brief Uncompress compressed data \p m_cdata to \p data m_rdata.
+     *
+     * \p m_rdata must point to writable storage space and
+     * \p m_rdata_size must specify the legal space.
+     *
+     * \returns true on success
+     */
     bool bloscDecompress()
     {
         assert( m_rdata && m_cdata );
         
         size_t blosc_nbytes, blosc_cbytes, blosc_blocksize; 
         
+        // calculate necessary buffer sizes
         blosc_cbuffer_sizes( m_cdata, &blosc_nbytes, &blosc_cbytes, &blosc_blocksize );
         
-        // uncompressed data must fit into item
+        // uncompressed data must fit into
         if( blosc_nbytes != m_rdata_size )
         {
             m_err.set( MSG_ERRCOMPRESSION );
             return false;
         }
         
-        // decompress directly into item
+        // decompress directly into items memory space
         if( blosc_decompress( m_cdata, m_rdata, m_rdata_size ) <= 0 )
         {
             m_err.set( MSG_ERRCOMPRESSION );
@@ -368,8 +428,14 @@ private:
     }
     
     
-    // lossy data compression by linear or logarithmic quantization (16 bit)
-    // allocates m_cdata and use it to store compressed data from m_rdata
+    /**
+     * \brief Lossy data compression by linear or logarithmic quantization (16 bit)
+     *
+     * Allocates \p m_cdata and use it to store compressed data from \p m_rdata.
+     * Only double types accepted! NaN, +Inf and -Inf are allowed.
+     * 
+     * \param[in] bDoLog Using logarithmic (true) or linear (false) quantization.
+     */
     bool linlogQuantizerCompress( bool bDoLog )
     {
         assert( m_rdata && !m_cdata && 
@@ -391,7 +457,7 @@ private:
             return false;
         }
         
-        // seek data bounds for quantization
+        // seek data limits for quantization
         for( size_t i = 0; i < cntElements; i++ )
         {
             if( DBL_ISFINITE( rdata[i] ) && rdata[i] != 0.0 )
@@ -490,10 +556,17 @@ private:
     }
     
     
-    // uncompress compressed data m_cdata to data m_rdata.
-    // m_rdata must point to writable storage space and
-    // m_rdata_size must specify the legal space.
-    // (lossy data compression)
+    /**
+     * \brief 
+     *
+     * \param[in] bDoLog Using logarithmic (true) or linear (false) quantization.
+     * \returns true on success
+     * 
+     * Uncompress compressed data \p m_cdata to data \p m_rdata.
+     * \p m_rdata must point to writable storage space and
+     * \p m_rdata_size must specify the legal space.
+     * (lossy data compression)
+     */
     bool linlogQuantizerDecompress( bool bDoLog )
     {
         assert( m_rdata && m_cdata && 
@@ -537,7 +610,7 @@ private:
             }
             else
             {
-                // all other values are rescaled due to offset and scale
+                // all other values are rescaled respective to offset and scale
                 if( bDoLog )
                 {
                     *rdata++ = exp( (double)*pUintData++ * dScale + dOffset );

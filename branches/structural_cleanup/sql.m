@@ -1,26 +1,32 @@
-function [result, count] = sql( first_arg, varargin )
+function varargout = sql( first_arg, varargin )
 % sql() shortens a combination of sprintf() and mksqlite() calls.
 % Example:
-%   [query, count] = sql( 'SELECT * FROM %s WHERE rowid=?', 'my_table', desired_row );
+%   [query, count, colnames] = sql( 'SELECT * FROM %s WHERE rowid=?', 'my_table', desired_row );
 
+  % check if first argument is a database slot id (dbid)
   if ~isnumeric( first_arg )
-      db = {};
-      s = first_arg;
+      dbid = {};
+      query = first_arg;
   else
-      db = {first_arg};
-      s = varargin{1};
-      varargin(1) = [];
+      dbid = {first_arg};
+      query = varargin{1};
+      varargin(1) = [];   % delete first argument
   end
   
-  nParams = 0;
-  assert( ischar(s) );
+  % dbid is now the database handle (if any),
+  % stmt is the sql statement (or command) and
+  % varagin{1:end} are the remaining arguments
   
-  % count string placeholders (i.e. %d) for sprintf
+  nParams = 0;
+  assert( ischar(query) );
+  
+  % count sprintf placeholders (i.e. %d)
   % nParams holds the number of placeholders
-  for i = 1:length(s)
-      if s(i) == '%'
+  for i = 1:length(query)
+      if query(i) == '%'
           nParams = nParams + 1;
-          if i < length(s) && s(i+1) == '%'
+          % check for '%%', which is no placeholder
+          if i < length(query) && query(i+1) == '%'
               i = i + 1;
               nParams = nParams - 1;
           end
@@ -30,25 +36,18 @@ function [result, count] = sql( first_arg, varargin )
   % if there are placeholders in SQL string, build
   % the SQL query by sprintf() first.
   if nParams > 0
-      s = sprintf( s, varargin{1:nParams} );
-      varargin(1:nParams) = [];
+      query = sprintf( query, varargin{1:nParams} );
+      varargin(1:nParams) = []; % remove sprintf parameters
   end
   
-  % remaining arguments are for SQL parameter binding (via ?)
-  args = { db{:}, s, varargin{:} };
+  args = [ dbid, {query}, varargin ];
   
+  % remaining arguments are for SQL parameter binding
   if ~nargout
-      mksqlite( args{:} );
+    mksqlite( args{:} );
   else
-      result = mksqlite( args{:} );
+    [varargout{1:nargout}] = mksqlite( args{:} );
   end
   
-  if nargout > 1
-      if isstruct( result )
-          count = numel( result );
-      else
-          count = 0;
-      end
-  end
 end
 

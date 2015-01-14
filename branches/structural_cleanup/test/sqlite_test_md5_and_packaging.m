@@ -1,4 +1,4 @@
-function sqlite_test_md5_and_packaging ()
+function sqlite_test_md5_and_packaging
   mksqlite( 'open', '' ); % Create in-memory database
   
   % MD5 Test Suite
