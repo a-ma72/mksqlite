@@ -1,13 +1,13 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      mksqlite.cpp
- *  @brief     Sql class and mksqlite class, main routine
- *  @details
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @brief     Main routine (\ref mexFunction())
+ *  @details   class implementations (SQLstack and Mksqlite)
+ *  @authors   Martin Kortmann <mail@kortmann.de>, 
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -15,72 +15,96 @@
  */
 
 /* following define is not really used yet, since this is only one module */
+/// @cond
 #define MAIN_MODULE
+/// @endcond
 
-#include "config.h"                 // Defaults
-#include "global.hpp"               // Global definitions and stati
-#include "serialize.hpp"            // Serialization of MATLAB variables (undocumented feature)
-#include "number_compressor.hpp"    // Some compressing algorithms
-#include "typed_blobs.hpp"          // Packing into typed blobs with variable type storage
-#include "utils.hpp"                // Utilities 
+//#include "config.h"                 // Defaults
+//#include "global.hpp"               // Global definitions and stati
+//#include "serialize.hpp"            // Serialization of MATLAB variables (undocumented feature)
+//#include "number_compressor.hpp"    // Some compressing algorithms
+//#include "typed_blobs.hpp"          // Packing into typed blobs with variable type storage
+//#include "utils.hpp"                // Utilities 
 #include "sql_interface.hpp"        // SQLite interface
-#include "locale.hpp"               // (Error-)Messages
-#include <vector>
+//#include "locale.hpp"               // (Error-)Messages
+//#include <vector>
 
+/// Returns 0 if \p strA and \p strB are equal (ignoring case)
 #define STRMATCH(strA,strB)       ( (strA) && (strB) && ( 0 == _strcmpi( (strA), (strB) ) ) )
+/// Terminates the function immediately with an error message
 #define FINALIZE_STR( message )   mexErrMsgTxt( message )
+/// Terminates the function immediately with an error message
 #define FINALIZE( identifier )    FINALIZE_STR( ::getLocaleMsg( identifier ) )
 
-#define DBID_NEW_OR_ALL -1
+/// @cond
 
-// static assertion (compile time), ensures int32_t and mwSize as 4 byte data representation
-static char SA_UIN32[ (sizeof(uint32_t)==4 && sizeof(mwSize)==4) ? 1 : -1 ]; 
+// design time assertion ensures int32_t and mwSize as 4 byte data representation
+HC_COMP_ASSERT( sizeof(uint32_t)==4 && sizeof(mwSize)==4 );
+// Static assertion: Ensure backward compatibility
+HC_COMP_ASSERT( sizeof( TypedBLOBHeaderV1 ) == 36 );
 
-/* Static assertion: Ensure backward compatibility */
-static char SA_TBH_BASE[ sizeof( TypedBLOBHeaderV1 ) == 36 ? 1 : -1 ];
+/// @endcond
 
-/* declare the MEX Entry function as pure C */
+/// MEX Entry function declared the as pure C
 extern "C" void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] );
 
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
-/* SQLite engine */
 
+/**
+ * \var SQLstack
+ * \brief holds a defined number of SQLite slots for parallel databases
+ *
+ */
 
-
-static struct Sql
+/**
+ * \brief SQLite interface stack
+ *
+ */
+static struct SQLstack
 {
+    /// Stack size
     enum { COUNT_DB = CONFIG_MAX_NUM_OF_DBS };
     
-    SQL m_db[COUNT_DB];     /* SQLite Interface */
-    int m_dbid;             /* database id, base 0 */
+    SQLiface m_db[COUNT_DB];     ///< SQLite interface slots
+    int      m_dbid;             ///< selected current database id, base 0
     
-    Sql(): m_dbid(0) {};
+    /// Standard Ctor (first database slot is default)
+    SQLstack(): m_dbid(0) {};
     
-    ~Sql()
+    /**
+     * \brief Dtor
+     *
+     * Closes all databases and shuts sqlite engine down.
+     */
+    ~SQLstack()
     {
         (void)closeAllDbs();
         sqlite3_shutdown();
     }
     
-    // check if database id is in valid range
+    /// Checks if database \p newId is in valid range
     bool isValidId( int newId )
     {
         return newId >= 0 && newId < COUNT_DB;
     }
     
+    /// Makes \p newId as current database id
     void switchTo( int newId )
     {
         assert( isValidId( newId ) );
         m_dbid = newId;
     }
     
-    SQL& current()
+    /// Returns the current SQL interface
+    SQLiface& current()
     {
+        assert( m_dbid >= 0 );
         return m_db[m_dbid];
     }
     
+    /// Outputs current status for each database slot
     void printStati()
     {
         for( int i = 0; i < COUNT_DB; i++ )
@@ -89,7 +113,7 @@ static struct Sql
         }
     }
     
-    // returns the first next free id slot (base 0). Database must be closed
+    /// Returns the first next free id slot (base 0). Database must be closed
     int getNextFreeId()
     {
         /*
@@ -106,29 +130,34 @@ static struct Sql
         return -1;  // no free slot available
     }
     
-    bool closeAllDbs()
+    /// Closes all open databases and returns the number of closed DBs, if any open
+    int closeAllDbs()
     {
-        bool anyOpen = false;
+        int nClosed = 0;
 
         for( int i = 0; i < COUNT_DB; i++ )
         {
             if( m_db[i].isOpen() )
             {
-                anyOpen = true;
                 m_db[i].closeDb();
+                nClosed++;
             }
         }
         
-        return anyOpen;
+        return nClosed;
     }
     
-} Sql;
+} SQLstack;
 
 
-
+/**
+ * \brief Module deinitialization
+ *
+ * Closes all open databases and deinit blosc environment
+ */
 void mex_module_deinit()
 {
-    if( Sql.closeAllDbs() )
+    if( SQLstack.closeAllDbs() > 0 )
     {
         /*
          * inform the user, databases have been closed
@@ -139,7 +168,11 @@ void mex_module_deinit()
     blosc_destroy();
 }
 
-
+/**
+ * \brief Module initialization
+ *
+ * Get platform information and initializes blosc.
+ */
 void mex_module_init()
 {
     mxArray *plhs[3] = {0};
@@ -148,11 +181,13 @@ void mex_module_init()
     {
         g_compression_type = BLOSC_DEFAULT_ID;
         blosc_init();
+        sqlite3_initialize();
         mexAtExit( mex_module_deinit );
         typed_blobs_init();
 
         mexPrintf( ::getLocaleMsg( MSG_HELLO ), 
-                   sqlite3_libversion() );
+                   SQLITE_VERSION );
+
         mexPrintf( "Platform: %s, %s\n\n", 
                    TBH_platform, 
                    TBH_endian[0] == 'L' ? "little endian" : "big endian" );
@@ -168,6 +203,10 @@ void mex_module_init()
     {
         g_namelengthmax = (int)mxGetScalar( plhs[0] );
     }
+
+#if CONFIG_USE_HEAP_CHECK
+    mexPrintf( "Heap checking is on, this may slow down execution time dramatically!\n" );
+#endif
 }
 
 
@@ -175,28 +214,36 @@ void mex_module_init()
 
 
 
-
+/**
+ * \brief Main routine class
+ *
+ */
 class Mksqlite
 {
-    int               m_nlhs;       // count of left hand side arguments
-    int               m_narg;       // count of right hand side arguments
-    mxArray**         m_plhs;       // pointer to current left hand side argument
-    const mxArray**   m_parg;       // pointer to current right hand side argument
-    char*             m_command;    // SQL command. Allocated and freed by this class
-    const char*       m_query;      // m_command, or a translation from m_command
-    int               m_dbid;       // database id for next command (-1: argument missing, 0: use first free slot, 1..:database id)
-    Err               m_err;        // recent error
+    int               m_nlhs;       ///< count of left hand side arguments
+    int               m_narg;       ///< count of right hand side arguments
+    mxArray**         m_plhs;       ///< pointer to current left hand side argument
+    const mxArray**   m_parg;       ///< pointer to current right hand side argument
+    char*             m_command;    ///< SQL command. Allocated and freed by this class
+    const char*       m_query;      ///< \p m_command, or a translation from \p m_command
+    int               m_dbid_req;   ///< requested database id (user input) -1="arg missing", 0="next free slot" or 1..COUNT_DB
+    int               m_dbid;       ///< selected database slot (1..COUNT_DB)
+    Err               m_err;        ///< recent error
     
-    /* inhibit assignment, default and copy ctors */
+    /**
+     * \name Inhibit assignment, default and copy ctors
+     * @{ */
     Mksqlite();
     Mksqlite( const Mksqlite& );
     Mksqlite& operator=( const Mksqlite& );
+    /** @} */
     
 public:
+    /// Standard ctor
     Mksqlite( int nlhs, mxArray** plhs, int nrhs, const mxArray** prhs )
     : m_nlhs( nlhs ), m_plhs( plhs ), 
       m_narg( nrhs ), m_parg( prhs ),
-      m_command(NULL), m_query(NULL), m_dbid(-1)
+      m_command(NULL), m_query(NULL), m_dbid_req(-1), m_dbid(1)
     {
         /*
          * no argument -> fail
@@ -209,6 +256,7 @@ public:
     }
     
     
+    /// Dtor
     ~Mksqlite()
     {
         if( m_command )
@@ -217,21 +265,25 @@ public:
         }
     }
     
-
+    /// Returns true, if any error is pending
     bool errPending()
     {
         return m_err.isPending();
     }
     
-    
+    /// Clear recent error
     void errClear()
     {
         m_err.clear();
     }
     
     
-    // Aborts the running function with an error message. Allocated memory (by 
-    // MATLAB allocation functions) is freed automatically
+    /**
+     * \brief Termine function 
+     * 
+     * Aborts the running function with an error message. Allocated memory 
+     * (by MATLAB allocation functions) is freed automatically
+     */
     void returnWithError()
     {
         assert( errPending() );
@@ -240,8 +292,52 @@ public:
     }
     
     
-    // Read an integer parameter at current argument read position, and
-    // write to refValue (as 0 or 1 if abBoolInt is set to true)
+    /**
+     * \brief Ensuring current database is open
+     *
+     * Sets \p m_err to MSG_DBNOTOPEN, if not.
+     *
+     * \returns true if database is open
+     */
+    bool ensureDbIsOpen()
+    {
+        // database must be opened to set busy timeout
+        if( !SQLstack.current().isOpen() )
+        {
+            m_err.set( MSG_DBNOTOPEN );
+            return false;
+        }
+        
+        return true;
+    }
+    
+    
+    /**
+     * \brief Omits a warning if database is given but superfluous
+     *
+     * \returns true if dbid is undefined
+     */
+    bool warnOnDefDbid()
+    {
+        if( m_dbid_req != -1 )
+        {
+            mexWarnMsgTxt( ::getLocaleMsg( MSG_DBID_SUPFLOUS ) );
+            return false;
+        }
+        
+        return true;
+    }
+    
+    
+    /**
+     * \brief Get next integer from argument list
+     *
+     * \param[out] refValue Result will be returned in
+     * \param[in] asBoolInt If true, \p refValue will be true (1) or false (0) only
+     * 
+     * Read an integer parameter at current argument read position, and
+     * write to \p refValue (as 0 or 1 if \p asBoolInt is set to true)
+     */
     bool argGetNextInteger( int& refValue, bool asBoolInt = false )
     {
         if( errPending() ) return false;
@@ -270,42 +366,64 @@ public:
     }
 
     
-    // Reads the next argument if it is numeric and interprets as dbid.
-    // m_dbid is set either to the read dbid, or if parameter is missing,
-    // the first dbid is used. If user entered an id == 0, the next free slot 
-    // will be choosen.
+    /**
+     * \brief Get database ID from argument list
+     * 
+     * Reads the next argument if it is numeric and a valid dbid.
+     * dbid must be in range 0..\p CONFIG_MAX_NUM_OF_DBS, where 0 has the special
+     * meaning that the first free slot will later be used.\n
+     * If the parameter is missing, \p m_dbid_req will be set to -1. \p m_dbid will
+     * be set to either -1 (argument missing) or a valid dbid 1..\p CONFIG_MAX_NUM_OF_DBS
+     */
     bool argTryReadValidDbid()
     {
         if( errPending() ) return false;
 
-        int new_dbid;
-        
         /*
          * Check if the first argument is a number (base 1), then we have to use
-         * this number as the new database id.
+         * this number as the requested database id. A number of 0 is allowed an leads
+         * to find the first free slot.
          */
-        if( argGetNextInteger( new_dbid, /*asBoolInt*/ false ) )
+        if( argGetNextInteger( m_dbid_req, /*asBoolInt*/ false ) )
         {
-            if( !Sql.isValidId( new_dbid-1 ) && new_dbid != 0 )
+            if( !SQLstack.isValidId( m_dbid_req-1 ) && m_dbid_req != 0 )
             {
                 m_err.set( MSG_INVALIDDBHANDLE );
                 return false;
             }
-            else
-            {
-                m_dbid = new_dbid;
-            }
+        } else {
+            m_dbid_req = -1;  // argument is missing
         }
         
-        // argGetNextInteger() may fail, if no dbid was given. 
-        // But it's legal!
+        // find a free database slot, if user entered 0
+        if( !m_dbid_req )
+        {
+            int new_dbid = SQLstack.getNextFreeId();
+
+            if( !SQLstack.isValidId( new_dbid ) )
+            {
+                // no free slot available
+                m_err.set( MSG_NOFREESLOT );
+                return false;
+            }
+            
+            m_dbid = new_dbid + 1;  // Base 1
+        } else {
+            // select database id or default (1) if no one is given 
+            m_dbid = ( m_dbid_req < 0 ) ? 1 : m_dbid_req;
+        }
+
         m_err.clear();
         return true;
     }
     
     
-    // read the command from current argument position, always a string and thus 
-    // asserted.
+    /**
+     * \brief Get command from argument list
+     * 
+     * Read the command from current argument position, always a string and thus 
+     * asserted.
+     */
     bool argReadCommand()
     {
         if( errPending() ) return false;
@@ -313,7 +431,7 @@ public:
         /*
          * The next (or first if no db number available) is the m_command,
          * it has to be a string.
-         * This fails also, if the first arg is a db-id and there is no 
+         * This fails also, if the first arg is a dbid and there is no 
          * further argument
          */
         if( !m_narg || !mxIsChar( m_parg[0] ) )
@@ -337,8 +455,16 @@ public:
     }
     
     
-    // test current command as flag parameter with it's new value.
-    // strMatchFlagName holds the name of the flag to test.
+    /**
+     * \brief Handle flag from command
+     *
+     * \param[in] strMatchFlagName Name of flag to test
+     * \param[out] refFlag Flag value if name matched
+     * \returns true, if flag could be assigned
+     * 
+     * Test current command as flag parameter with it's new value.
+     * \p strMatchFlagName holds the name of the flag to test.
+     */
     bool cmdTryHandleFlag( const char* strMatchFlagName, int& refFlag )
     {
         if( errPending() || !STRMATCH( m_command, strMatchFlagName ) ) 
@@ -367,14 +493,26 @@ public:
     }
     
 
-    // test current command as version query to sqlite or mksqlite version numbers
-    // strCmdMatchVerMex and strCmdMatchVerSql hold the mksqlite command names
+    /**
+     * \brief Handle version commands
+     *
+     * \param[in] strCmdMatchVerMex Command name to get mex version
+     * \param[in] strCmdMatchVerSql Command name to get SQLite version
+     * \returns true on success
+     * 
+     * Test current command as version query to sqlite or mksqlite version numbers.
+     * \p strCmdMatchVerMex and \p strCmdMatchVerSql hold the mksqlite command names.
+     * m_plhs[0] will be set to the corresponding version string.
+     */
     bool cmdTryHandleVersion( const char* strCmdMatchVerMex, const char* strCmdMatchVerSql )
     {
         if( errPending() ) return false;
         
         if( STRMATCH( m_command, strCmdMatchVerMex ) )
         {
+            // Global command, dbid useless
+            warnOnDefDbid();
+
             if( m_narg > 0 ) 
             {
                 m_err.set( MSG_UNEXPECTEDARG );
@@ -395,6 +533,9 @@ public:
         } 
         else if( STRMATCH( m_command, strCmdMatchVerSql ) )
         {
+            // Global command, dbid useless
+            warnOnDefDbid();
+
             if( m_narg > 0 ) 
             {
                 m_err.set( MSG_UNEXPECTEDARG );
@@ -418,16 +559,44 @@ public:
     }
     
     
-    // try to interpret current command as blob mode setting
-    // strCmdMatchName hold the mksqlite command name
+    /**
+     * \brief Handle typed BLOB settings command 
+     * 
+     * \param[in] strCmdMatchName Command name
+     * \returns true on success
+     * 
+     * Try to interpret current command as blob mode setting
+     * \p strCmdMatchName hold the mksqlite command name.
+     * m_plhs[0] will be set to the old setting.
+     */
     bool cmdTryHandleTypedBlob( const char* strCmdMatchName )
     {
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
         {
             return false;
         }
+        
+        /*
+         * typedBLOBs setting:
+         *  0 --> no typed blobs, streaming off
+         *  1 --> typed blobs,    streaming off
+         *  2 --> typed blobs,    streaming on
+         *
+         * Streaming is only valid if typed blobs are enabled because 
+         * one could not distinguish between byte arrays and a 
+         * streamed MATLAB array.
+         */
+        
+        // Global command, dbid useless
+        warnOnDefDbid();
 
-        int old_mode = typed_blobs_mode_get();
+        int old_mode = typed_blobs_mode_on();
+        
+        if( old_mode && g_streaming )
+        {
+            old_mode = 2;
+        }
+        
         int new_mode = old_mode;
 
         if( m_narg > 1 )
@@ -442,21 +611,18 @@ public:
             return false;
         }
 
+        // action only if something changed
         if( new_mode != old_mode )
         {
-            if( new_mode < 0 || new_mode > TYBLOB_MAX_ID )
+            if( new_mode < 0 || new_mode > 2 )
             {
                 m_err.set( MSG_INVALIDARG );
                 return false;
             }
 
-            typed_blobs_mode_set( (typed_blobs_e)new_mode );
+            typed_blobs_mode_set( new_mode > 0 );
         
-            if( g_streaming && typed_blobs_mode_check( TYBLOB_NO ) )
-            {
-                mexPrintf( ::getLocaleMsg( MSG_STREAMINGNEEDTYBLOBS ) );
-                g_streaming = false;
-            }
+            g_streaming = (new_mode == 2);
         }
 
         // always return the old value
@@ -466,8 +632,14 @@ public:
     }
     
     
-    // try to interpret current command as setting for sqlite extension enable
-    // strCmdMatchName holds the mksqlite command name
+    /**
+     * \brief Handle command to (en-/dis-)able loading extensions
+     *
+     * \param[in] strCmdMatchName Command name
+     * 
+     * Try to interpret current command as setting for sqlite extension enable
+     * \p strCmdMatchName holds the mksqlite command name.
+     */
     bool cmdTryHandleEnableExtension( const char* strCmdMatchName )
     {
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
@@ -475,7 +647,12 @@ public:
             return false;
         }
 
-        //assert( isValidDbid( m_dbid ) );
+        // database must be open to change setting
+        if( !ensureDbIsOpen() )
+        {
+            // ensureDbIsOpen() sets m_err
+            return false;
+        }
         
         /*
          * There should be one Argument to "enable extension"
@@ -493,12 +670,12 @@ public:
             return false;
         }
         
-        
-        Sql.current().clearErr();
+        // Clear recent SQLite error
+        SQLstack.current().clearErr();
 
-        if( !Sql.current().setEnableLoadExtension( flagOnOff ) )
+        if( !SQLstack.current().setEnableLoadExtension( flagOnOff ) )
         {
-            m_err.set( Sql.current().getErr() );
+            m_err.set( SQLstack.current().getErr() );
             return false;
         }
 
@@ -508,14 +685,25 @@ public:
     }
     
     
-    // try to interpret current command as compression setting.
-    // strCmdMatchName holds the mksqlite command name
+    /**
+     * \brief Handle compression setting command
+     *
+     * \param[in] strCmdMatchName Command name
+     * \returns true on success
+     * 
+     * Try to interpret current command as compression setting.
+     * \p strCmdMatchName holds the mksqlite command name.
+     * m_plhs[0] will be set to the old setting.
+     */
     bool cmdTryHandleCompression( const char* strCmdMatchName )
     {
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
         {
             return false;
         }
+        
+        // Global command, dbid useless
+        warnOnDefDbid();
         
         // always return the old settings
         if(1)
@@ -552,6 +740,7 @@ public:
                 return false;
             }
             
+            // Get new compressor setting
             new_compressor        = ValueMex( m_parg[0] ).GetString();
             new_compression_level = ValueMex( m_parg[1] ).GetInt();
 
@@ -599,14 +788,24 @@ public:
     }
     
     
-    // try to interpret current command as status command.
-    // strCmdMatchName holds the mksqlite command name.
+    /**
+     * \brief Handle status command
+     *
+     * \param[in] strCmdMatchName Command name
+     * \returns true on success
+     * 
+     * Try to interpret current command as status command.
+     * \p strCmdMatchName holds the mksqlite command name.
+     */
     bool cmdTryHandleStatus( const char* strCmdMatchName )
     {
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) ) 
         {
             return false;
         }
+        
+        // Global command, dbid useless
+        warnOnDefDbid();
         
         /*
          * There should be no Argument to status
@@ -617,14 +816,22 @@ public:
             return false;
         }
         
-        Sql.printStati();
+        SQLstack.printStati();
         
         return true;
     }
     
     
-    // try to interpret current command as streaming switch.
-    // strCmdMatchName holds the mksqlite command name.
+    /**
+     * \brief Handle streaming setting command
+     *
+     * \param[in] strCmdMatchName Command name
+     * \returns true on success
+     * 
+     * Try to interpret current command as streaming switch.
+     * \p strCmdMatchName holds the mksqlite command name.
+     * m_plhs[0] will be set to the old setting.
+     */
     bool cmdTryHandleStreaming( const char* strCmdMatchName )
     {
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) ) 
@@ -632,6 +839,9 @@ public:
             return false;
         }
         
+        // Global command, dbid useless
+        warnOnDefDbid();
+
         /*
          *  Check max number of arguments
          */
@@ -651,13 +861,15 @@ public:
             return false;
         }
         
+        // Report, if serialization is not possible (reset flag then)
         if( flagOnOff && !have_serialize() )
         {
             mexPrintf( "%s\n", ::getLocaleMsg( MSG_STREAMINGNOTSUPPORTED ) );
             flagOnOff = 0;
         }
         
-        if( flagOnOff && typed_blobs_mode_check( TYBLOB_NO ) )
+        // Report, if user tries to use streaming with blobs turned off (reset flag then)
+        if( flagOnOff && !typed_blobs_mode_on() )
         {
             mexPrintf( "%s\n", ::getLocaleMsg( MSG_STREAMINGNEEDTYBLOBS ) );
             flagOnOff = 0;
@@ -673,8 +885,16 @@ public:
     }
     
     
-    // try to interpret current command as result type.
-    // strCmdMatchName holds the mksqlite command name.
+    /**
+     * \brief Handle result type command
+     *
+     * \param[in] strCmdMatchName Command name
+     * \returns true on success
+     * 
+     * Try to interpret current command as result type.
+     * \p strCmdMatchName holds the mksqlite command name.
+     * m_plhs[0] will be set to the old setting.
+     */
     bool cmdTryHandleResultType( const char* strCmdMatchName )
     {
         int new_result_type;
@@ -685,6 +905,9 @@ public:
             return false;
         }
         
+        // Global command, dbid useless
+        warnOnDefDbid();
+
         /*
          * There should be one integer argument
          */
@@ -694,22 +917,25 @@ public:
             return false;
         }
         
+        // No arguments, then report current state
         if( !m_narg )
         {
             /*
              * Print current result type
              */
             mexPrintf( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
-            m_err.set( Sql.current().getErr() );
+            m_err.set( SQLstack.current().getErr() );
             return false;
         }
         
+        // next parameter must be on/off flag
         if( m_narg && !argGetNextInteger( new_result_type, /*asBoolInt*/ false  ) )
         {
             // argGetNextInteger() sets m_err
             return false;
         }
         
+        // action on change only
         if( new_result_type != old_result_type )
         {
             if( new_result_type < 0 || new_result_type > RESULT_TYPE_MAX_ID )
@@ -728,18 +954,30 @@ public:
     }
     
     
-    // try to interpret current command for busy timeout switch.
-    // strCmdMatchName holds the mksqlite command name.
+    /**
+     * \brief Handle set busy timeout command
+     *
+     * \param[in] strCmdMatchName Command name
+     * 
+     * Try to interpret current command as busy timeout switch.
+     * \p strCmdMatchName holds the mksqlite command name.
+     * m_plhs[0] will be set to the old setting.
+     */
     bool cmdTryHandleSetBusyTimeout( const char* strCmdMatchName )
     {
+        int iTimeout;
+        
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
         {
             return false;
         }
         
-        //assert( isValidDbid( m_dbid ) );
-        
-        int iTimeout;
+        // database must be open to set busy timeout
+        if( !ensureDbIsOpen() )
+        {
+            // ensureDbIsOpen() sets m_err
+            return false;
+        }
         
         /*
          * There should be one Argument, the Timeout in ms
@@ -750,21 +988,15 @@ public:
             return false;
         }
         
-        if( !Sql.current().isOpen() )
-        {
-            m_err.set( MSG_DBNOTOPEN );
-            return false;
-        }
+        SQLstack.current().clearErr();
         
-        Sql.current().clearErr();
-        
-        if( !m_narg && !Sql.current().getBusyTimeout( iTimeout ) )
+        if( !m_narg && !SQLstack.current().getBusyTimeout( iTimeout ) )
         {
             /*
              * Anything wrong? free the database id and inform the user
              */
             mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( Sql.current().getErr() );
+            m_err.set( SQLstack.current().getErr() );
             return false;
         }
         
@@ -774,15 +1006,15 @@ public:
             return false;
         }
         
-        Sql.current().clearErr();
+        SQLstack.current().clearErr();
         
-        if( !Sql.current().setBusyTimeout( iTimeout ) )
+        if( !SQLstack.current().setBusyTimeout( iTimeout ) )
         {
             /*
              * Anything wrong? free the database id and inform the user
              */
             mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( Sql.current().getErr() );
+            m_err.set( SQLstack.current().getErr() );
             return false;
         }
         
@@ -793,21 +1025,25 @@ public:
     }
     
     
-    /* 
-     * try to interpret current argument as command or switch:
+    /**
+     * \brief Interpret current argument as command or switch
      *
-     * version mex
-     * version sql
-     * check4uniquefields
-     * convertUTF8
-     * typedBLOBs
-     * NULLasNaN
-     * compression
-     * compression_check
-     * show tables
-     * enable extension
-     * status
-     * setbusytimeout
+     * Checking following commands:
+     * - version mex
+     * - version sql
+     * - check4uniquefields
+     * - convertUTF8
+     * - typedBLOBs
+     * - NULLasNaN
+     * - param_wrapping
+     * - streaming
+     * - result_type
+     * - compression
+     * - compression_check
+     * - show tables
+     * - enable extension
+     * - status
+     * - setbusytimeout
      */
     bool cmdTryHandleNonSqlStatement()
     {
@@ -815,7 +1051,7 @@ public:
             || cmdTryHandleFlag( "convertUTF8", g_convertUTF8 )
             || cmdTryHandleFlag( "NULLasNaN", g_NULLasNaN )
             || cmdTryHandleFlag( "compression_check", g_compression_check )
-            || cmdTryHandleFlag( "wrap_parameters", g_wrap_parameters )
+            || cmdTryHandleFlag( "param_wrapping", g_param_wrapping )
             || cmdTryHandleStatus( "status" )
             || cmdTryHandleVersion( "version mex", "version sql" )
             || cmdTryHandleStreaming( "streaming" )
@@ -836,19 +1072,25 @@ public:
                       "WHERE type IN ('table','view') "
                       "ORDER BY 1;";
             
-            return false;
+            return false;  // dispatch unhandled
         }
 
         return false;
     }
     
 
-    
+    /// Return values of cmdAnalyseCommand()
     enum command_e { FAILED = -1, DONE, OPEN, CLOSE, QUERY };
     
-    // read the command from the current argument position and test for
-    // switches or other commands.
-    // Switches were dispatched, other commands remain unhandled here
+    /**
+     * \brief Analyse command string and process if its neither open, close nor a sql command. 
+     *
+     * \returns Status (see command_e)
+     * 
+     * Reads the command from the current argument position and test for
+     * switches or other commands.
+     * Switches were dispatched, other commands remain unhandled here.
+     */
     command_e cmdAnalyseCommand()
     {
         if( STRMATCH( m_command, "open" ) )     return OPEN;
@@ -860,9 +1102,13 @@ public:
     }
 
     
-    // handle the open command. If the read dbid is -1 a new slot (dbid) 
-    // will be used, otherwise the given dbid or, if no dbid was given, the 
-    // recent dbid is used.
+    /**
+     * \brief Handle open command
+     *
+     * Handle the open command. If the read dbid is -1 a new slot (dbid) 
+     * will be used, otherwise the given dbid or, if no dbid was given, the 
+     * recent dbid is used.
+     */
     bool cmdHandleOpen()
     {
         int openFlags = 0;
@@ -883,32 +1129,12 @@ public:
         m_parg++;
         m_narg--;
 
-        // user missed entering a database id, so select the default (1)
-        if( m_dbid < 0 )
-        {
-            m_dbid = 1;
-        }
+        SQLstack.switchTo( m_dbid-1 );  // base 0
         
-        // find a free database slot, if user entered 0
-        if( !m_dbid )
+        // close database if open
+        if( !SQLstack.current().closeDb() )
         {
-            int new_dbid = Sql.getNextFreeId();
-
-            if( !Sql.isValidId( new_dbid ) )
-            {
-                // no free slot available
-                m_err.set( MSG_NOFREESLOT );
-                return false;
-            }
-            
-            m_dbid = new_dbid + 1;  // Base 1
-        }
-        
-        Sql.switchTo( m_dbid-1 );
-        
-        if( !Sql.current().closeDb() )
-        {
-            m_err.set( Sql.current().getErr() );
+            m_err.set( SQLstack.current().getErr() );
         }
         
         /*
@@ -978,27 +1204,28 @@ public:
         
         if( !errPending() )
         {
-            if( !Sql.current().openDb( dbname, openFlags ) )
+            if( !SQLstack.current().openDb( dbname, openFlags ) )
             {
-                m_err.set( Sql.current().getErr() );
+                // adopt sql error message
+                m_err.set( SQLstack.current().getErr() );
             }
         }
         
         /*
-         * Set Default Busytimeout
+         * Set default busytimeout
          */
         if( !errPending() )
         {
-            if( !Sql.current().setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
+            if( !SQLstack.current().setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
             {
                 mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-                m_err.set( Sql.current().getErr() );
+                m_err.set( SQLstack.current().getErr() );
             }
         }
         
         
         /*
-         * always return value will be the used database id
+         * always return the used database id
          */
         m_plhs[0] = mxCreateDoubleScalar( (double)m_dbid );
 
@@ -1008,9 +1235,12 @@ public:
     }
     
 
-   /*
-    * close a database.
-    * handles the close command. If a dbid of 0 is given, all open dbs
+   /**
+    * \brief Handle close command
+    * \returns true if no error occured
+    *
+    * Closes a database.
+    * If a dbid of 0 is given, all open dbs
     * will be closed.
     */
     bool cmdHandleClose()
@@ -1026,17 +1256,12 @@ public:
             return false;
         }
 
-        if( m_dbid < 0 )
-        {
-            m_dbid = 1;
-        }
-        
         /*
          * if the database id is 0 than close all open databases
          */
-        if( !m_dbid )
+        if( !m_dbid_req )
         {
-            Sql.closeAllDbs();
+            SQLstack.closeAllDbs();
         }
         else
         {
@@ -1045,11 +1270,12 @@ public:
              * inform the user
              */
             
-            Sql.switchTo( m_dbid-1 );
+            SQLstack.switchTo( m_dbid-1 );  // base 0
 
-            if( !Sql.current().closeDb() )
+            if( !SQLstack.current().closeDb() )
             {
-                m_err.set( Sql.current().getErr() );
+                // adopt sql error message
+                m_err.set( SQLstack.current().getErr() );
             }
         }
         
@@ -1057,6 +1283,9 @@ public:
     }
     
     
+    /**
+     * \brief Transfer SQL value to MATLAB array
+     */
     mxArray* createItemFromValueSQL( const ValueSQL& value )
     {
         mxArray* item = NULL;
@@ -1091,7 +1320,8 @@ public:
 
             if( blob_size > 0 )
             {
-                if( typed_blobs_mode_check(TYBLOB_NO) )
+                // check if typed BLOBs are disabled
+                if( !typed_blobs_mode_on() )
                 {
                     item = mxCreateNumericMatrix( (mwSize)blob_size, 1, mxUINT8_CLASS, mxREAL );
 
@@ -1134,20 +1364,23 @@ public:
         return item;
     }
     
-    
+    /**
+     * \brief Create a MATLAB cell array of column names
+     */
     mxArray* createResultColNameMatrix( const ValueSQLCols& cols )
     {
         mxArray* colNames = mxCreateCellMatrix( (int)cols.size(), (int)cols.size() ? 1 : 0 );
         
-        // check if all results are of type floating point
+        // iterate columns
         for( int i = 0; !errPending() && i < (int)cols.size(); i++ )
         {
+            // get the real column name
             mxArray* colName = mxCreateString( cols[i].m_name.c_str() );
 
             if( !colNames || !colName )
             {
-                utils_destroy_array( colName );
-                utils_destroy_array( colNames );
+                ::utils_destroy_array( colName );
+                ::utils_destroy_array( colNames );
 
                 m_err.set( MSG_ERRMEMORY );
             }
@@ -1162,6 +1395,9 @@ public:
     }
     
     
+    /**
+     * \brief Transform SQL fetch to MATLAB array of structs
+     */
     mxArray* createResultAsArrayOfStructs( ValueSQLCols& cols )
     {
         /*
@@ -1169,17 +1405,21 @@ public:
          */
         mxArray* result = mxCreateStructMatrix( (int)cols[0].size(), 1, 0, NULL );
 
+        // iterate columns
         for( int i = 0; !errPending() && i < (int)cols.size(); i++ )
         {
             int j;
 
+            // insert new field into struct
             if( !result || -1 == ( j = mxAddField( result, cols[i].m_name.c_str() ) ) )
             {
                 m_err.set( MSG_ERRMEMORY );
             }
 
+            // iterate rows
             for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
             {
+                // get current table element at row and column
                 mxArray* item = createItemFromValueSQL( cols[i][row] );
 
                 if( !item )
@@ -1193,7 +1433,7 @@ public:
                     // and replace with new one
                     mxSetFieldByNumber( result, row, j, item );
 
-                    cols[i].Destroy(row);
+                    cols[i].Destroy(row); // release memory
                     item = NULL;  // Do not destroy! (Occupied by MATLAB struct now)
                 }
             } /* end for (rows) */
@@ -1203,6 +1443,9 @@ public:
     }
     
     
+    /**
+     * \brief Transform SQL fetch to MATLAB struct of arrays
+     */
     mxArray* createResultAsStructOfArrays( ValueSQLCols& cols )
     {
         /*
@@ -1210,23 +1453,28 @@ public:
          */
         mxArray* result = mxCreateStructMatrix( 1, 1, 0, NULL );
 
+        // iterate columns
         for( int i = 0; !errPending() && i < (int)cols.size(); i++ )
         {
             mxArray* column = NULL;
             int j;
 
+            // Pure floating point can be archieved in a numeric matrix
+            // mixed types must be stored in a cell matrix
             column = cols[i].m_isAnyType ?
                      mxCreateCellMatrix( (int)cols[0].size(), 1 ) :
                      mxCreateDoubleMatrix( (int)cols[0].size(), 1, mxREAL );
 
+            // add a new field in the struct
             if( !result || !column || -1 == ( j = mxAddField( result, cols[i].m_name.c_str() ) ) )
             {
                 m_err.set( MSG_ERRMEMORY );
-                utils_destroy_array( column );
+                ::utils_destroy_array( column );
             }
 
             if( !cols[i].m_isAnyType )
             {
+                // fast copy of pure floating point data, iterating rows
                 for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
                 {
                     assert( cols[i][row].m_typeID == SQLITE_FLOAT );
@@ -1235,6 +1483,7 @@ public:
             }
             else
             {
+                // build cell array, iterating rows
                 for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
                 {
                     mxArray* item = createItemFromValueSQL( cols[i][row] );
@@ -1242,7 +1491,7 @@ public:
                     if( !item )
                     {
                         m_err.set( MSG_ERRMEMORY );
-                        utils_destroy_array( column );
+                        ::utils_destroy_array( column );
                     }
                     else
                     {
@@ -1251,7 +1500,7 @@ public:
                         // and replace with new one
                         mxSetCell( column, row, item );
 
-                        cols[i].Destroy(row);
+                        cols[i].Destroy(row);  // release memory
                         item = NULL;  // Do not destroy! (Occupied by MATLAB cell array now)
                     }
                 } /* end for (rows) */
@@ -1259,6 +1508,7 @@ public:
 
             if( !errPending() )
             {
+                // assign columns data to struct field
                 mxSetFieldByNumber( result, 0, j, column );
                 column = NULL;  // Do not destroy! (Occupied by MATLAB struct now)
             }
@@ -1268,6 +1518,9 @@ public:
     }
     
     
+    /**
+     * \brief Transform SQL fetch to MATLAB (cell) array
+     */
     mxArray* createResultAsMatrix( ValueSQLCols& cols )
     {
         bool allFloat = true;
@@ -1289,14 +1542,16 @@ public:
                  mxCreateDoubleMatrix( (int)cols[0].size(), (int)cols.size(), mxREAL ) :
                  mxCreateCellMatrix( (int)cols[0].size(), (int)cols.size() );
 
+        // iterate columns
         for( int i = 0; !errPending() && i < (int)cols.size(); i++ )
         {
             if( !result )
             {
                 m_err.set( MSG_ERRMEMORY );
-                utils_destroy_array( result );
+                ::utils_destroy_array( result );
             }
 
+            // iterate rows
             for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
             {
                 if( allFloat )
@@ -1321,7 +1576,7 @@ public:
                         // and replace with new one
                         mxSetCell( result, i * (int)cols[i].size() + row, item );
 
-                        cols[i].Destroy(row);
+                        cols[i].Destroy(row);  // release memory
                         item = NULL;  // Do not destroy! (Occupied by MATLAB cell array now)
                     }
                 }
@@ -1333,27 +1588,22 @@ public:
     
     
     
-    // handles ramaining SQL query
+    /**
+     * \brief Handle common SQL statement
+     */
     bool cmdHandleSQLStatement()
     {
         if( errPending() ) return false;
         
-        // if user missed entering a database id, or selected id 0
-        // use default database at slot 1
-        if( m_dbid <= 0 )
-        {
-            m_dbid = 1;  // Base 1
-        }
-        
         /*** Selecting database ***/
 
-        assert( Sql.isValidId( m_dbid-1 ) );
+        assert( SQLstack.isValidId( m_dbid-1 ) );
 
-        Sql.switchTo( m_dbid-1 );
+        SQLstack.switchTo( m_dbid-1 );  // base 0
 
-        if( !Sql.current().isOpen() )
+        if( !ensureDbIsOpen() )
         {
-            m_err.set( MSG_DBNOTOPEN );
+            // ensureDbIsOpen() sets m_err
             return false;
         }
 
@@ -1382,9 +1632,9 @@ public:
         
         /*** prepare statement ***/
 
-        if( !Sql.current().setQuery( m_query ) )
+        if( !SQLstack.current().setQuery( m_query ) )
         {
-            m_err.set( Sql.current().getErr() );
+            m_err.set( SQLstack.current().getErr() );
             return false;
         }
 
@@ -1393,12 +1643,12 @@ public:
         ValueSQLCols    cols;
         const mxArray** nextBindParam   = m_parg;
         int             countBindParam  = m_narg;
-        int             argsNeeded      = Sql.current().getParameterCount();
+        int             argsNeeded      = SQLstack.current().getParameterCount();
 
         // Check if a lonely cell argument is passed
         if( countBindParam == 1 && ValueMex(*nextBindParam).IsCell() )
         {
-            // Only allowed, when streming is off
+            // Only allowed, when streaming is off
             if( g_streaming )
             {
                 m_err.set( MSG_SINGLECELLNOTALLOWED );
@@ -1410,14 +1660,19 @@ public:
             nextBindParam = (const mxArray**)ValueMex(*nextBindParam).Data();
         }
 
-        if( g_wrap_parameters )
+        /* 
+         * If g_param_wrapping is set, more parameters as needed with current
+         * statement may be passed. 
+         */
+        
+        if( g_param_wrapping )
         {
-            // exceeding argument list allowed to ommit multiple queries
+            // exceeding argument list allowed to omit multiple queries
             
-            int count       = argsNeeded ? ( countBindParam / argsNeeded ) : 1;
-            int remain      = argsNeeded ? ( countBindParam % argsNeeded ) : 0;
+            int count       = argsNeeded ? ( countBindParam / argsNeeded ) : 1;  // amount of proposed queries
+            int remain      = argsNeeded ? ( countBindParam % argsNeeded ) : 0;  // must be 0
 
-            // no parameters may left
+            // remain must be 0
             if( remain )
             {
                 m_err.set( MSG_UNEXPECTEDARG );
@@ -1450,29 +1705,29 @@ public:
         }
 
         // loop over parameters
-
         for(;;)
         {
             // reset SQL statement
-            Sql.current().reset();
+            SQLstack.current().reset();
 
             /*** Bind parameters ***/
         
             // bind each argument to SQL statements placeholders 
             for( int iParam = 0; !errPending() && iParam < argsNeeded; iParam++, countBindParam-- )
             {
-                if( !Sql.current().bindParameter( iParam+1, *nextBindParam++, can_serialize() ) )
+                if( !SQLstack.current().bindParameter( iParam+1, *nextBindParam++, can_serialize() ) )
                 {
-                    m_err.set( Sql.current().getErr() );
+                    m_err.set( SQLstack.current().getErr() );
                     return false;
                 }
             }
 
             /*** fetch results and store results for output ***/
 
-            if( !Sql.current().fetch( cols ) )
+            // cumulate in "cols"
+            if( !SQLstack.current().fetch( cols ) )
             {
-                m_err.set( Sql.current().getErr() );
+                m_err.set( SQLstack.current().getErr() );
                 return false;
             }
 
@@ -1483,22 +1738,22 @@ public:
         }
 
         /*
-         * end the sql engine
+         * finalize current sql statement
          */
-        Sql.current().finalize();
+        SQLstack.current().finalize();
 
         /*** Prepare results to return ***/
         
-        // Get a cell matrix of original column names and analyze if
+        // Get a cell matrix of original column names
         mxArray* colNames = createResultColNameMatrix( cols );
         
         if( errPending() )
         {
-            utils_destroy_array( colNames );
+            ::utils_destroy_array( colNames );
             return false;
         }
         
-        // check if result is empty
+        // check if result is empty (no columns)
         if( !cols.size() )
         {
             /*
@@ -1518,6 +1773,7 @@ public:
         {
             mxArray* result = NULL;
             
+            // dispatch regarding result type
             switch( g_result_type )
             {
                 case RESULT_TYPE_ARRAYOFSTRUCTS:
@@ -1565,7 +1821,7 @@ public:
             }
         }
 
-        utils_destroy_array( colNames );
+        ::utils_destroy_array( colNames );
 
         return !errPending();
         
@@ -1586,13 +1842,19 @@ public:
 ///////////////////////////////////////////////////////////////////////////
 /* the main routine */
 
-/*
- * This ist the Entry Function of this Mex-DLL
+/**
+ * \brief Entry Function of Mex-DLL
+ *
+ * \param[in] nlhs Number of "left hand side" parameters (expected results)
+ * \param[out] plhs Pointer to "left hand side" parameters
+ * \param[in] nrhs Number of "right hand side" parameters (arguments)
+ * \param[in] prhs Pomter to "right hand side" parameters
  */
-void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
+void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
 {
     /*
-     * Get the current Language
+     * Get the current language
+     * -1 means "undefined" (only one init on module load required)
      */
     if( getLocale() == -1 )
     {
@@ -1612,7 +1874,7 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
     }
     
     /*
-     * Print Version Information, initializing, ...
+     * Print version information, initializing, ...
      */
     if( !g_is_initialized )
     {
@@ -1621,9 +1883,9 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
     
     Mksqlite mksqlite( nlhs, plhs, nrhs, prhs );
     
-    Sql.current().clearErr();
+    SQLstack.current().clearErr();
     
-    // read first numeric argument if given and use as dbid, then read command string
+    // read first numeric argument if given and use it as dbid, then read command string
     if( !mksqlite.argTryReadValidDbid() || !mksqlite.argReadCommand() )
     {
         mksqlite.returnWithError();
@@ -1633,22 +1895,22 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
     switch( mksqlite.cmdAnalyseCommand() )
     {
       case Mksqlite::OPEN:
-        (void)mksqlite.cmdHandleOpen();
+        (void)mksqlite.cmdHandleOpen(); // "open" command
         break;
         
       case Mksqlite::CLOSE:
-        (void)mksqlite.cmdHandleClose();
+        (void)mksqlite.cmdHandleClose(); // "close" command
         break;
         
       case Mksqlite::QUERY:
-        (void)mksqlite.cmdHandleSQLStatement();
+        (void)mksqlite.cmdHandleSQLStatement();  // common sql query
         break;
         
       case Mksqlite::FAILED:
         break;
         
       case Mksqlite::DONE:
-        break;
+        break; // switches (flags) are already handled
         
       default:
         assert( false );
@@ -1659,6 +1921,11 @@ void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] )
     {
         mksqlite.returnWithError();
     }
+
+#if CONFIG_USE_HEAP_CHECK
+    mksqlite.~mksqlite();
+    HeapCheck.Walk();
+#endif
     
     return;
 }

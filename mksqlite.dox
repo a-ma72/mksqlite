@@ -1,0 +1,10 @@
+/**
+\mainpage Introduction
+\htmlinclude intro.html
+\ref short_desc
+*/
+
+/**
+\page short_desc Short description
+\htmlinclude mksqlite_eng.html
+*/

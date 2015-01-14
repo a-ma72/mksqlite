@@ -1,4 +1,4 @@
-function sqlite_test_load_extension ()
+function sqlite_test_load_extension
   % Create in-memory database
   dbid = mksqlite( 'open', '' ); 
   

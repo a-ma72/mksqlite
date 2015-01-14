@@ -1,4 +1,4 @@
-function mksqlite_test ()
+function sqlite_test
 
 clc
 

@@ -1,4 +1,4 @@
-function sqlite_test_bind_typed_compressed ()
+function sqlite_test_bind_typed_compressed
 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % Create database with some records  %
@@ -16,6 +16,7 @@ function sqlite_test_bind_typed_compressed ()
   mksqlite( ['create table demo (ID primary key, Type, Data, Size, ', ...
              'Level, PackRatio, PackTime, UnpackTime, MD5)'] );
 
+  fprintf( 'Please wait, while generating 10000 entries...\n' );
   for n = 1:10000
     compression_level = randi(10)-1;
     use_typed_blobs   = randi(2)-1;
@@ -55,11 +56,11 @@ function sqlite_test_bind_typed_compressed ()
   fprintf( 'Please wait, while updating database...\n' );
   mksqlite( 'update demo set PackRatio=BDCRatio(Data), PackTime=BDCPackTime(Data), UnpackTime=BDCUnpackTime(Data), MD5=MD5(Data)' );
 
-  % Compression of "real" random numers is poor:
+  % Compression of "real" random numbers is poor:
   query = mksqlite( 'select Type, Size, Level, PackRatio, PackTime, UnpackTime from demo where type<3' );
   figure, hist( [query.PackRatio]', 50 )
 
-  % Compression of "real" random numers is poor:
+  % Compression of "real" random numbers is poor:
   min_level = 1;
   query = mksqlite( 'select Type, Size, Level, PackRatio, PackTime, UnpackTime from demo where type=3 and Level>=?', min_level );
   figure, hist( [query.PackRatio]', 50 )

@@ -1,4 +1,4 @@
-function sqlite_test_bind_typed ()
+function sqlite_test_bind_typed
   
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % Datenbank und Inhalt erzeugen  %
@@ -44,7 +44,7 @@ function sqlite_test_bind_typed ()
     % Erweiterte Typisierung der BLOBs aktivieren. Damit jetzt auch Strukturen, 
     % Cell-Arrays und komplexe Zahlen als BLOB in der Datenbank gespeichert werden.
     mksqlite( 'typedBLOBs', 2 );
-    mksqlite( 'streaming', 1 );
+    %mksqlite( 'streaming', 1 );
   catch
   end
   

@@ -1,14 +1,14 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      sql_user_functions.hpp
  *  @brief     SQL user defined functions, automatically attached to each database
  *  @details   Additional functions in SQL statements (MD5, regex, pow, and packing ratio/time)
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @authors   Martin Kortmann <mail@kortmann.de>,
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -19,14 +19,14 @@
 
 /* Extending SQLite with additional user functions */
 
-#include "config.h"
-#include "global.hpp"
-#include "sqlite/sqlite3.h"
+//#include "config.h"
+//#include "global.hpp"
+//#include "sqlite/sqlite3.h"
 #include "deelx/deelx.h"
 #include "typed_blobs.hpp"
 #include "number_compressor.hpp"
 #include "serialize.hpp"
-#include "utils.hpp"
+//#include "utils.hpp"
 
 extern "C"
 {
@@ -35,6 +35,9 @@ extern "C"
 
 /* SQLite function extensions by mksqlite */
 void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void lg_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void exp_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void regex_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void BDC_ratio_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void BDC_pack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
@@ -51,10 +54,21 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable, mxArray*
 
 /* sqlite user functions, implementations */
 
-// power function
+/**
+ * \brief Power function implementation
+ *
+ * Computes the equation result = pow( base, exponent )\n
+ * where base is argv[0] and exponent is argv[1]
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
 void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 2 ) ;
     double base, exponent, result;
+    
+    // Check "base" parameter (handles NULL and double types)
     switch( sqlite3_value_type( argv[0] ) )
     {
         case SQLITE_NULL:
@@ -64,6 +78,7 @@ void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
             base = sqlite3_value_double( argv[0] );
     }
     
+    // Check "exponent" parameter (handles NULL and double types)
     switch( sqlite3_value_type( argv[1] ) )
     {
         case SQLITE_NULL:
@@ -82,23 +97,159 @@ void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
         sqlite3_result_error( ctx, "pow(): evaluation error", -1 );
         return;
     }
+    
     sqlite3_result_double( ctx, result );
 }
 
 
-// regular expression function (with replace option, then argc > 2 )
+/* sqlite user functions, implementations */
+
+/**
+ * \brief Logarithm function to base 10 implementation
+ *
+ * Computes the equation result = log10( value )\n
+ * where value is argv[0] 
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
+void lg_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
+    assert( argc == 1 );
+    double value, result;
+    
+    // Check "value" parameter (handles NULL and double types)
+    switch( sqlite3_value_type( argv[0] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            value = sqlite3_value_double( argv[0] );
+    }
+    
+    try
+    {
+        result = log10( value );
+    }
+    catch( ... )
+    {
+        sqlite3_result_error( ctx, "lg(): evaluation error", -1 );
+        return;
+    }
+    
+    sqlite3_result_double( ctx, result );
+}
+
+
+/**
+ * \brief Natural logarithm function implementation
+ *
+ * Computes the equation result = ln( value )\n
+ * where value is argv[0] 
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
+void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
+    assert( argc == 1 );
+    double value, result;
+    
+    // Check "value" parameter (handles NULL and double types)
+    switch( sqlite3_value_type( argv[0] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            value = sqlite3_value_double( argv[0] );
+    }
+    
+    try
+    {
+        result = log( value );
+    }
+    catch( ... )
+    {
+        sqlite3_result_error( ctx, "ln(): evaluation error", -1 );
+        return;
+    }
+    
+    sqlite3_result_double( ctx, result );
+}
+
+
+/**
+ * \brief Exponential function implementation
+ *
+ * Computes the equation result = exp( value )\n
+ * where value is argv[0] 
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
+void exp_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
+    assert( argc == 1 );
+    double value, result;
+    
+    // Check "value" parameter (handles NULL and double types)
+    switch( sqlite3_value_type( argv[0] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            value = sqlite3_value_double( argv[0] );
+    }
+    
+    try
+    {
+        result = exp( value );
+    }
+    catch( ... )
+    {
+        sqlite3_result_error( ctx, "exp(): evaluation error", -1 );
+        return;
+    }
+    
+    sqlite3_result_double( ctx, result );
+}
+
+
+/**
+ * \brief Regular expression function implementation
+ *
+ * Regular expression function ( with replace option, then argc > 2 )\n
+ * regex(str,pattern) returns the matching substring of str, which
+ * matches against pattern, where str is argv[0] and pattern is argv[1].
+ *
+ * If 3 arguments passed regex(str,pattern,replacement) the substring
+ * will be modified regarding replacement parameter before returned.
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
 void regex_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
-    assert( argc >= 2 );
-    char *str, *pattern, *replace = NULL;
+    assert( argc >= 2 ); // at least 2 arguments needed
+    char *str = NULL, *pattern = NULL, *replace = NULL;
     
     sqlite3_result_null( ctx );
     
-    str = utils_strnewdup( (const char*)sqlite3_value_text( argv[0] ) );
-    pattern = utils_strnewdup( (const char*)sqlite3_value_text( argv[1] ) );
+    // Get input arguments
+    str = utils_strnewdup( (const char*)sqlite3_value_text( argv[0] ), g_convertUTF8 );
+    pattern = utils_strnewdup( (const char*)sqlite3_value_text( argv[1] ), g_convertUTF8 );
     
+    HC_NOTES( str, "regex_func" );
+    HC_NOTES( pattern, "regex_func" );
+    
+    // Optional 3rd parameter is the replacement pattern
     if( argc > 2 )
     {
-        replace = utils_strnewdup( (const char*)sqlite3_value_text( argv[2] ) );
+        replace = utils_strnewdup( (const char*)sqlite3_value_text( argv[2] ), g_convertUTF8 );
+        HC_NOTES( replace, "regex_func" );
     }
     
     CRegexpT <char> regexp( pattern );
@@ -114,12 +265,13 @@ void regex_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
         if( argc == 2 )
         {
             // Match mode
-            int start = result.GetStart();
-            int end   = result.GetEnd();
+            int start = result.GetStart();  // first match position (0 based)
+            int end   = result.GetEnd();    // position afterwards matching substring (0 based)
             int len   = end - start;
 
             str_value = (char*)MEM_ALLOC( len + 1, sizeof(char) );
             
+            // make a substring copy
             if( str_value && len > 0 )
             {
                 memset( str_value, 0, len + 1 );
@@ -128,9 +280,10 @@ void regex_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
         }
         else
         {
-            // Replace mode
+            // Replace mode (allocates space)
             char* result = regexp.Replace( str, replace );
             
+            // make a copy with own memory management
             if( result )
             {
                 int len = (int)strlen( result );
@@ -145,53 +298,66 @@ void regex_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
             }
         }
         
+        // str_value holds substring now, if any (otherwise NULL)
+        
+        // Optionally convert result string to UTF
         if( str_value && g_convertUTF8 )
         {
             int len = utils_latin2utf( (unsigned char*)str_value, NULL ); // get the size only
             char *temp = (char*)MEM_ALLOC( len, sizeof(char) ); // allocate memory
             if( temp )
             {
-                utils_latin2utf( (unsigned char*)str_value, (unsigned char*)temp );
-                utils_free_ptr( str_value );
+                ::utils_latin2utf( (unsigned char*)str_value, (unsigned char*)temp );
+                ::utils_free_ptr( str_value );
                 str_value = temp;
             }
         }
         
+        // Return a string copy and delete the original
         if( str_value )
         {
             sqlite3_result_text( ctx, str_value, -1, SQLITE_TRANSIENT );
-            utils_free_ptr( str_value );
+            ::utils_free_ptr( str_value );
         }
     }
    
     if( str )
     {
-        delete[] str;
+        ::utils_free_ptr( str );
     }
     
     if( pattern )
     {
-        delete[] pattern;
+        ::utils_free_ptr( pattern );
     }
     
     if( replace )
     {
-        delete[] replace;
+        ::utils_free_ptr( replace );
     }
 }
 
 
-// Calculates the md5 hash (RSA)
+/**
+ * \brief MD5 hashing implementation
+ *
+ * md5(value) calculates the md5 hash (RSA), where value is argv[0]
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
 void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     
+    // two versions of typed header will be tested
     typedef TypedBLOBHeaderV1 tbhv1_t;
     typedef TypedBLOBHeaderV2 tbhv2_t;
     
     tbhv1_t* tbh1 = NULL;
     tbhv2_t* tbh2 = NULL;
     
-    MD5_CTX md5_ctx;
+    MD5_CTX md5_ctx; // md5 context
     unsigned char digest[16];
     char* str_result = NULL;
     const char hex_chars[] = "0123456789ABCDEF";
@@ -204,6 +370,7 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
         return;
     }
     
+    // get and handle argument "value"
     switch( sqlite3_value_type( argv[0] ) )
     {
       case SQLITE_INTEGER:
@@ -231,14 +398,16 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
       case SQLITE_TEXT:
       {
           int bytes = sqlite3_value_bytes( argv[0] );
-          char* value = utils_strnewdup( (const char*)sqlite3_value_text( argv[0] ) );
+          char* value = utils_strnewdup( (const char*)sqlite3_value_text( argv[0] ), g_convertUTF8 );
           assert( NULL != value );
+          
+          HC_NOTES( value, "MD5_func" );
 
           MD5_Init( &md5_ctx );
           MD5_Update( &md5_ctx, value, (int)strlen( value ) );
           MD5_Final( digest, &md5_ctx );
 
-          delete[] value;
+          ::utils_free_ptr( value );
           break;
       }
       case SQLITE_BLOB:
@@ -279,7 +448,7 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
                   MD5_Update( &md5_ctx, mxGetData( pItem ), (int)data_size );
                   MD5_Final( digest, &md5_ctx );
                   
-                  utils_destroy_array( pItem );
+                  ::utils_destroy_array( pItem );
               }
               break;
           }
@@ -289,6 +458,7 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
         return;
     }
     
+    // build result string
     str_result = (char*)MEM_ALLOC( 16*2+1, 1 );
     
     if( str_result )
@@ -302,20 +472,31 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
         }
         
         sqlite3_result_text( ctx, str_result, -1, SQLITE_TRANSIENT );
-        utils_free_ptr( str_result );
+        ::utils_free_ptr( str_result );
     }
 }
 
 
-// BDCRatio function. Calculates the compression ratio for a blob
+/**
+ * \brief BDCRatio function implementation
+ *
+ * BDCRatio(value) calculates the compression ratio 
+ * for a blob, where value is argv[0]
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
 void BDC_ratio_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     
+    // two versions of typed header will be tested
     typedef TypedBLOBHeaderV1 tbhv1_t;
     typedef TypedBLOBHeaderV2 tbhv2_t;
     
     sqlite3_result_null( ctx );
 
+    // get and handle "value"
     if( SQLITE_BLOB == sqlite3_value_type( argv[0] ) )
     {
         tbhv1_t* tbh1    = (tbhv1_t*)sqlite3_value_blob( argv[0] );
@@ -342,7 +523,7 @@ void BDC_ratio_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
                 sqlite3_result_double( ctx, ratio );
             }
             
-            utils_destroy_array( pItem );
+            ::utils_destroy_array( pItem );
         }
     } 
     else 
@@ -352,15 +533,26 @@ void BDC_ratio_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
 }
 
 
-// BDCPackTime function. Calculates the compression time on a blob
+/**
+ * \brief BDCPackTime function implementation
+ *
+ * BDCPackTime(value) calculates the compression time on a blob,
+ * where value is argv[0]
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
 void BDC_pack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     
+    // two versions of typed header will be tested
     typedef TypedBLOBHeaderV1 tbhv1_t;
     typedef TypedBLOBHeaderV2 tbhv2_t;
     
     sqlite3_result_null( ctx );
 
+    // get and handle "value" argument
     if( SQLITE_BLOB == sqlite3_value_type( argv[0] ) )
     {
         tbhv1_t* tbh1       = (tbhv1_t*)sqlite3_value_blob( argv[0] );
@@ -397,7 +589,7 @@ void BDC_pack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
             }
             
             sqlite3_free( dummy_blob );
-            utils_destroy_array( pItem );
+            ::utils_destroy_array( pItem );
         }
     } 
     else 
@@ -407,15 +599,26 @@ void BDC_pack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
 }
 
 
-// BDCUnpackTime function. Calculates the decompression time on a blob
+/**
+ * \brief BDCUnpackTime function implementation
+ *
+ * BDCUnpackTime(value) calculates the uncompression time on a blob,
+ * where value is argv[0]
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
 void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     
+    // two versions of typed header will be tested
     typedef TypedBLOBHeaderV1 tbhv1_t;
     typedef TypedBLOBHeaderV2 tbhv2_t;
     
     sqlite3_result_null( ctx );
 
+    // get and handle "value" argument
     if( SQLITE_BLOB == sqlite3_value_type( argv[0] ) )
     {
         tbhv1_t*  tbh1          = (tbhv1_t*)sqlite3_value_blob( argv[0] );
@@ -442,7 +645,7 @@ void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv 
                 sqlite3_result_double( ctx, process_time );
             }
 
-            utils_destroy_array( pItem );
+            ::utils_destroy_array( pItem );
         }
     } 
     else 
@@ -460,7 +663,16 @@ void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv 
  */
 
 
-// create a compressed typed blob from a Matlab item (deep copy)
+/**
+ * \brief create a compressed typed blob from a Matlab item (deep copy)
+ *
+ * \param[in] pcItem MATLAB array to compress
+ * \param[in] bStreamable if true, streaming preprocess is intended
+ * \param[out] ppBlob Created BLOB
+ * \param[out] pBlob_size Size of BLOB in bytes
+ * \param[out] pdProcess_time Processing time in seconds
+ * \param[out] pdRatio Realized compression ratio
+ */
 int blob_pack( const mxArray* pcItem, bool bStreamable, 
                void** ppBlob, size_t* pBlob_size, 
                double *pdProcess_time, double* pdRatio )
@@ -469,9 +681,9 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
     
     assert( pcItem && ppBlob && pBlob_size && pdProcess_time && pdRatio );
     
-    ValueMex          value( pcItem );
-    mxArray*          byteStream        = NULL;
-    NumberCompressor  numericSequence;
+    ValueMex          value( pcItem );           // object wrapper
+    mxArray*          byteStream        = NULL;  // for stream preprocessing
+    NumberCompressor  numericSequence;           // compressor
     
     // BLOB packaging in 3 steps:
     // 1. Serialize
@@ -482,10 +694,11 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
     {
         if( !bStreamable || !serialize( pcItem, byteStream ) )
         {
-            err.set( MSG_ERRMEMORY );  // \todo MSG_ERRSERIALIZE
+            err.set( MSG_ERRMEMORY );  /// \todo MSG_ERRSERIALIZE
             goto finalize;
         }
         
+        // inherit new byte stream instead original array
         value = ValueMex( byteStream );
     }
     
@@ -502,7 +715,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
     // setCompressor() always returns true, since parameters had been checked already
     (void)numericSequence.setCompressor( g_compression_type, g_compression_level );
     
-   
+    // only if compression is desired
     if( g_compression_level )
     {
         double start_time = utils_get_wall_time();
@@ -512,7 +725,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
         
         *pdProcess_time = utils_get_wall_time() - start_time;
         
-        // did the compressor ommits compressed data?
+        // any compressed data omitted?
         if( numericSequence.m_result_size > 0 )
         {
             size_t blob_size_uncompressed;
@@ -562,11 +775,11 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
             tbh2->setCompressor( numericSequence.getCompressorName() );
 
             // ...and copy compressed data
-            // TODO: Do byteswapping here if big endian? 
+            /// \todo Do byteswapping here if big endian? 
             // (Most platforms use little endian)
             memcpy( (char*)tbh2->getData(), numericSequence.m_result, numericSequence.m_result_size );
             
-            // check if compressed data equals to original?
+            // optionally check if compressed data equals to original?
             if( g_compression_check && !numericSequence.isLossy() )
             {
                 mxArray* unpacked = NULL;
@@ -583,7 +796,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
                 }
 
                 is_equal = ( memcmp( value.Data(), ValueMex(unpacked).Data(), value.ByData() ) == 0 );
-                utils_destroy_array( unpacked );
+                ::utils_destroy_array( unpacked );
 
                 // check if uncompressed data equals original
                 if( !is_equal )
@@ -626,7 +839,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
         tbh1->init( value.Item() );
 
         // and copy uncompressed data
-        // TODO: Do byteswapping here if big endian? 
+        /// \todo: Do byteswapping here if big endian? 
         // (Most platforms use little endian)
         memcpy( tbh1->getData(), value.Data(), value.ByData() );
 
@@ -643,13 +856,22 @@ finalize:
   
     // cleanup
     // free cdata and byteStream if left any
-    utils_destroy_array( byteStream );
+    ::utils_destroy_array( byteStream );
     
     return err.getErrId();
 }
 
 
-// uncompress a typed blob and return its matlab item
+/**
+ * \brief uncompress a typed blob and return as MATLAB array
+ *
+ * \param[out] pBlob BLOB to decompress
+ * \param[out] blob_size Size of BLOB in bytes
+ * \param[in] bStreamable if true, streaming preprocess is intended
+ * \param[in] ppItem MATLAB array to compress
+ * \param[out] pdProcess_time Processing time in seconds
+ * \param[out] pdRatio Realized compression ratio
+ */
 int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable, 
                  mxArray** ppItem, 
                  double* pdProcess_time, double* pdRatio )
@@ -676,7 +898,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
     if( !tbh1->validPlatform() )
     {
         mexWarnMsgIdAndTxt( "MATLAB:MKSQLITE:BlobDiffArch", ::getLocaleMsg( MSG_WARNDIFFARCH ) );
-        // TODO: warning, error or automatic conversion..?
+        /// \todo: warning, error or automatic conversion..?
         // since mostly platforms (except SunOS) use LE encoding
         // and unicode is not supported here, there is IMHO no need 
         // for conversions...
@@ -692,7 +914,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
         goto finalize;
     }
 
-    // serialized item marked as "unknown class" is a byte stream
+    // serialized array marked as "unknown class" is a byte stream
     if( tbh1->m_clsid == mxUNKNOWN_CLASS )
     {
         bIsByteStream = true;
@@ -718,7 +940,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
               goto finalize;
           }
           
-          // create an empty MATLAB variable
+          // create an empty MATLAB array
           pItem = tbh2->createNumericArray( /* doCopyData */ false );
           
           // space allocated?
@@ -727,8 +949,8 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
               numericSequence.setCompressor( tbh2->m_compression );
 
               double start_time = utils_get_wall_time();
-              void*  cdata      = tbh2->getData();
-              size_t cdata_size = blob_size - tbh2->dataOffset();
+              void*  cdata      = tbh2->getData();  // get compressed data
+              size_t cdata_size = blob_size - tbh2->dataOffset(); // and its size
               
               // data will be unpacked directly into MATLAB variable data space
               if( !numericSequence.unpack( cdata, cdata_size, ValueMex(pItem).Data(), ValueMex(pItem).ByData(), ValueMex(pItem).ByElement() ) )
@@ -739,6 +961,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
               
               *pdProcess_time = utils_get_wall_time() - start_time;
 
+              // any data omitted?
               if( ValueMex(pItem).ByData() > 0 )
               {
                   *pdRatio = (double)cdata_size / numericSequence.m_result_size;
@@ -748,7 +971,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
                   *pdRatio = 0.0;
               }
 
-              // TODO: Do byteswapping here if needed, depend on endian?
+              /// \todo: Do byteswapping here if needed, depend on endian?
           }
           break;
       }
@@ -759,6 +982,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
     }
 
 
+    // revert if streaming preprocess was done
     if( bIsByteStream  )
     {
         mxArray* pDeStreamed = NULL;
@@ -769,7 +993,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
             goto finalize;
         }
         
-        utils_destroy_array( pItem );
+        ::utils_destroy_array( pItem );
         pItem = pDeStreamed;
     }
 
@@ -782,7 +1006,7 @@ finalize:
     // rdata is owned by a MATLAB variable (will be freed by MATLAB)
     // cdata is owned by the blob (const parameter pBlob)
     // so inhibit from freeing through destructor:
-    utils_destroy_array( pItem );
+    ::utils_destroy_array( pItem );
 
     return err.getErrId();
 }

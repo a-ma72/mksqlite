@@ -1,4 +1,4 @@
-function sqlite_test_bind_typed_compressed ()
+function sqlite_test_blosc
 
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % Create database with some records  %
@@ -34,6 +34,7 @@ function sqlite_test_bind_typed_compressed ()
   mksqlite( 'compression', compressor, compression_level ); % Kompression der BLOBs
   mksqlite( 'compression_check', 1 ); % Checking of compressed data is on
   
+  fprintf( 'Please wait, while generating 10000 entries...\n' );
   for n = 1:10000;
     
     data = cumsum( randn( 10000, 1) );

@@ -1,4 +1,4 @@
-function sqlite_test_bind ()
+function sqlite_test_bind
 
   clear all
   close all

@@ -1,14 +1,15 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB interface to SQLite -->
  * 
  *  @file      utils.hpp
  *  @brief     Utilities used in all files.
- *  @details   String support.
+ *  @details   Common utilities.
+ *             (freeing mex memory, utf<->latin conversion, time measurement)
  *  @see       http://note.sonots.com/Mex/Matrix.html
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin
+ *  @authors   Martin Kortmann <mail@kortmann.de>, 
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -17,19 +18,20 @@
 
 #pragma once
 
-#include "config.h"
+//#include "config.h"
 #include "global.hpp"
-#include "locale.hpp"
+//#include "locale.hpp"
 
-/* helper functions, declaration */
+/* helper functions, formard declarations */
 
                   size_t  utils_elbytes           ( mxClassID classID );
                   int     utils_utf2latin         ( const unsigned char *s, unsigned char *buffer );
                   int     utils_latin2utf         ( const unsigned char *s, unsigned char *buffer );
-                  char*   utils_strnewdup         ( const char* s );
+                  char*   utils_strnewdup         ( const char* s, int flagConvertUTF8 );
                   void    utils_destroy_array     ( mxArray *&pmxarr );
 template<class T> void    utils_free_ptr          ( T *&pmxarr );
-
+                  double  utils_get_wall_time     ();
+                  double  utils_get_cpu_time      ();
 
 
 #ifdef MAIN_MODULE
@@ -91,6 +93,7 @@ size_t utils_elbytes( mxClassID classID )
 
     return result;
 }
+
 
 /**
  * @brief Convert UTF-8 string to char string
@@ -171,16 +174,17 @@ int utils_latin2utf( const unsigned char *s, unsigned char *buffer = NULL )
 
 
 /**
- * @brief duplicate a string and recode from UTF8 to char due to global flag @ref g_convertUTF8
+ * @brief duplicate a string and recode from UTF8 to char due to flag \p flagConvertUTF8
  *
  * @param [in] s input string
- * @returns pointer to created duplicate (allocator @ref MEM_ALLOC)
+ * @param [in] flagConvertUTF8 String duplicate will be UTF8 encoded, if flag is set
+ * @returns pointer to created duplicate (allocator @ref MEM_ALLOC) and must be freed with @ref MEM_FREE
  */
-char* utils_strnewdup(const char* s)
+char* utils_strnewdup(const char* s, int flagConvertUTF8 )
 {
     char *newstr = 0;
     
-    if( g_convertUTF8 )
+    if( flagConvertUTF8 )
     {
         if( s )
         {
@@ -212,17 +216,39 @@ char* utils_strnewdup(const char* s)
 
 
 
-/**
- * Matlab documentation is missing the issue, if mxFree and mxDestroyArray
- * accept NULL pointers. Tested without crash, but what will be in further 
- * Matlab versions...
- * So we do it on our own:
+/** 
+ * @file
+ * @note
+ * <HR>
+ * From the Matlab documentation: \n
+ *
+ * mxDestroyArray deallocates the memory occupied by the specified mxArray. 
+ * This includes: \n
+ * - Characteristics fields of the mxArray, such as size, (m and n), and type.
+ * - Associated data arrays, such as pr and pi for complex arrays, and ir and jc for sparse arrays.
+ * - Fields of structure arrays.
+ * - Cells of cell arrays.
+ *
+ * @note
+ * Do not call mxDestroyArray on an mxArray: \n
+ * - you return in a left-side argument of a MEX-file.
+ * - returned by the mxGetField or mxGetFieldByNumber functions.
+ * - returned by the mxGetCell function.
+ *
+ * @note
+ * <HR>
+ * Poorly the documentation is missing the issue, whether a NULL pointer may
+ * be passed or not. For sure a self implementation will be used.
  */
 
-/*
- * utils_destroy_array() deallocates memory reserved by 
- * mxCreateNumericMatrix() or
- * mxCreateNumericArray()
+
+
+/** 
+ * @brief Freeing memory allocated by mxCreateNumericMatrix() or mxCreateNumericArray().
+ *
+ * @param [in] pmxarr Memory pointer or NULL
+ *
+ * Memory pointer \p pmxarr is set to NULL after deallocation.
  */
 void utils_destroy_array( mxArray *&pmxarr )
 {
@@ -234,9 +260,12 @@ void utils_destroy_array( mxArray *&pmxarr )
 }
 
 
-/*
- * utils_free_ptr() can handle casted pointers allocated from 
- * MEM_ALLOC
+/**
+ * @brief Freeing memory allocated by mxAlloc() or mxRealloc()
+ *
+ * @param [in] pmxarr Memory pointer or NULL
+ *
+ * Memory pointer \p pmxarr is set to NULL after deallocation.
  */
 template <class T>
 void utils_free_ptr( T *&pmxarr )
@@ -251,6 +280,17 @@ void utils_free_ptr( T *&pmxarr )
 
 
 // Time measuring functions
+
+/**
+ * @fn utils_get_wall_time
+ * @brief Returns current counter time in seconds 
+ * @returns Time in seconds
+ *
+ * @fn utils_get_cpu_time
+ * @brief Returns user mode time of current process in seconds 
+ * @returns Time in seconds
+ */
+
 // Windows
 #ifdef _WIN32
 #include <windows.h>
@@ -310,7 +350,7 @@ double utils_get_wall_time()
     return (double)time.tv_sec + (double)time.tv_usec * .000001;
 }
 
-double get_cpu_time()
+double utils_get_cpu_time()
 {
     return (double)clock() / CLOCKS_PER_SEC;
 }
@@ -319,4 +359,4 @@ double get_cpu_time()
 
 
 
-#endif
+#endif  /* MAIN_MODULE */

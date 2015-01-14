@@ -1,13 +1,13 @@
 /**
- *  mksqlite: A MATLAB Interface to SQLite
+ *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      typed_blobs.hpp
  *  @brief     Packing MATLAB data in a memory block with type information for storing as SQL BLOB
  *  @details   
- *  @author    Martin Kortmann <mail@kortmann.de>
- *  @author    Andreas Martin  <andi.martin@gmx.net>
+ *  @authors   Martin Kortmann <mail@kortmann.de>,
+ *             Andreas Martin  <andimartin@users.sourceforge.net>
  *  @version   2.0
- *  @date      2008-2014
+ *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -16,8 +16,8 @@
 
 #pragma once 
 
-#include "config.h"
-#include "global.hpp"
+//#include "config.h"
+//#include "global.hpp"
 #include "utils.hpp"
 
 #ifdef _WIN32
@@ -27,56 +27,65 @@
   #define GCC_PACKED_STRUCT __attribute__((packed))
 #endif
   
-  /* 
+  /**
+   * \file
    * Size of blob-header identifies type 1 or type 2 (with compression feature).
    *
-   * Blobs of type mxUnknown_Class respects serialized (streamed) data and should be handled
-   * as mxChar_Class thus. Before packing data into a typed blob the caller is 
-   * responsible to ensure not to deal with mxUnknown_Class data.
+   * BLOBs of type mxUNKNOWN_CLASS reflects serialized (streamed) data and should be handled
+   * as mxCHAR_CLASS thus. Before packing data into a typed blob the caller is 
+   * responsible to ensure not to deal with mxUNKNOWN_CLASS data.
    *
    * In this module it's countless if the data is serialized or not, since it's a simple char
    * array in that case. 
+   *
+   * Store type and dimensions of MATLAB vectors/arrays in BLOBs 
+   * native and free of matlab types, to provide data sharing 
+   * with other applications.\n
+   * Switched with the command mksqlite('typedBLOBs', <integer value>), 
+   * where <integer value> is 0 for "off" and 1 for "on".
    */
 
-  
-/* Store type and dimensions of MATLAB vectors/arrays in BLOBs 
- * native and free of matlab types, to provide data sharing 
- * with other applications
- * Set by mksqlite('typedBLOBs', <integer value>)
- * where <integer value> is one of enum typed_blobs_e:
+
+/**
+ * \name Header field limits
+ *
+ * Length definitions for typed header fields (max lengths).
+ *
+ * @{
  */
-typedef enum {
-  TYBLOB_NO = 0,       // no typed blobs
-  TYBLOB_ARRAYS,       // ability of storaging multidimensional non-complex arrays as typed blobs
-  TYBLOB_COMPRESSED,   // ability of storing compressed data
-  
-  // Limit for bound checking only
-  TYBLOB_MAX_ID = TYBLOB_COMPRESSED
-} typed_blobs_e;
-
-
-/* length definitions for typed header fields */
 #define TBH_MAGIC_MAXLEN      14
 #define TBH_PLATFORM_MAXLEN   11
 #define TBH_COMPRID_MAXLEN    12
 #define TBH_ENDIAN_MAXLEN      2
+/** @} */
 
 
-
-/* fields to identify valid headers */
-extern const char  TBH_MAGIC[];     /* constant, see below */
-extern       char  TBH_platform[];  /* set by main module */
-extern       char  TBH_endian[];    /* set by main module */
+/**
+ * \name Text fields for integrity check (platform and magic)
+ *
+ * @{
+ */
+extern const char  TBH_MAGIC[];     ///< identify string
+extern       char  TBH_platform[];  ///< platform name
+extern       char  TBH_endian[];    ///< endian (little or big)
+/** @} */
 
 
 #ifdef MAIN_MODULE
 
 /* Implementations */
 
-static typed_blobs_e typed_blobs_mode = TYBLOB_NO; // Default is off
+static int typed_blobs_mode = 0; ///< typed blobs are off by default
 
 namespace old_version { int check_compatibility(void); };
 
+/**
+ * \brief Initialization
+ *
+ * Get platform information. Data stored in the database may be dependent and
+ * will be checked.\n
+ * (Compatibility test in debug mode)
+ */
 void typed_blobs_init()
 {
     mxArray *plhs[3] = {0};
@@ -88,61 +97,62 @@ void typed_blobs_init()
         mxGetString( plhs[0], TBH_platform, TBH_PLATFORM_MAXLEN );
         mxGetString( plhs[2], TBH_endian, TBH_ENDIAN_MAXLEN );
 
-        utils_destroy_array( plhs[0] );
-        utils_destroy_array( plhs[1] );
-        utils_destroy_array( plhs[2] );
+        ::utils_destroy_array( plhs[0] );
+        ::utils_destroy_array( plhs[1] );
+        ::utils_destroy_array( plhs[2] );
     }
 }
 
-void typed_blobs_mode_set( typed_blobs_e mode )
+/// Set mode of typed blob usage
+void typed_blobs_mode_set( int mode )
 {
-    typed_blobs_mode = mode;
+    typed_blobs_mode = (mode != 0);
 }
 
-typed_blobs_e typed_blobs_mode_get()
+/// Get mode of typed blob usage
+int typed_blobs_mode_on()
 {
     return typed_blobs_mode;
 }
 
-bool typed_blobs_mode_check( typed_blobs_e mode )
-{
-    return typed_blobs_mode == mode;
-}
-
-/*static*/ const char  TBH_MAGIC[TBH_MAGIC_MAXLEN]         = "mkSQLite.tbh\0";
-/*static*/       char  TBH_platform[TBH_PLATFORM_MAXLEN]   = {0};
-/*static*/       char  TBH_endian[TBH_ENDIAN_MAXLEN]       = {0};
+/*static*/ const char  TBH_MAGIC[TBH_MAGIC_MAXLEN]         = "mkSQLite.tbh\0"; ///< identifying string
+/*static*/       char  TBH_platform[TBH_PLATFORM_MAXLEN]   = {0};              ///< platform name
+/*static*/       char  TBH_endian[TBH_ENDIAN_MAXLEN]       = {0};              ///< endian (little or big)
 
 #endif
 
-// typed BLOB header agreement
-// typed_BLOB_header_base is the unique and mandatory header prelude for typed blob headers
+/**
+ * \brief 1st (base) version of typed BLOB header with ability of storing multidimensional MATLAB arrays.
+ * 
+ * This struct is the unique and mandatory header prelude for typed blob headers
+ */
 struct GCC_PACKED_STRUCT TypedBLOBHeaderBase 
 {
-  char    m_magic[TBH_MAGIC_MAXLEN];        // + 14 small fail-safe header check
-  int16_t m_ver;                            // +  2 Struct size as kind of header version number for later backwards compatibility (may increase only!)
-  int32_t m_clsid;                          // +  4 Matlab ClassID of variable (see mxClassID)
-  char    m_platform[TBH_PLATFORM_MAXLEN];  // + 11 Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
-  char    m_endian;                         // +  1 Byte order: 'L'ittle endian or 'B'ig endian
-                                            // = 32 Bytes (+4 bytes for int32_t m_nDims[1] later)
+  char    m_magic[TBH_MAGIC_MAXLEN];        ///< + 14 small fail-safe header check
+  int16_t m_ver;                            ///< +  2 Struct size as kind of header version number for later backwards compatibility (may increase only!)
+  int32_t m_clsid;                          ///< +  4 Matlab ClassID of variable (see mxClassID)
+  char    m_platform[TBH_PLATFORM_MAXLEN];  ///< + 11 Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
+  char    m_endian;                         ///< +  1 Byte order: 'L'ittle endian or 'B'ig endian
+                                            ///< = 32 Bytes (+4 bytes for int32_t m_nDims[1] later)
   
+  /// Initialize structure with class ID and platform information
   void init( mxClassID clsid )
   {
     strcpy( m_magic,    TBH_MAGIC );
     strcpy( m_platform, TBH_platform );
     
-    m_ver       = (int16_t)sizeof( *this );
-    m_clsid     = (int32_t)clsid; 
-    m_endian    = TBH_endian[0];
+    m_ver       = (int16_t)sizeof( *this ); // Header size used as version number
+    m_clsid     = (int32_t)clsid;           // MATLABs class ID
+    m_endian    = TBH_endian[0];            // First letter only ('L'ittle or 'B'ig)
   }
   
-  
+  /// Check identifying string (magic)
   bool validMagic()
   {
     return 0 == strncmp( m_magic, TBH_MAGIC, TBH_MAGIC_MAXLEN );
   }
   
-  // check if MATLAB variable has valid class id to store in a typed blob
+  /// Check if class id is valid for typed blob (TYBLOB_ARRAYS)
   static
   bool validClsid( mxClassID clsid )
   {
@@ -163,13 +173,13 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
       case  mxUINT64_CLASS:
         return true;
       default:
-        // no other types supported
+        // no other types supported so far
         return false;
     }
   }
   
 
-  // check a data type given
+  /// Check if class id is valid for typed blob (TYBLOB_ARRAYS)
   static
   bool validClsid( const mxArray* pItem )
   {
@@ -177,21 +187,21 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
   }
   
   
-  // check self data type
+  /// Check for valid self class ID
   bool validClsid()
   {
     return validClsid( (mxClassID)m_clsid );
   }
   
   
-  // check if originate platform equals to running one
+  /// Check if originate platform equals to running one
   bool validPlatform()
   {
     return TBH_endian[0] == m_endian && 0 == strncmp( TBH_platform, m_platform, TBH_PLATFORM_MAXLEN );
   }
   
   
-  // get data size of an item in bytes
+  /// Get data size of an array in bytes
   static
   size_t getDataSize( const mxArray* pItem )
   {
@@ -210,48 +220,65 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
 };
 
 
-// 2nd version of typed blobs with compression feature
-/* 
- * IMPORTANT: NEVER ADD VIRTUAL FUNCTIONS TO HEADER CLASSES DERIVED FROM BASE!
+/**
+ * \brief 2nd version of typed blobs with additional compression feature.
+ * 
+ * \attention
+ * NEVER ADD VIRTUAL FUNCTIONS TO HEADER CLASSES DERIVED FROM BASE!
  * Reason: Size of struct wouldn't match since a hidden vtable pointer 
- *         would be attached then!
+ * would be attached then!
  */
 struct GCC_PACKED_STRUCT TypedBLOBHeaderCompressed : public TypedBLOBHeaderBase 
 {
-  /* name of the compression algorithm used. Other algorithms
-   * possible in future..?
-   */
+  /// name of the compression algorithm used. Other algorithms possible in future..?
   char m_compression[12];
-  
-//  void init( mxClassID clsid, const char* strCompressorType )
+
+  /// Initialization
   void init( mxClassID clsid )
   {
     TypedBLOBHeaderBase::init( clsid );
     setCompressor( "" );
   }
 
+  /// Compressor selection
   void setCompressor( const char* strCompressorType )
   {
     strncpy( m_compression, strCompressorType, sizeof( m_compression ) );
   }
   
-  // for now, all compressor types should be valid
+  /**
+   * \brief Check for valid compressor
+   * \todo Any checking needed?
+   */
   bool validCompression()
   {
-    // \todo add checking?
     return 1;
   }
 };
 
 
-/* Template to append data and its dimensions uniquely to a typed BLOB header */
+/**
+ * \brief Template class extending base class uniquely.
+ * \relates TypedBLOBHeader
+ * \relates TypedBLOBHeaderCompressed
+ * 
+ * This template class appends the number of dimensions, their extents and
+ * finally the numeric data itself to the header.\
+ * HeaderBaseType is either TypedBLOBHeader or TypedBLOBHeaderCompressed.
+ */
 template< typename HeaderBaseType >
 struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
 {
-  // Number of dimensions, followed by sizes of each dimension
+  /// Number of dimensions, followed by sizes of each dimension (BLOB data follows after last dimension size...)
   int32_t m_nDims[1];  
-  // (BLOB data follows after last dimension size...)
-  
+
+  /** 
+   * \brief Initialization (hides base class init() function)
+   *
+   * \param[in] clsid MATLAB class ID of array elements
+   * \param[in] nDims Amount of array dimensions
+   * \param[in] pSize Pointer to vector of dimension lengths
+   */
   void init( mxClassID clsid, mwSize nDims, const mwSize* pSize )
   {
     HeaderBaseType::init( clsid );
@@ -268,7 +295,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   }
   
   
-  // set class id and dimension information of an item
+  /// Set class ID and dimension information of an array item
   void init( const mxArray* pItem )
   {
     assert( pItem );
@@ -280,31 +307,43 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   }
   
   
-  // version information is stored as struct size. compare if
-  // current size equals to assumed
+  /**
+   * \brief Header version checking
+   * 
+   * Version information is stored as struct size. compare if
+   * current size equals to assumed.
+   */
   bool validVer()
   {
       return sizeof(*this) == (size_t)HeaderBaseType::m_ver;
   }
   
   
-  // get a pointer to data begin with number of dimensions given
-  // first data byte starts after last dimension
+  /**
+   * \brief Get pointer to array data (while initializing)
+   *
+   * Get a pointer to data begin with number of dimensions given
+   * first data byte starts after last dimension.
+   */
   void* getData( mwSize nDims )
   {
     return (void*)&m_nDims[ nDims + 1 ];
   }
   
   
-  // get a pointer to self data begin
+  /// get a pointer to array data (initialized)
   void* getData()
   {
     return getData( m_nDims[0] );
   }
   
   
-  // get the offset from structure begin to data begin with given
-  // number of dimensions
+  /**
+   * \brief Get header offset to begin of array data (while initializing)
+   * 
+   * Get the offset from structure begin to data begin with given
+   * number of dimensions.
+   */
   static
   size_t dataOffset( mwSize nDims )
   {
@@ -314,22 +353,27 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   }
   
   
-  // get the offset from structure begin to self data begin
+  /// Get header offset to begin of array data (initialized)
   size_t dataOffset()
   {
     return dataOffset( m_nDims[0] );
   }
   
   
-  // get data size in bytes, returns 0 on error
+  /// Get data size in bytes, returns 0 on error
   size_t getDataSize()
   {
     return utils_elbytes( (mxClassID)HeaderBaseType::m_clsid );
   }
   
   
-  // create a numeric array suitable for self item data
-  // if doCopyData is true, item data is copied into array
+  /**
+   * \brief
+   * \param[in] doCopyData If true, containig data will be copied
+   * 
+   * Create a MATLAB array suitable for containing data,
+   * which will optionally copied.
+   */
   mxArray* createNumericArray( bool doCopyData )
   {
     mwSize nDims = m_nDims[0];
@@ -355,28 +399,34 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
   }
   
 private: 
-  // Disabling create instances! 
-  // Scheme represented by this template, and others derived, do only shadow 
-  // memory got from allocators (malloc)
+  /**
+   * \name Inhibitance
+   *
+   * Creation of instances inhibited.
+   * Scheme represented by this template, and others derived, do only shadow 
+   * memory got from allocators (malloc)
+   *
+   * @{
+   */
   TBHData();
   TBHData( const TBHData& );
   TBHData& operator=( const TBHData& );
+  /** @} */
 
 };
 
-typedef TBHData<TypedBLOBHeaderBase>       TypedBLOBHeaderV1;
-typedef TBHData<TypedBLOBHeaderCompressed> TypedBLOBHeaderV2;
+typedef TBHData<TypedBLOBHeaderBase>       TypedBLOBHeaderV1;  ///< typed blob header for MATLAB arrays
+typedef TBHData<TypedBLOBHeaderCompressed> TypedBLOBHeaderV2;  ///< typed blob header for MATLAB arrays with compression feature
 
 
 ///////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
-/* Test backward compatibility, will be removed in future releases */
+/// Test backward compatibility, will be removed in future releases
 namespace old_version {
     /* Store type and dimensions of MATLAB vectors/arrays in BLOBs */
-    static bool use_typed_blobs   = false;
-    static const char TBH_MAGIC[] = "mkSQLite.tbh";
-    static char TBH_platform[11]    = {0};
-    static char TBH_endian[2]       = {0};
+    static const char TBH_MAGIC[] = "mkSQLite.tbh";  ///< identifying string (magic) (deprecated)
+    static char TBH_platform[11]    = {0};           ///< platform name (i.e. "PCWIN") (deprecated)
+    static char TBH_endian[2]       = {0};           ///< endian used ('L'ittle or 'B'ig) (deprecated)
 
     // typed BLOB header agreement
     // native and free of matlab types, to provide data sharing with other applications
@@ -386,24 +436,28 @@ namespace old_version {
 #pragma pack()
 #endif
 
+    /// typed BLOB header (deprecated)
     typedef struct 
     {
-      char magic[sizeof(TBH_MAGIC)];  // small fail-safe header check
-      int16_t ver;                    // Struct size as kind of header version number for later backwards compatibility (may increase only!)
-      int32_t clsid;                  // Matlab ClassID of variable (see mxClassID)
-      char platform[11];              // Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
-      char endian;                    // Byte order: 'L'ittle endian or 'B'ig endian
-      int32_t sizeDims[1];            // Number of dimensions, followed by sizes of each dimension
-                                      // First byte after header at &tbh->sizeDims[tbh->sizeDims[0]+1]
+      char magic[sizeof(TBH_MAGIC)];  ///< small fail-safe header check
+      int16_t ver;                    ///< Struct size as kind of header version number for later backwards compatibility (may increase only!)
+      int32_t clsid;                  ///< Matlab ClassID of variable (see mxClassID)
+      char platform[11];              ///< Computer architecture: PCWIN, PCWIN64, GLNX86, GLNXA64, MACI, MACI64, SOL64
+      char endian;                    ///< Byte order: 'L'ittle endian or 'B'ig endian
+      int32_t sizeDims[1];            ///< Number of dimensions, followed by sizes of each dimension
+                                      ///< First byte after header at &tbh->sizeDims[tbh->sizeDims[0]+1]
     } TypedBLOBHeader;
 
 #ifdef _WIN32
 #pragma pack( pop )
 #endif
 
+/// Get pointer to hosted data  (deprecated)
 #define TBH_DATA(tbh)            ((void*)&tbh->sizeDims[tbh->sizeDims[0]+1])
+/// Get offset from header start to hosted data  (deprecated)
 #define TBH_DATA_OFFSET(nDims)   ((ptrdiff_t)&((TypedBLOBHeader*) 0)->sizeDims[nDims+1])
 
+    /// Checks for valid header size, platform name, endian type and magic  (deprecated)
     int check_compatibility()
     {
         TypedBLOBHeaderV1*  tbh1         = (TypedBLOBHeaderV1*)1024;
