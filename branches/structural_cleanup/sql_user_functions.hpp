@@ -46,8 +46,15 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 
 
 // Forward declarations
-int blob_pack( const mxArray* pcItem, bool bStreamable, void** ppBlob, size_t* pBlob_size, double *pdProcess_time, double* pdRatio );
-int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable, mxArray** ppItem, double* pProcess_time, double* pdRatio );
+int blob_pack( const mxArray* pcItem, bool bStreamable, 
+               void** ppBlob, size_t* pBlob_size, 
+               double *pdProcess_time, double* pdRatio,
+               const char* compressor = g_compression_type, 
+               int level = g_compression_level );
+
+int blob_unpack( const void* pBlob, size_t blob_size, 
+                 bool bStreamable, mxArray** ppItem, 
+                 double* pProcess_time, double* pdRatio );
 
 
 #ifdef MAIN_MODULE
@@ -672,10 +679,15 @@ void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv 
  * \param[out] pBlob_size Size of BLOB in bytes
  * \param[out] pdProcess_time Processing time in seconds
  * \param[out] pdRatio Realized compression ratio
+ * \param[in] compressor name of compressor to use (optional). 
+ *            Default is global setting g_compression_type
+ * \param[in] level compression level (optional). 
+ *            Default is global setting g_compression_level
  */
 int blob_pack( const mxArray* pcItem, bool bStreamable, 
                void** ppBlob, size_t* pBlob_size, 
-               double *pdProcess_time, double* pdRatio )
+               double *pdProcess_time, double* pdRatio,
+               const char* compressor, int level )
 {
     Err err;
     
@@ -713,7 +725,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
      * according to value and type of the matrix and the machine
      */
     // setCompressor() always returns true, since parameters had been checked already
-    (void)numericSequence.setCompressor( g_compression_type, g_compression_level );
+    (void)numericSequence.setCompressor( compressor, level );
     
     // only if compression is desired
     if( g_compression_level )

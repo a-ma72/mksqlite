@@ -768,7 +768,9 @@ WARN_LOGFILE           =
 # spaces.
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = .
+INPUT                  = . \
+                         doxy/detail_desc.dox \
+                         doxy/examples.dox
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -881,9 +883,9 @@ EXCLUDE_SYMBOLS        = HC_ASSERT_ERROR \
 # that contain example code fragments that are included (see the \include
 # command).
 
-EXAMPLE_PATH           = ./doc \
-                         ./doxy \
-                         ./test
+EXAMPLE_PATH           = ./doxy \
+                         ./test \
+                         ./test/html
 
 # If the value of the EXAMPLE_PATH tag contains directories, you can use the
 # EXAMPLE_PATTERNS tag to specify one or more wildcard pattern (like *.cpp and
@@ -903,7 +905,7 @@ EXAMPLE_RECURSIVE      = NO
 # that contain images that are to be included in the documentation (see the
 # \image command).
 
-IMAGE_PATH             = 
+IMAGE_PATH             = ./test/html
 
 # The INPUT_FILTER tag can be used to specify a program that doxygen should
 # invoke to filter for each input file. Doxygen will invoke the filter program
@@ -1171,7 +1173,15 @@ HTML_EXTRA_STYLESHEET  =
 # files will be copied as-is; there are no commands or markers available.
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
-HTML_EXTRA_FILES       = ./doc/sf_logo.png
+HTML_EXTRA_FILES       = ./docs/sf_logo.png \
+                         test/html/sqlite_test_bind.jpg \
+                         test/html/sqlite_test_bind_01.jpg \
+                         test/html/sqlite_test_bind_typed.jpg \
+                         test/html/sqlite_test_bind_typed_01.jpg \
+                         test/html/sqlite_test_bind_typed_compressed.jpg \
+                         test/html/sqlite_test_md5_and_packaging.jpg \
+                         test/html/sqlite_test_md5_and_packaging_01.jpg \
+                         test/html/sqlite_test_md5_and_packaging_02.jpg
 
 # The HTML_COLORSTYLE_HUE tag controls the color of the HTML output. Doxygen
 # will adjust the colors in the style sheet and background images according to

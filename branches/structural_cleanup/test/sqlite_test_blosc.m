@@ -1,65 +1,85 @@
 function sqlite_test_blosc
 
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % Create database with some records  %
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  
-  close all
-  clear all
-  clc
-  
-  if isempty( mfilename )
-    pack
-  end
-  
-  mem_start = memory
-
-  if exist( 'TBH_data.db', 'file' )
-    delete( 'TBH_data.db' );
-  end
-  
-  mksqlite( 'open', 'TBH_data.db' ); % Create one-file database
-
-  % Tabelle anlegen
-  mksqlite( ['create table demo (ID primary key, Type, Data, Size, ', ...
-             'Level, PackRatio, PackTime, UnpackTime, MD5)'] );
-
-  use_typed_blobs = 2;   % Use typed BLOBs with compression feature
-  compressor = 'QLIN16';
-  %compressor = 'lz4hc';
-  compression_level = 0;
-  
-  % You're not limited in mixing compressed and uncompressed data in the data base!
-  mksqlite( 'typedBLOBs', use_typed_blobs ); % Typisierung der BLOBs
-  mksqlite( 'compression', compressor, compression_level ); % Kompression der BLOBs
-  mksqlite( 'compression_check', 1 ); % Checking of compressed data is on
-  
-  fprintf( 'Please wait, while generating 10000 entries...\n' );
-  for n = 1:10000;
+    clear all
+    close all
+    clc
+    dummy = mksqlite('version mex');
+    fprintf( '\n\n' );
     
-    data = cumsum( randn( 10000, 1) );
-
-    if 0
-      mksqlite( 'insert or replace into demo (ID, Type, Data, Size, Level) values (?,?,?,?,?)', ...
-                n, 1, data, 1, compression_level );
-    else
-      q = mksqlite( 'select BDCPackTime(?) as t_pack, BDCUnpackTime(?) as t_unpack, BDCRatio(?) as ratio', data, data, data );
+    database = 'demo.db';
+    
+    % delete existing on-disc database if any
+    if exist( database, 'file' )
+        delete( database );
     end
-        
-    if n > 1
-      fprintf( '%c', [8,8,8,8,8,8] );
+
+    % create a new database file
+    mksqlite( 'open', database );
+
+    % create table
+    mksqlite( ['CREATE TABLE demo '   , ...
+               ' ( id PRIMARY KEY, '  , ...
+               '   type, '            , ...  % indicating which compressor was used
+               '   data, '            , ...  % packed random data
+               '   pack_ratio, '      , ...  % compression ratio
+               '   pack_time, '       , ...  % compression time
+               '   unpack_time '     , ...  % decompression time
+               ' )'] );
+             
+    compressors = { 'lz4', 'lz4hc', 'blosclz' };  % lossless compressors
+
+    typed_blob_mode   = 2; % Use typed BLOBs with compression feature
+    compression_level = 9; % level, range from 0=off to 9=max
+
+    % You're not limited in mixing compressed and uncompressed data in the data base!
+    mksqlite( 'typedBLOBs', typed_blob_mode ); % switch typed BLOBs mode
+    mksqlite( 'compression_check', 1 ); % set check for compressed data on
+
+    % generating recordset
+    fprintf( 'Please wait, while generating 500 entries...\n' );
+    for n = 1:500
+
+        data = cumsum( randn( 10000, 1) );  % some random data
+
+        % set randomly one compression
+        type = randi(size(compressors)-1) + 1;
+        compressor = compressors{type};
+        mksqlite( 'compression', compressor, compression_level ); 
+
+        % insert random data
+        mksqlite( ['INSERT INTO demo ', ...
+                   ' (id, type, data) ', ...
+                   ' VALUES (?,?,?)'], ...
+                   n, type, data );
+
+        % note that BDC...() SQL user functions depend on current
+        % compression settings!
+        mksqlite( ['UPDATE demo SET ', ...
+                   '  pack_time   = BDCPackTime(data), '   , ...
+                   '  unpack_time = BDCUnpackTime(data), ' , ...
+                   '  pack_ratio  = BDCRatio(data) '   , ...
+                   ' WHERE id = ?'], n );
+
+        % Display progress state
+        if n > 1
+            fprintf( '%c', ones(3,1)*8 );
+        end
+
+        fprintf( '%03d', n );
     end
     
-    fprintf( '%06d', n );
-  end
+    fprintf( '\n\n\n' );
+    
+    
+    % display some statistics about blosc compressors
+    for i = 1:3
+        fprintf( 'Statistics for %s with max. compression rate:\n', compressors{i} );
+        mksqlite( ['SELECT ', ...
+                   '  MIN(pack_time),   AVG(pack_time),   MAX(pack_time), ', ...
+                   '  MIN(unpack_time), AVG(unpack_time), MAX(unpack_time), ', ...
+                   '  MIN(pack_ratio),  AVG(pack_ratio),  MAX(pack_ratio) ', ...
+                   '  FROM demo WHERE type = ?'], i )
+    end
 
-  mksqlite( 0, 'close' );
-  
-  close all
-  clear all
-  if isempty( mfilename )
-    pack
-  end
-  
-  mem_end = memory
-end
+    %  close database
+    mksqlite( 0, 'close' );

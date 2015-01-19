@@ -655,7 +655,7 @@ public:
         }
         
         /*
-         * There should be one Argument to "enable extension"
+         * There should be one argument to "enable extension"
          */
         if( m_narg > 1 )
         {
@@ -808,7 +808,7 @@ public:
         warnOnDefDbid();
         
         /*
-         * There should be no Argument to status
+         * There should be no argument to status
          */
         if( m_narg > 0 )
         {
@@ -818,6 +818,57 @@ public:
         
         SQLstack.printStati();
         
+        return true;
+    }
+    
+    
+    /**
+     * \brief Handle language command
+     *
+     * \param[in] strCmdMatchName Command name
+     * \returns true on success
+     * 
+     * Try to interpret current command as status command.
+     * \p strCmdMatchName holds the mksqlite command name.
+     */
+    bool cmdTryHandleLanguage( const char* strCmdMatchName )
+    {
+        if( errPending() || !STRMATCH( m_command, strCmdMatchName ) ) 
+        {
+            return false;
+        }
+        
+        // Global command, dbid useless
+        warnOnDefDbid();
+        
+        /*
+         * There should be one numeric argument
+         */
+        if( m_narg < 1 ) 
+        {
+            m_err.set( MSG_MISSINGARG );
+            return false;
+        }
+        else if( m_narg > 1 ) 
+        {
+            m_err.set( MSG_UNEXPECTEDARG );
+            return false;
+        }
+
+        if( !mxIsNumeric( m_parg[0] ) )
+        {
+            m_err.set( MSG_NUMARGEXPCT );
+            return false;
+        } else {
+            int iLang = ValueMex( m_parg[0] ).GetInt();
+            
+            if( !setLocale( iLang ) )
+            {
+                m_err.set( MSG_INVALIDARG );
+                return false;
+            }
+        }
+
         return true;
     }
     
@@ -980,7 +1031,7 @@ public:
         }
         
         /*
-         * There should be one Argument, the Timeout in ms
+         * There should be one argument, the Timeout in ms
          */
         if( m_narg > 1 ) 
         {
@@ -1053,6 +1104,7 @@ public:
             || cmdTryHandleFlag( "compression_check", g_compression_check )
             || cmdTryHandleFlag( "param_wrapping", g_param_wrapping )
             || cmdTryHandleStatus( "status" )
+            || cmdTryHandleLanguage( "lang" )
             || cmdTryHandleVersion( "version mex", "version sql" )
             || cmdTryHandleStreaming( "streaming" )
             || cmdTryHandleTypedBlob( "typedBLOBs" )
@@ -1248,7 +1300,7 @@ public:
         if( errPending() ) return false;
 
         /*
-         * There should be no Argument to close
+         * There should be no argument to close
          */
         if( m_narg > 0 )
         {
@@ -1369,25 +1421,31 @@ public:
      */
     mxArray* createResultColNameMatrix( const ValueSQLCols& cols )
     {
-        mxArray* colNames = mxCreateCellMatrix( (int)cols.size(), (int)cols.size() ? 1 : 0 );
+        mxArray* colNames = mxCreateCellMatrix( (int)cols.size(), (int)cols.size() ? 2 : 0 );
         
         // iterate columns
         for( int i = 0; !errPending() && i < (int)cols.size(); i++ )
         {
             // get the real column name
-            mxArray* colName = mxCreateString( cols[i].m_name.c_str() );
+            mxArray* colNameSql = mxCreateString( cols[i].m_col_name.c_str() );
+            mxArray* colNameMat = mxCreateString( cols[i].m_name.c_str() );
 
-            if( !colNames || !colName )
+            if( !colNames || !colNameSql || !colNameMat )
             {
-                ::utils_destroy_array( colName );
+                ::utils_destroy_array( colNameSql );
+                ::utils_destroy_array( colNameMat );
                 ::utils_destroy_array( colNames );
 
                 m_err.set( MSG_ERRMEMORY );
             }
             else
             {
+                // replace cell contents
+                int j = (int)cols.size() + i;  // 2nd cell matrix column
                 mxDestroyArray( mxGetCell( colNames, i ) );
-                mxSetCell( colNames, i, colName );
+                mxDestroyArray( mxGetCell( colNames, j ) );
+                mxSetCell( colNames, i, colNameSql );
+                mxSetCell( colNames, j, colNameMat );
             }
         }
         
@@ -1672,15 +1730,8 @@ public:
             int count       = argsNeeded ? ( countBindParam / argsNeeded ) : 1;  // amount of proposed queries
             int remain      = argsNeeded ? ( countBindParam % argsNeeded ) : 0;  // must be 0
 
-            // remain must be 0
-            if( remain )
-            {
-                m_err.set( MSG_UNEXPECTEDARG );
-                return false;
-            }
-        
-            // all placeholders must be fullfilled
-            if( !count )
+            // remain must be 0, all placeholders must be fulfilled
+            if( remain || !count )
             {
                 m_err.set( MSG_MISSINGARG );
                 return false;
@@ -1688,6 +1739,8 @@ public:
         }
         else
         {
+            bool flagIgnoreLessParameters = true;
+            
             // the number of arguments may not exceed the number of placeholders
             // in the sql statement
             if( countBindParam > argsNeeded )
@@ -1697,7 +1750,7 @@ public:
             }
 
             // number of arguments must match now
-            if( countBindParam != argsNeeded )
+            if( !flagIgnoreLessParameters && countBindParam != argsNeeded )
             {
                 m_err.set( MSG_MISSINGARGL );
                 return false;
@@ -1713,7 +1766,7 @@ public:
             /*** Bind parameters ***/
         
             // bind each argument to SQL statements placeholders 
-            for( int iParam = 0; !errPending() && iParam < argsNeeded; iParam++, countBindParam-- )
+            for( int iParam = 0; !errPending() && iParam < argsNeeded && countBindParam; iParam++, countBindParam-- )
             {
                 if( !SQLstack.current().bindParameter( iParam+1, *nextBindParam++, can_serialize() ) )
                 {
@@ -1725,7 +1778,7 @@ public:
             /*** fetch results and store results for output ***/
 
             // cumulate in "cols"
-            if( !SQLstack.current().fetch( cols ) )
+            if( !errPending() && !SQLstack.current().fetch( cols ) )
             {
                 m_err.set( SQLstack.current().getErr() );
                 return false;
@@ -1744,12 +1797,8 @@ public:
 
         /*** Prepare results to return ***/
         
-        // Get a cell matrix of original column names
-        mxArray* colNames = createResultColNameMatrix( cols );
-        
         if( errPending() )
         {
-            ::utils_destroy_array( colNames );
             return false;
         }
         
@@ -1759,14 +1808,18 @@ public:
             /*
              * got nothing? return an empty result to MATLAB
              */
-            mxArray* result = mxCreateDoubleMatrix( 0, 0, mxREAL );
-            if( !result )
+            for( int i = 0; i < m_nlhs; i++ )
             {
-                m_err.set( MSG_CANTCREATEOUTPUT );
-            }
-            else
-            {
-                m_plhs[0] = result;
+                mxArray* result = mxCreateDoubleMatrix( 0, 0, mxREAL );
+                if( !result )
+                {
+                    m_err.set( MSG_CANTCREATEOUTPUT );
+                    break;
+                }
+                else
+                {
+                    m_plhs[i] = result;
+                }
             }
         }
         else
@@ -1816,12 +1869,10 @@ public:
             // If more than 2 return parameters, output the real column names
             if( m_nlhs > 2 )
             {
-                m_plhs[2] = colNames;
-                colNames  = NULL;
+                // Get a cell matrix of column name relations (SQL <-> MATLAB)
+                m_plhs[2] = createResultColNameMatrix( cols );
             }
         }
-
-        ::utils_destroy_array( colNames );
 
         return !errPending();
         

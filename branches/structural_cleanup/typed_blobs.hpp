@@ -41,8 +41,8 @@
    * Store type and dimensions of MATLAB vectors/arrays in BLOBs 
    * native and free of matlab types, to provide data sharing 
    * with other applications.\n
-   * Switched with the command mksqlite('typedBLOBs', <integer value>), 
-   * where <integer value> is 0 for "off" and 1 for "on".
+   * Switched with the command mksqlite('typedBLOBs', \<integer value\>), 
+   * where \<integer value\> is 0 for "off" and 1 for "on".
    */
 
 
@@ -244,6 +244,12 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderCompressed : public TypedBLOBHeaderBase
   void setCompressor( const char* strCompressorType )
   {
     strncpy( m_compression, strCompressorType, sizeof( m_compression ) );
+  }
+  
+  /// Get compressor name
+  const char* getCompressor()
+  {
+    return m_compression;
   }
   
   /**

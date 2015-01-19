@@ -28,7 +28,7 @@ extern "C"
 /* Localization, declaration */
 
 const char*   getLocaleMsg  ( int iMsgNr );
-void          setLocale     ( int iLang );
+bool          setLocale     ( int iLang );
 int           getLocale     ();
 
 
@@ -254,7 +254,7 @@ static const char* messages_0[] =
     "extension loading enabled for this db",
     "extension loading disabled for this db",
     "failed to set extension loading feature",
-    "missing argument",
+    "more argument(s) expected",
     "numeric argument expected",
     "single cell argument not allowed when streaming enabled",
     "unable to create fieldname from column name",
@@ -315,7 +315,7 @@ static const char* messages_1[] =
     "DLL Erweiterungen für diese db aktiviert",
     "DLL Erweiterungen für diese db deaktiviert",
     "Einstellung für DLL Erweiterungen nicht möglich",
-    "Parameter fehlt",
+    "Argumentliste zu kurz",
     "numerischer Parameter erwartet",
     "einzelnes Argument vom Typ Cell ist nicht erlaubt, wenn das Streaming eingeschaltet ist",
     "aus dem Spaltennamen konnte kein gültiger Feldname erzeugt werden",
@@ -367,12 +367,17 @@ const char* getLocaleMsg( int iMsgNr )
 
 /** 
  * \brief Sets the current locale
+ * \param[in] iLang number identifying current locale
+ * \returns true on success
  */
-void setLocale( int iLang )
+bool setLocale( int iLang )
 {
     if( iLang >=0 && iLang < sizeof(messages) )
     {
         Language = iLang;
+        return true;
+    } else {
+        return false;
     }
 }
 
