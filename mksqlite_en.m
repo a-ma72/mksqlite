@@ -102,7 +102,7 @@
 % Type conversion only works with numeric arrays and vectors.  structs,
 % cell arrays and complex data must be converted beforehand.  Matlab
 % can do this conversion through undocumented functions:
-% getByteStreamFromArray() und getArrayFromByteStream(). 
+% getByteStreamFromArray() and getArrayFromByteStream(). 
 % This functionality is activated by following command:
 %
 %   mksqlite ( 'typedBLOBs', 2); % expanded activation
