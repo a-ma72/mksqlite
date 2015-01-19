@@ -1,7 +1,13 @@
 /**
 \mainpage Introduction
+
 \htmlinclude intro.html
-\ref short_desc
+
+<HR class="center" size="1">
+\li \subpage short_desc
+\li \subpage detail_desc
+\li \subpage examples
+
 */
 
 /**
