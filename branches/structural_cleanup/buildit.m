@@ -204,11 +204,12 @@ fprintf ('packing mksqlite release files\n');
 
 % copy files
 % release
-copyfile('README.TXT',    reldir);
-copyfile('Changelog.txt', reldir);
-copyfile('mksqlite.m',    reldir);
-copyfile('mksqlite_en.m', reldir);
-copyfile('sql.m',         reldir);
+copyfile('README.TXT',              reldir);
+copyfile('Changelog.txt',           reldir);
+copyfile('mksqlite.m',              reldir);
+copyfile('mksqlite_en.m',           reldir);
+copyfile('sql.m',                   reldir);
+copyfile('doxy/chm/mksqlite*.chm',  reldir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 if exist( 'mksqlite.mexw32', 'file' )
@@ -234,6 +235,8 @@ end
 
 copyfile('docs/',                  [reldir '/docs']);
 copyfile('test/',                  [reldir '/test']);
+copyfile('doxy/chm/mksqlite*.chm', [reldir '/docs']);
+
 
 % source
 copyfile('README.TXT',              srcdir);
@@ -264,7 +267,8 @@ copyfile('docs/',                  [srcdir '/docs']);
 copyfile('test/',                  [srcdir '/test']);
 copyfile('py/',                    [srcdir '/py']);
 copyfile('logo/*.png',             [srcdir '/logo']);
-copyfile('doxy/intro.html',        [srcdir '/doxy/']);
+copyfile('doxy/*.html',            [srcdir '/doxy/']);
+copyfile('doxy/*.dox',             [srcdir '/doxy/']);
 copyfile('svn_revision.dummy',      srcdir);
 copyfile('svn_revision.h',          srcdir);
 copyfile('svn_revision.tmpl',       srcdir);
