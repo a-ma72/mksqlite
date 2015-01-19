@@ -1974,7 +1974,7 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
     }
 
 #if CONFIG_USE_HEAP_CHECK
-    mksqlite.~mksqlite();
+    mksqlite.~Mksqlite();
     HeapCheck.Walk();
 #endif
     

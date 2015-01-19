@@ -43,6 +43,7 @@
   #define _strcmpi strcasecmp
   #define _snprintf snprintf
   #include "mex.h"
+  typedef long int ptrdiff_t;  // linux a64
 #endif
 
 #include "config.h"

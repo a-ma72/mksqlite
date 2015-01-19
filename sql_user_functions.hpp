@@ -22,10 +22,10 @@
 //#include "config.h"
 //#include "global.hpp"
 //#include "sqlite/sqlite3.h"
-#include "deelx/deelx.h"
 #include "typed_blobs.hpp"
 #include "number_compressor.hpp"
 #include "serialize.hpp"
+#include "deelx/deelx.h"
 //#include "utils.hpp"
 
 extern "C"
