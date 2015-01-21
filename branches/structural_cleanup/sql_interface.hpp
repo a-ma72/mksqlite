@@ -712,7 +712,7 @@ public:
                  {
                     size_t bytes = colBytes( jCol );
 
-                    MAT_ARRAY_TYPE* item = mxCreateNumericMatrix( (int)bytes, bytes ? 1 : 0, mxUINT8_CLASS, mxREAL );
+                    mxArray* item = mxCreateNumericMatrix( (int)bytes, bytes ? 1 : 0, mxUINT8_CLASS, mxREAL );
 
                     if( item )
                     {

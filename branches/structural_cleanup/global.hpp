@@ -90,6 +90,9 @@ extern "C" mxArray* mxDeserialize(const void*, size_t);
 typedef unsigned char byte;  ///< byte type
 
 /**
+ * \def copysign
+ * \brief alias for _copysign
+ * 
  * \def MEM_ALLOC
  * \brief standard memory allocator
  *
@@ -98,6 +101,15 @@ typedef unsigned char byte;  ///< byte type
  *
  * \def MEM_FREE(ptr)
  * \brief standard memory free function
+ * 
+ * \def MAT_ARRAY_TYPE
+ * \brief standard type for internally handled MATLAB array types (not used yet)
+ * 
+ * \def MAT_ALLOC(m,n,typeID)
+ * \brief standard allocator for MAT_ARRAY_TYPE (not used yet)
+ * 
+ * \def MAT_FREE(ptr)
+ * \brief standard deallocator for MAT_ARRAY_TYPE (not used yet)
  * 
  * Use ::utils_free_ptr() instead of MEM_FREE, when a NULL check
  * must be performed on \p ptr and &ptr must be set to NULL after freeing.
@@ -124,9 +136,11 @@ typedef unsigned char byte;  ///< byte type
 #if 1
     #define MAT_ARRAY_TYPE              mxArray
     #define MAT_ALLOC( m, n, typeID )   mxCreateNumericMatrix( m, n, typeID, mxREAL )
+    #define MAT_FREE( ptr )             mxDestroyArray( ptr )
 #else
     #define MAT_ARRAY_TYPE              tagNumericArray
     #define MAT_ALLOC( m, n, typeID )   tagNumericArray::Create( m, n, typeID )
+    #define MAT_FREE( ptr )             tagNumericArray::FreeArray( ptr )
 #endif
 
 
