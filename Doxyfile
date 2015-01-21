@@ -1135,12 +1135,10 @@ HTML_EXTRA_STYLESHEET  =
 # This tag requires that the tag GENERATE_HTML is set to YES.
 
 HTML_EXTRA_FILES       = ./docs/sf_logo.png \
-                         test/html/sqlite_test_bind.jpg \
                          test/html/sqlite_test_bind_01.jpg \
-                         test/html/sqlite_test_bind_typed.jpg \
                          test/html/sqlite_test_bind_typed_01.jpg \
-                         test/html/sqlite_test_bind_typed_compressed.jpg \
-                         test/html/sqlite_test_md5_and_packaging.jpg \
+                         test/html/sqlite_test_bind_typed_compressed_01.jpg \
+                         test/html/sqlite_test_bind_typed_compressed_02.jpg \
                          test/html/sqlite_test_md5_and_packaging_01.jpg \
                          test/html/sqlite_test_md5_and_packaging_02.jpg
 
