@@ -84,6 +84,12 @@ the differences in use of lossy compression is shown.
 
 A short example, how to use SQLites' language extension feature.
 
+\subpage example_12
+
+A logging file (text,csv) is read and pushed into a SQL table. Some optional
+columns are build by parsing (regex). Then some statistics can easily be
+made through SQL access.
+
 */
 
 /**
@@ -119,4 +125,7 @@ A short example, how to use SQLites' language extension feature.
 
 \page example_11 Using language extension
 \htmlinclude sqlite_test_load_extension.html
+
+\page example_12 A real example (statistics over log file)
+\htmlinclude sqlite_real_example.html
 */
