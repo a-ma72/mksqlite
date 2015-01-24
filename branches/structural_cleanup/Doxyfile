@@ -51,7 +51,7 @@ PROJECT_BRIEF          = "A MATLAB interface to SQLite"
 # pixels and the maximum width should not exceed 200 pixels. Doxygen will copy
 # the logo to the output directory.
 
-PROJECT_LOGO           = logo/mksqlite-logo2.png
+PROJECT_LOGO           = "logo/mksqlite-logo.png"
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute) path
 # into which the generated documentation will be written. If a relative path is
@@ -1140,7 +1140,8 @@ HTML_EXTRA_FILES       = ./docs/sf_logo.png \
                          test/html/sqlite_test_bind_typed_compressed_01.jpg \
                          test/html/sqlite_test_bind_typed_compressed_02.jpg \
                          test/html/sqlite_test_md5_and_packaging_01.jpg \
-                         test/html/sqlite_test_md5_and_packaging_02.jpg
+                         test/html/sqlite_test_md5_and_packaging_02.jpg \
+                         test/html/sqlite_real_example_01.jpg
 
 # The HTML_COLORSTYLE_HUE tag controls the color of the HTML output. Doxygen
 # will adjust the colors in the style sheet and background images according to
