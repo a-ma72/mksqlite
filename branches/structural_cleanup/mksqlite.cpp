@@ -53,14 +53,19 @@ extern "C" void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*p
 ///////////////////////////////////////////////////////////////////////////
 
 /**
- * \var SQLstack
- * \brief holds a defined number of SQLite slots for parallel databases
- *
- */
-
-/**
  * \brief SQLite interface stack
  *
+ * Holds a defined number (COUNT_DB) of SQLite slots (with dbids) to 
+ * facilitate usage of multiple parallel databases. Each database can
+ * be accessed by its dbid (database ID) as first optional parameter to
+ * mksqlite: \n
+ * \code 
+ * dbid_1 = mksqlite( 1, 'open', 'first.db' );    // open 1st database with dbid=1
+ * dbid_2 = mksqlite( 2, 'open', 'second.db' );   // open 2nd database with dbid=2
+ * assert( dbid_1 == 1 && dbid_2 == 2 );
+ * query = mksqlite( 2, 'SELECT * FROM table' );  // access to 2nd database
+ * mksqlite( 0, 'close' );                        // closes all databases
+ * \endcode
  */
 static struct SQLstack
 {
@@ -1337,6 +1342,11 @@ public:
     
     /**
      * \brief Transfer SQL value to MATLAB array
+     *
+     * @param[in] value encapsulated SQL field value
+     * @returns a MATLAB array due to value type (string or numeric content)
+     *
+     * @see g_result_type
      */
     mxArray* createItemFromValueSQL( const ValueSQL& value )
     {
@@ -1418,6 +1428,13 @@ public:
     
     /**
      * \brief Create a MATLAB cell array of column names
+     *
+     * @param[in] cols container for SQLite fetched table
+     * @returns a MATLAB cell array with 2 columns. First column holds
+     *  the original SQLite field names and the 2nd column holds the MATLAB
+     *  struct fieldnames.
+     *
+     * @see g_result_type
      */
     mxArray* createResultColNameMatrix( const ValueSQLCols& cols )
     {
@@ -1455,6 +1472,13 @@ public:
     
     /**
      * \brief Transform SQL fetch to MATLAB array of structs
+     *
+     * @param[in] cols container for SQLite fetched table
+     * @returns a MATLAB array of structs. The array size is the row count
+     *  of the table, that \a cols holds. The struct field names are the column
+     *  names, and may be modified due to MATLAB naming conventions.
+     *
+     * @see g_result_type
      */
     mxArray* createResultAsArrayOfStructs( ValueSQLCols& cols )
     {
@@ -1503,6 +1527,15 @@ public:
     
     /**
      * \brief Transform SQL fetch to MATLAB struct of arrays
+     *
+     * @param[in] cols container for SQLite fetched table
+     * @returns a MATLAB struct with arrays. The array size is the row count
+     *  of the table, that \a cols holds. The struct field names are the column
+     *  names, and may be modified due to MATLAB naming conventions. Pure
+     *  numeric vectors are given as double arrays, other types will be 
+     *  returned as cell array.
+     *
+     * @see g_result_type
      */
     mxArray* createResultAsStructOfArrays( ValueSQLCols& cols )
     {
@@ -1578,6 +1611,13 @@ public:
     
     /**
      * \brief Transform SQL fetch to MATLAB (cell) array
+     *
+     * @param[in] cols SQLite fetched table
+     * @returns a MATLAB cell array. The array is organized as MxN matrix,
+     *  where M is the row count of the table, that \a cols holds and N 
+     *  is its column count. 
+     *
+     * @see g_result_type
      */
     mxArray* createResultAsMatrix( ValueSQLCols& cols )
     {
@@ -1648,6 +1688,10 @@ public:
     
     /**
      * \brief Handle common SQL statement
+     *
+     * @returns true when SQLite accepted and proceeded the command.
+     *
+     * The mksqlite command string will be delegated to the SQLite engine.
      */
     bool cmdHandleSQLStatement()
     {
