@@ -12,42 +12,44 @@ function varargout = sql( first_arg, varargin )
       query = varargin{1};
       varargin(1) = [];   % delete first argument
   end
-  
+
   % dbid is now the database handle (if any),
   % stmt is the sql statement (or command) and
   % varagin{1:end} are the remaining arguments
-  
+
   nParams = 0;
   assert( ischar(query) );
-  
+
   % count sprintf placeholders (i.e. %d)
   % nParams holds the number of placeholders
-  for i = 1:length(query)
+  i = 1;
+  while i < length(query)
       if query(i) == '%'
           nParams = nParams + 1;
-          % check for '%%', which is no placeholder
+          % check for '%%', which is no sprintf placeholder
           if i < length(query) && query(i+1) == '%'
-              i = i + 1;
+              query(i+1) = [];
               nParams = nParams - 1;
           end
       end
+      i = i + 1;
   end
-  
+
   % if there are placeholders in SQL string, build
   % the SQL query by sprintf() first.
   if nParams > 0
       query = sprintf( query, varargin{1:nParams} );
       varargin(1:nParams) = []; % remove sprintf parameters
   end
-  
+
   args = [ dbid, {query}, varargin ];
-  
+
   % remaining arguments are for SQL parameter binding
   if ~nargout
     mksqlite( args{:} );
   else
     [varargout{1:nargout}] = mksqlite( args{:} );
   end
-  
+
 end
 
