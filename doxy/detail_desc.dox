@@ -18,6 +18,7 @@
  <HR>
  
  \section p1s2 Function calls
+ \anchor cmd_open
  \code
   mksqlite('open', 'dataBaseName')
  \endcode
@@ -30,6 +31,7 @@
  already open, it will be closed before opening again.  Providing a \a dbid 
  of 0 will return the next free \a dbid.
 
+ \anchor cmd_close
  \code
   mksqlite('close')
  \endcode
@@ -44,6 +46,7 @@
  Closes the database file. If a \a dbid is provided, the corresponding
  database is closed.  For \a dbid 0, all open databases are closed.
 
+ \anchor cmd_version_mex
  \code
   mksqlite('version mex')                 (1
  \endcode
@@ -53,6 +56,7 @@
  \endcode
  Returns the version of mksqlite in the output (1), or as a string (2).
 
+ \anchor cmd_version_sql
  \code
   mksqlite('version sql')                 (1
  \endcode
@@ -80,6 +84,7 @@
  Reads all fields from table "testtable" from the database "testdb.db3"
  into the \a result
  \n
+ \anchor cmd_show_tables
  \b Example:
  \code
   mksqlite('open', 'testdb.db3')
@@ -122,6 +127,7 @@
   data_sql = typecast( query(1).data, 'double' );
   data_sql = reshape( data_sql, 10, 15 );
  \endcode
+ \anchor cmd_typedblobs
  BLOBs are always stored as a vector of uint8 values in the database.
  In order to retrieve the original format (for example, double) and
  dimensions of the matrix, explict typecast() and reshape() functions
@@ -143,6 +149,7 @@
  \code
    mksqlite ( 'typedBLOBs', 2);  expanded activation
  \endcode
+ \anchor cmd_compression
  The data in a BLOB is stored either uncompressed (standard) or
  compressed.  Automatic compression of the data is only necessary for
  typed BLOBs, but must be activated:
@@ -151,13 +158,14 @@
  \code
  (See also examples \ref example_9 and \ref example_10)\n
  \n
+ \anchor cmd_compression_check
  The compression uses BLOSC (http://blosc.pytabales.org/trac)
  After compression, the data is unpacked and compared with the original.
  If there is a difference, an error report is given.  If this 
  functionality is not desirable, it can be deactivated (data is 
  stored without verification).
  \code
-   mksqlite( 'compression_check', 0 );  deactive the check (1=activate)
+   mksqlite( 'compression_check', 0 );  deactivate the check (1=activate)
  \endcode
  Compatibility:\n
  Stored compressed blobs cannot be retrieved with older versions of mqslite,
@@ -174,7 +182,7 @@
  \n
  Further compression methods:\n
  "QLIN16":\n
- QLIN16 is a lossy compression method.  The data is linearly discretized
+ QLIN16 is a lossy compression method.  The data is linearly discretize
  to 65529 steps and stored as 16-bit values.  Zero, as well as Infinity and Nan
  can also be used, as they are stored as special values (65529...65535).
  Differing compression rates are not supported, so this compressor should
@@ -189,7 +197,8 @@
  
 
  \section p1s4 Control the format of result for queries
-
+ \anchor cmd_result_type
+ 
  Beside the described calling convention, one can retrieve two further
  often needed results:
  -# The row count (rowcount)
@@ -257,6 +266,48 @@
  \endcode
  \n
  (also see \ref example_5 for further examples...)
+  <HR>
+ 
+ 
+ \section p1s6 Summary of mksqlite commands
+ <table>
+ <tr><th>Command</th>                                           <th>Description</th>                                            <th>Valid parameter(s)</th>        <th>Default value(s)</th></tr>
+ <tr><td>\ref cmd_version_mex "'version mex'"</td>              <td>Returns the version of mksqlite</td>                        <td>-</td>                         <td>-</td></tr>
+ <tr><td>\ref cmd_version_sql "'version sql'"</td>              <td>Returns the version of SQLite</td>                          <td>-</td>                         <td>-</td></tr>
+ <tr><td>\ref cmd_open "'open'"</td>                            <td>Opens a database</td>                                       <td>Database (file-)name</td>      <td>-</td></tr>
+ <tr><td>\ref cmd_close "'close'"</td>                          <td>Closes one or all database(s)</td>                          <td>-</td>                         <td>-</td></tr>
+ <tr><td>\ref cmd_checkfields "'check4uniquefields'"</td>       <td>Avoids duplicate field names in MATLAB structs, \n                        
+                                                                    when set to 1</td>                                          <td>0|1</td>                       <td>1</td></tr>
+ <tr><td>\ref cmd_convertUTF8 "'convertUTF8'"</td>              <td>Enables UTF8 text encoding, when set to 1</td>              <td>0|1</td>                       <td>1</td></tr>
+ <tr><td>\ref cmd_typedblobs "'typedBLOBs'"</td>                <td>Enables typed BLOB packaging, when set >0\n 
+                                                                    - 0: Disable typed BLOBs (store as native byte array)\n 
+                                                                    - 1: Enable typed BLOBS (array and data format information 
+                                                                         will be stored additionally)
+                                                                    - 2: Enable serializing, so complexer data structures 
+                                                                         like cell arrays, structs, a.s.o. may be stored</td>   <td>0|1|2</td>                     <td>0</td></tr>
+ <tr><td>\ref cmd_nullasnan "'NULLasNaN'"</td>                  <td>mksqlite returns NULL values as NaN,\n                                           
+                                                                    when set to 1</td>                                          <td>0|1</td>                       <td>0</td></tr>
+ <tr><td>\ref cmd_param_wrapping "'param_wrapping'"</td>        <td>Enables parameter wrapping, when set to 1</td>              <td>0|1</td>                       <td>0</td></tr>
+ <tr><td>\ref cmd_streaming "'streaming'"</td>                  <td>Returns 1, when serializing is enabled</td>                 <td>-</td>                         <td>-</td></tr>
+ <tr><td>\ref cmd_result_type "'result_type'"</td>              <td>Chooses the result type of sql queries.\n 
+                                                                    - 0: Array of structs\n 
+                                                                    - 1: Struct of arrays\n 
+                                                                    - 2: Cell array (MxN)</td>                                  <td>0|1|2</td>                     <td>0</td></tr>                         
+ <tr><td>\ref cmd_compression "'compression'"</td>              <td>Set compressor when using typedBLOBS=2</td>                 <td>"blosc"|"blosclz"|"qlin16"|"qlog16","", 0-9</td>         <td>"",0</td></tr>          
+ <tr><td>\ref cmd_compression_check "'compression_check'"</td>  <td>Enables compressor check, when set to 1.\n 
+                                                                    The default decompresses immediately prior 
+                                                                    to packed data to ensure by comparing 
+                                                                    the data accuracy</td>                                      <td>0|1</td>                       <td>0</td></tr>   
+ <tr><td>\ref cmd_show_tables "'show tables'"</td>              <td>Display content of the sqlite_master. That is 
+                                                                    the column definitions of tables, views and indexes</td>    <td>-</td>                         <td>-</td></tr>   
+ <tr><td>\ref cmd_enable_extension "'enable extension'"</td>    <td>Enable extension loading at runtime</td>                    <td>0|1</td>                       <td>0</td></tr>   
+ <tr><td>\ref cmd_status "'status'"</td>                        <td>Show status of each mksqlite slot in command\n 
+                                                                    window. Different slots are accessed trough its 
+                                                                    dbids.</td>                                                 <td>-</td>                         <td>-</td></tr>   
+ <tr><td>\ref cmd_setbusytimeout "'setbusytimeout'"</td>        <td>Sets the SQLite busy timeout. A SQL statement
+                                                                    whose calculation exceeds this time limit
+                                                                    leads into failure abort.</td>                              <td>time in ms</td>                <td>1000</td></tr>   
+ </table>
  \n
  \n
  (c) 2015 by Martin Kortmann <mail@kortmann.de>, Andreas Martin <andimartin@users.sourceforge.net>
