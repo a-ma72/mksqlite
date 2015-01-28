@@ -152,7 +152,7 @@ static struct SQLstack
         return nClosed;
     }
     
-} SQLstack;
+} SQLstack; ///< Holding the SQLiface slots
 
 
 /**

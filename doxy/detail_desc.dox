@@ -155,10 +155,10 @@
  typed BLOBs, but must be activated:
  \code
    mksqlite( 'compression', 'lz4', 9 );  activate maximal compression (9="max", 0="off")
- \code
+ \endcode
  (See also examples \ref example_9 and \ref example_10)\n
  \n
- \anchor cmd_compression_check
+ \anchor cmd_compr_check
  The compression uses BLOSC (http://blosc.pytabales.org/trac)
  After compression, the data is unpacked and compared with the original.
  If there is a difference, an error report is given.  If this 
@@ -284,23 +284,30 @@
                                                                     - 1: Enable typed BLOBS (array and data format information 
                                                                          will be stored additionally)
                                                                     - 2: Enable serializing, so complexer data structures 
-                                                                         like cell arrays, structs, a.s.o. may be stored</td>   <td>0|1|2</td>                     <td>0</td></tr>
+                                                                         like cell arrays, structs, a.s.o. may be stored\n 
+                                                                         
+                                                                    \ref example_6 "Example"</td>                               <td>0|1|2</td>                     <td>0</td></tr>
  <tr><td>\ref cmd_nullasnan "'NULLasNaN'"</td>                  <td>mksqlite returns NULL values as NaN,\n                                           
                                                                     when set to 1</td>                                          <td>0|1</td>                       <td>0</td></tr>
- <tr><td>\ref cmd_param_wrapping "'param_wrapping'"</td>        <td>Enables parameter wrapping, when set to 1</td>              <td>0|1</td>                       <td>0</td></tr>
+ <tr><td>\ref cmd_param_wrapping "'param_wrapping'"</td>        <td>Enables parameter wrapping, when set to 1\n 
+                                                                    \ref example_12 "Example"</td>                              <td>0|1</td>                       <td>0</td></tr>
  <tr><td>\ref cmd_streaming "'streaming'"</td>                  <td>Returns 1, when serializing is enabled</td>                 <td>-</td>                         <td>-</td></tr>
  <tr><td>\ref cmd_result_type "'result_type'"</td>              <td>Chooses the result type of sql queries.\n 
                                                                     - 0: Array of structs\n 
                                                                     - 1: Struct of arrays\n 
-                                                                    - 2: Cell array (MxN)</td>                                  <td>0|1|2</td>                     <td>0</td></tr>                         
- <tr><td>\ref cmd_compression "'compression'"</td>              <td>Set compressor when using typedBLOBS=2</td>                 <td>"blosc"|"blosclz"|"qlin16"|"qlog16","", 0-9</td>         <td>"",0</td></tr>          
- <tr><td>\ref cmd_compression_check "'compression_check'"</td>  <td>Enables compressor check, when set to 1.\n 
+                                                                    - 2: Cell array (MxN)\n 
+                                                                    
+                                                                    \ref example_4 "Example"</td>                               <td>0|1|2</td>                     <td>0</td></tr>                         
+ <tr><td>\ref cmd_compression "'compression'"</td>              <td>Set compressor when using typedBLOBS=2\n 
+                                                                    \ref example_9 "Example"</td>                               <td>"blosc"|"blosclz"|"qlin16"|"qlog16","", 0-9</td>         <td>"",0</td></tr>          
+ <tr><td>\ref cmd_compr_check "'compression_check'"</td>        <td>Enables compressor check, when set to 1.\n 
                                                                     The default decompresses immediately prior 
                                                                     to packed data to ensure by comparing 
                                                                     the data accuracy</td>                                      <td>0|1</td>                       <td>0</td></tr>   
  <tr><td>\ref cmd_show_tables "'show tables'"</td>              <td>Display content of the sqlite_master. That is 
                                                                     the column definitions of tables, views and indexes</td>    <td>-</td>                         <td>-</td></tr>   
- <tr><td>\ref cmd_enable_extension "'enable extension'"</td>    <td>Enable extension loading at runtime</td>                    <td>0|1</td>                       <td>0</td></tr>   
+ <tr><td>\ref cmd_enable_extension "'enable extension'"</td>    <td>Enable extension loading at runtime\n 
+                                                                    \ref example_11 "Example"</td>                              <td>0|1</td>                       <td>0</td></tr>   
  <tr><td>\ref cmd_status "'status'"</td>                        <td>Show status of each mksqlite slot in command\n 
                                                                     window. Different slots are accessed trough its 
                                                                     dbids.</td>                                                 <td>-</td>                         <td>-</td></tr>   

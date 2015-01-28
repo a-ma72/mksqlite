@@ -1,4 +1,4 @@
-function sqlite_real_example
+function sqlite_real_example_no_regex
 
 %{
       % The logfile has folowing columns:
@@ -23,23 +23,22 @@ function sqlite_real_example
       C:  Optional parameter 3
       D:  Optional parameter 4
 %}
-
+    
     %% Reading content of the logging file in one cell array
     clear all, close all, clc
-
+    
     fid = fopen ( 'logfile.asc', 'r' );
     assert( fid > 0 );
-    %                          1  2  3  4  5  6  7  8  9  10 11 (ABCD)
-    content = textscan( fid, '%s %s %s %s %s %s %s %s %s %s %s %[^\r\n]', ...
-                             'CollectOutput', 1 );
+    colcnt = length( textscan( fid, '' ) );  % Estimate the max. column count
+    assert( colcnt >= 11 );
+    content = textscan( fid, repmat( '%s ', 1, colcnt ), 'collectOutput', 1 );
     content = content{1};
-    colcnt  = size( content, 2 );
     fclose( fid );
-
+    
     %% Create default SQL table, feeded by cell array
     sql( 'open', '' );
-
-    % Create table with 11 standard columns and one optional column holding the remainder
+    
+    % Create table with 11 standard columns
     sql( [ 'CREATE TABLE mantab (' , ...
            '  Code, '              , ...
            '  Timestamp, '         , ...
@@ -51,24 +50,28 @@ function sqlite_real_example
            '  Distance      REAL, ', ...
            '  SpeedEnd      REAL, ', ...
            '  EngSpeedEnd   REAL, ', ...
-           '  TorqueEnd     REAL, ', ...
-           '  Optional      TEXT )' ] );
+           '  TorqueEnd     REAL) '] );
+       
+    % Add optional columns (12..colcnt)
+    for i = 12:colcnt
+        sql( 'ALTER TABLE mantab ADD COLUMN Optional_%d', i-11 );
+    end
 
     sql( 'param_wrapping', 1 );  % allow implicit subsequent SQL queries
-
+    
     % Pull entire data with a charming "three-liner"
 	% All subsequent queries in one transaction for speed (noticeable when using
 	% an on-disc database)
-    sql( 'begin' );
+    sql( 'begin' );   
     sql( 'INSERT INTO mantab VALUES (?%s)', repmat( ',?', 1, colcnt-1 ), content' );
     sql( 'commit' );
-
+           
     %% Identifying optional parameters and table update
     % Codes B, P and V carrying acceleration values in optional columns
     % (A,B). Adding new column and translate parameter A and B as
     % acceleration.
     % Code O carries acceleration value in optional column A.
-
+    
     optional =  { ...
                     { '"B","P","V"', 'BPV_AccMean',    'BPV_AccRng' },
                     { '"O"',         'O_LongAdj' },
@@ -77,32 +80,26 @@ function sqlite_real_example
     % Creating new data column(s) and extract conditional parameters into them
     for i = 1:numel( optional )           % rows of cell array 'optional'
         code = optional{i}{1};
-        % Build regex pattern for one line entry.
-        re = cell( 2, numel( optional{i} ) - 1 );
-        re(1,:)     = {'([^\t*]*)'};       % column data, chars not containing tabs
-        re(2,:)     = {'\t'};              % column separator
-        re(end,end) = {''};                % last column has no tab
-        re          = ['^', re{:}, '$'];   % fence with 'begin' and 'end' constraints
         for j = 2:numel( optional{i} )    % iterate used optional columns
-            % Create columns and update
+            % Create additional named columns and update
             colname = optional{i}{j};
             sql( 'ALTER TABLE mantab ADD COLUMN %s REAL', colname );
-            sql( 'UPDATE mantab SET %s = REGEX( Optional, "%s", "$%d" ) WHERE Code IN (%s)', ...
-                 colname, re, j-1, code );
+            sql( 'UPDATE mantab SET %s = Optional_%d WHERE Code IN (%s)', ...
+                 colname, j-1, code );
         end
     end
-
-
+    
+    
     %% Query some statistics
     sql( 'result_type', 1 );  % Set result type to "struct of arrays"
     [result, count, names] = sql( 'SELECT * FROM mantab WHERE Code="B" AND BPV_AccMean>30 ORDER BY BPV_AccRng' );
-
+    
     plot( result.BPV_AccRng / 100, 'k-', 'linewidth', 3 )
     title( 'Acceleration range with means > 0.3g', 'fontsize', 12 );
     xlabel( 'Nr.' );
     ylabel( 'Acceleration [g]' );
     grid
-
+    
     % Omit percental fractions of codes
     sql( 'result_type', 2 );  % Set result type to "cell matrix"
     result = sql( ['SELECT Code, ', ...
@@ -110,6 +107,6 @@ function sqlite_real_example
                    'FROM mantab ', ...
                    'WHERE Distance NOT NULL ', ...
                    'GROUP BY 1 ORDER BY 1'] )
-
+    
 	%% Close database
     sql( 'close' );
