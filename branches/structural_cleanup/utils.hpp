@@ -23,8 +23,9 @@
 //#include "locale.hpp"
 
 /* helper functions, formard declarations */
-
+#if defined( MATLAB_MEX_FILE)
                   size_t  utils_elbytes           ( mxClassID classID );
+#endif
                   int     utils_utf2latin         ( const unsigned char *s, unsigned char *buffer );
                   int     utils_latin2utf         ( const unsigned char *s, unsigned char *buffer );
                   char*   utils_strnewdup         ( const char* s, int flagConvertUTF8 );
@@ -36,6 +37,7 @@ template<class T> void    utils_free_ptr          ( T *&pmxarr );
 
 #ifdef MAIN_MODULE
 
+#if defined( MATLAB_MEX_FILE)
 /* Implementations */
 
 /**
@@ -93,7 +95,7 @@ size_t utils_elbytes( mxClassID classID )
 
     return result;
 }
-
+#endif
 
 /**
  * @brief Convert UTF-8 string to char string
@@ -243,6 +245,7 @@ char* utils_strnewdup(const char* s, int flagConvertUTF8 )
 
 
 
+#if defined( MATLAB_MEX_FILE)
 /** 
  * @brief Freeing memory allocated by mxCreateNumericMatrix() or mxCreateNumericArray().
  *
@@ -258,7 +261,7 @@ void utils_destroy_array( mxArray *&pmxarr )
         pmxarr = NULL;
     }
 }
-
+#endif
 
 /**
  * @brief Freeing memory allocated by mxAlloc() or mxRealloc()

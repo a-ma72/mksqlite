@@ -104,7 +104,12 @@ public:
           return false;
       }
       
-      return SQLITE_OK == sqlite3_busy_timeout( m_db, iTimeoutValue );
+      if( SQLITE_OK != sqlite3_busy_timeout( m_db, iTimeoutValue ) )
+      {
+          m_lasterr.set( SQL_ERR );
+          return false;
+      }
+      return true;
   }
   
   /// Returns the busy timeout in milliseconds
@@ -116,7 +121,12 @@ public:
           return false;
       }
       
-      return SQLITE_OK == sqlite3_busy_timeout( m_db, iTimeoutValue );
+      if( SQLITE_OK != sqlite3_busy_timeout( m_db, iTimeoutValue ) )
+      {
+          m_lasterr.set( SQL_ERR );
+          return false;
+      }
+      return true;
   }
 
   /// Enable or disable load extensions
@@ -128,7 +138,12 @@ public:
           return false;
       }
       
-      return SQLITE_OK == sqlite3_enable_load_extension( m_db, flagOnOff != 0 );
+      if( SQLITE_OK != sqlite3_enable_load_extension( m_db, flagOnOff != 0 ) )
+      {
+          m_lasterr.set( SQL_ERR );
+          return false;
+      }
+      return true;
   }
   
   /// Closing current statement
@@ -204,6 +219,9 @@ public:
    */
   const char* trans_err_to_ident()
   {
+#if 1
+      return sqlite3_errmsg( m_db );
+#else
       static char dummy[32];
 
       int errorcode = sqlite3_errcode( m_db );
@@ -244,6 +262,7 @@ public:
               _snprintf( dummy, sizeof( dummy ), "SQLITE: %d", errorcode );
               return dummy;
        }
+#endif
   }
   
   /**
@@ -267,8 +286,8 @@ public:
       {
           // attach new SQL commands to opened database
           sqlite3_create_function( m_db, "pow", 2, SQLITE_UTF8, NULL, pow_func, NULL, NULL );                       // power function (math)
-          sqlite3_create_function( m_db, "lg", 1, SQLITE_UTF8, NULL, lg_func, NULL, NULL );                       // power function (math)
-          sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                       // power function (math)
+          sqlite3_create_function( m_db, "lg", 1, SQLITE_UTF8, NULL, lg_func, NULL, NULL );                         // power function (math)
+          sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                         // power function (math)
           sqlite3_create_function( m_db, "exp", 1, SQLITE_UTF8, NULL, exp_func, NULL, NULL );                       // power function (math)
           sqlite3_create_function( m_db, "regex", 2, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (MATCH mode)
           sqlite3_create_function( m_db, "regex", 3, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (REPLACE mode)
@@ -369,8 +388,7 @@ public:
               // is available!
               
               // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
-              unsigned char* test = (unsigned char*)value.Data();
-              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, /*value.Data()*/test, 
+              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, value.Data(), 
                                                   (int)value.ByData(),
                                                   SQLITE_TRANSIENT ) )
               {
@@ -570,7 +588,7 @@ public:
           // fieldname must start with a valid letter
           if( !item.second.size() || !isalpha(item.second[0]) )
           {
-              item.second = string("X") + item.second;  /// \todo: Any other (better) ideas?
+              item.second = string("X") + item.second;  /// \todo Any other (better) ideas?
           }
           
           // Optionally ensure fieldnames are unambiguous

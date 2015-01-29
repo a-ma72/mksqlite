@@ -43,7 +43,6 @@ static      int   _HC_DoAssert    ( const char* file, const char* func, int nLin
     return(0);                                                                      \
 }  
 
-
 /// \cond
 USE_HC_ASSERT;
 /// \endcond
@@ -54,7 +53,8 @@ class HeapCheck
 {
     struct tagFooter;  // forward declaration
     
-    /** \brief Memory block header
+    /** 
+     * \brief Memory block header
      *
      * Each memory block is surrounded by additional information:
      * A preceding header stores who is responsible to this memory, some
@@ -73,7 +73,8 @@ class HeapCheck
         const char*   lpNotes;          ///< pointer to further notes or NULL
     };
     
-    /** \brief Memory block footer (end marker)
+    /** 
+     * \brief Memory block footer (end marker)
      *
      * The footer only holds a pointer to the memory block header and is
      * used for consistence check only.
@@ -89,19 +90,47 @@ class HeapCheck
     /// Linked list of memory blocks used in module scope
     vec_tagHeader m_mem_blocks;
     
+    /// Flag will be set, when the block m_mem_blocks is released and checked
+    bool flag_blocks_checked;
+    
 public:
-    /** \brief Destructor
+  
+    /**
+     * \brief Standard ctor
+     *
+     */
+    HeapCheck()
+    {
+        flag_blocks_checked = false;
+    }
+
+    /** 
+     * \brief Destructor
      *
      * The destructor frees orphan memory space
      * while reporting.
      */
     ~HeapCheck()
     {
+        Release();
+    }
+    
+    
+    /** 
+     * \brief Releasing unfreed memory
+     *
+     * Releasing memory, that is logged in the list of
+     * allocated memory blocks. Calling this function ensures
+     * that heap space is cleanly leaved. If any space is freed, a 
+     * message will be displayed in MATLAB command window.
+     */
+    void Release()
+    {
         int count = 0;
         
         Walk();
         
-        for( int i = 0; i < m_mem_blocks.size(); i++ )
+        for( int i = 0; i < (int)m_mem_blocks.size(); i++ )
         {
             if( m_mem_blocks[i] != NULL )
             {
@@ -109,15 +138,19 @@ public:
                 m_mem_blocks[i] = NULL;
                 count++;
             }
-        }
+        }    
+
+        m_mem_blocks.clear();
 
 #if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
-        if( !count )
+        if( !count && !flag_blocks_checked )
         {
             mexPrintf( "Heap check: ok\n" );
         }
 #endif
+        flag_blocks_checked = true;
     }
+    
     
     /// Returns the header size in bytes
     static
@@ -127,7 +160,8 @@ public:
     }
     
     
-    /** \brief Checks if header pointer \p ptr is well aligned
+    /** 
+     * \brief Checks if header pointer \p ptr is well aligned
      *
      * Headers are always aligned to \a HC_ALIGNMENT. Any other alignment
      * inidcates an error.
@@ -139,7 +173,8 @@ public:
     }
     
    
-    /** \brief Checks if header pointer \p ptr is valid
+    /** 
+     * \brief Checks if header pointer \p ptr is valid
      *
      * Check if \p ptr is well aligned and header and footer are consistent.
      * If not, the was an access violation.
@@ -147,7 +182,7 @@ public:
     static
     int VerifyPtr( const void* ptr )
     {
-      int bOk=0;
+      int bOk = 0;
 
       if( ptr ) 
       {
@@ -172,6 +207,7 @@ public:
     void AddPtr( const tagHeader* ptr )
     {
         m_mem_blocks.push_back( ptr );
+        flag_blocks_checked = false;
     }
     
     
@@ -179,7 +215,7 @@ public:
     void RemovePtr( const tagHeader* ptr )
     {
         /// \todo SLOW (sorted list facilitates binary search)
-        for( int i = 0; i < m_mem_blocks.size(); i++ )
+        for( int i = 0; i < (int)m_mem_blocks.size(); i++ )
         {
             if( m_mem_blocks[i] == ptr )
             {
@@ -190,7 +226,8 @@ public:
     }
     
 
-    /** \brief Allocates a new block of memory with initialized header and footer.
+    /** 
+     * \brief Allocates a new block of memory with initialized header and footer.
      *
      * @param[in] bytes Size of memory needed
      * @param[in] file Source filename with calling function
@@ -231,7 +268,8 @@ public:
     }
     
     
-    /** \brief Reallocates a block of memory allocated with New()
+    /** 
+     * \brief Reallocates a block of memory allocated with New()
      *
      * @param[in] ptr_old Pointer returned by New() or NULL
      * @param[in] bytes Size of memory needed
@@ -322,7 +360,8 @@ public:
     }
     
     
-    /** \brief Formatted output of memory block information (from its header)
+    /** 
+     * \brief Formatted output of memory block information (from its header)
      *
      * @param[in] header Pointer to the header identifying the memory block
      * @param[in,out] lpBuffer Buffer to hold the output (ASCII)
@@ -360,13 +399,14 @@ public:
     }
     
     
-    /** \brief Reporting walk through the linked memory list
+    /** 
+     * \brief Reporting walk through the linked memory list
      *
      * @param[in] text Text which is additionally outputted to each memory block report, or NULL if not
      */
     void Walk( const char* text = NULL )
     {
-        for( int i = 0; i < m_mem_blocks.size(); i++ ) 
+        for( int i = 0; i < (int)m_mem_blocks.size(); i++ ) 
         {
             char buffer[1024];
             
@@ -384,39 +424,46 @@ public:
 #endif
         }
     }
-
-
 };
 
-/** \brief Standard assert routine used by macro \ref HC_ASSERT
- *
- * @param[in] file Callers filename
- * @param[in] lpFunctionName Callers function name
- * @param[in] line Callers line numer
- */
-extern "C"
-void HC_ReportAssert( const char* file, const char* lpFunctionName, long line )
-{
-    char buffer[1024];
-    
-    _snprintf( buffer, 1024, "Assertion failed in %s, %s line %d\n", file, lpFunctionName, line );
-    
-#if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
-    mxAssert( 0, buffer );
-#else
-    assert( 0, buffer );
-#endif
-}
 
+/// One module must define \def MAIN_MODULE
+#if defined( MAIN_MODULE )
+
+    /** 
+     * \brief Standard assert routine used by macro \ref HC_ASSERT
+     *
+     * @param[in] file Callers filename
+     * @param[in] lpFunctionName Callers function name
+     * @param[in] line Callers line numer
+     */
+	extern "C"
+    void HC_ReportAssert( const char* file, const char* lpFunctionName, long line )
+    {
+        char buffer[1024];
+
+        _snprintf( buffer, 1024, "Assertion failed in %s, %s line %d\n", file, lpFunctionName, line );
+
+    #if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
+        mxAssert( 0, buffer );
+    #else
+        assert( false );
+    #endif
+    }
+
+    /// Instantiate HeapCheck object in main module
+    class HeapCheck HeapCheck;
+#else
+    /// Other modules references the HeapCheck object from main module
+    extern class HeapCheck HeapCheck;
+#endif
+    
+    
 // Guaranteeing correct prefix structure alignment
 /// \cond
 HC_COMP_ASSERT( HC_ISPOWER2(HC_ALIGNMENT) );
 HC_COMP_ASSERT( !( sizeof(HeapCheck::GetHeaderSize()) % HC_ALIGNMENT ) );
 /// \endcond
-
-/// Instantiate HeapCheck object
-/// One allocator per module
-static HeapCheck HeapCheck;
 
 #endif //  HEAP_CHECK_HPP
 
