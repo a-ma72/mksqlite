@@ -16,9 +16,13 @@
 
 #pragma once
 
+#ifndef _GLOBAL_H
+#define _GLOBAL_H
+#endif
+
 /* Common global definitions */
 
-#ifdef _WIN32
+#if defined( MATLAB_MEX_FILE ) /* MATLAB MEX file */
   /* solve the 'error C2371: 'char16_t' : redefinition; different basic types' problem */
   /* ref: http://www.mathworks.com/matlabcentral/newsreader/view_thread/281754 */
   /* ref: http://connect.microsoft.com/VisualStudio/feedback/details/498952/vs2010-iostream-is-incompatible-with-matlab-matrix-h */
@@ -33,16 +37,20 @@
     #endif
 */
   #endif
+  #include "mex.h"
+#endif
+      
+#ifdef _WIN32
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
-  #include "mex.h"
-  #define copysign _copysign
-#else
+  #define copysign _copysign  ///< alias (win/linux compatibility)
+#else  // linux
   #include <cstring>
   #include <ctype.h>
-  #define _strcmpi strcasecmp
-  #define _snprintf snprintf
-  #include "mex.h"
+  #define _strcmpi    strcasecmp
+  #define _strnicmp   strncasecmp
+  #define _snprintf   snprintf
+  #define _strdup     strdup
   typedef long int ptrdiff_t;  // linux a64
 #endif
 
@@ -58,41 +66,8 @@
 #else
     #include <cstdint>
 #endif
-        
-/**
- * \name MATLAB IEEE representation functions
- *
- * @{
- */
-#define DBL_ISFINITE mxIsFinite
-#define DBL_ISINF    mxIsInf
-#define DBL_ISNAN    mxIsNaN
-#define DBL_INF      mxGetInf()
-#define DBL_NAN      mxGetNaN()
-/** @} */
-        
-/**
- * \name Versionstrings
- *
- * @{
- */
-#define SQLITE_VERSION_STRING     SQLITE_VERSION
-#define DEELX_VERSION_STRING      "1.2"
-#define MKSQLITE_VERSION_STRING   "2.0beta"
-/** @} */
-
-/* early bind of serializing functions (earlier MATLAB versions only) */
-#if (CONFIG_EARLY_BIND_SERIALIZE)
-extern "C" mxArray* mxSerialize(const mxArray*);
-extern "C" mxArray* mxDeserialize(const void*, size_t);
-#endif
-
-typedef unsigned char byte;  ///< byte type
 
 /**
- * \def copysign
- * \brief alias for _copysign
- * 
  * \def MEM_ALLOC
  * \brief standard memory allocator
  *
@@ -115,29 +90,31 @@ typedef unsigned char byte;  ///< byte type
  * must be performed on \p ptr and &ptr must be set to NULL after freeing.
  */
 
-
-#undef MEM_ALLOC
-#undef MEM_FREE 
+// define standard memory handlers
+#undef  MEM_ALLOC
+#undef  MEM_REALLOC
+#undef  MEM_FREE
 
 #if 0
     // mxCalloc() and mxFree() are extremely slow!
-    #define MEM_ALLOC( count, bytes )   ( (void*)mxMalloc( count, bytes ) )
-    #define MEM_FREE( ptr )             mxFree( ptr )
-    #define MEM_REALLOC( ptr, bytes )   mxRealloc( ptr, bytes )
+    #define MEM_ALLOC( count, bytes )   ((void*)mxMalloc( (count) * (bytes) ))
+    #define MEM_FREE( ptr )             mxFree( (void*)ptr )
+    #define MEM_REALLOC( ptr, bytes )   ((void*)mxRealloc( (void*)ptr, bytes ))
 #else
     // Global memory allocator
-    #define MEM_ALLOC( count, bytes )   ( (void*)new char[count*bytes] )
+    #define MEM_ALLOC( count, bytes )   ( (void*)new char[(count) * (bytes)] )
     // Global memory deallocator
     #define MEM_FREE( ptr )             ( delete[] ptr )
     // Global memory deallocator
     #define MEM_REALLOC( ptr, size )    HC_ASSERT_ERROR
 #endif
 
-#if 1
+#if 1 && defined( MATLAB_MEX_FILE )
     #define MAT_ARRAY_TYPE              mxArray
     #define MAT_ALLOC( m, n, typeID )   mxCreateNumericMatrix( m, n, typeID, mxREAL )
     #define MAT_FREE( ptr )             mxDestroyArray( ptr )
 #else
+    struct tagNumericArray;
     #define MAT_ARRAY_TYPE              tagNumericArray
     #define MAT_ALLOC( m, n, typeID )   tagNumericArray::Create( m, n, typeID )
     #define MAT_FREE( ptr )             tagNumericArray::FreeArray( ptr )
@@ -150,39 +127,91 @@ typedef unsigned char byte;  ///< byte type
 #include "heap_check.hpp"
         
 // Now redirect memory macros to heap checking functions
-#undef MEM_ALLOC
-#undef MEM_FREE 
+#undef  MEM_ALLOC
+#undef  MEM_REALLOC
+#undef  MEM_FREE
    
-#define MEM_ALLOC( count, bytes )   (HeapCheck.New( count * bytes, __FILE__, __FUNCTION__, /*notes*/ "", __LINE__ ))
-#define MEM_FREE( ptr )             (HeapCheck.Free( ptr ))
-
+    #define MEM_ALLOC(n,s)      (HeapCheck.New( (n) * (s), __FILE__, __FUNCTION__, /*notes*/ "", __LINE__ ))
+    #define MEM_REALLOC(p,s)    (HeapCheck.Realloc( (void*)(p), (s), __FILE__, __FUNCTION__, /*notes*/ "", __LINE__ ))
+    #define MEM_FREE(p)         (HeapCheck.Free( (void*)(p) ))
+    #define WALKHEAP            (HeapCheck.Walk())
+    #define FREEHEAP            (HeapCheck.Release())
 #else
-
-#define HC_COMP_ASSERT(exp)
-#define HC_ASSERT(exp)
-#define HC_ASSERT_ERROR
-#define HC_NOTES(ptr,notes)
-
+    #define HC_COMP_ASSERT(exp)
+    #define HC_ASSERT(exp)
+    #define HC_ASSERT_ERROR
+    #define HC_NOTES(ptr,notes)
+    #define WALKHEAP
+    #define FREEHEAP            
 #endif // CONFIG_USE_HEAP_CHECK
+        
+
+#if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
+  #define CALLOC(n,s)         MEM_ALLOC((n),(s))
+  #define REALLOC(p,s)        MEM_REALLOC((p),(s))
+  #define FREE(p)             MEM_FREE((p))
+#else /* standalone modules */
+  #include <malloc.h>
+  #define CALLOC(n,s)         ::calloc((n),(s))
+  #define REALLOC(p,s)        ::realloc((void*)(p),(s))
+  #define FREE(p)             ::free((void*)(p))
+  #define mxArray             void
+#endif
+        
+/**
+ * \name IEEE representation functions
+ *
+ * @{
+ */
+#if defined( MATLAB_MEX_FILE ) 
+    #define DBL_ISFINITE        mxIsFinite
+    #define DBL_ISINF           mxIsInf
+    #define DBL_ISNAN           mxIsNaN
+    #define DBL_INF             mxGetInf()
+    #define DBL_NAN             mxGetNaN()
+    #define DBL_EPS             mxGetEps()
+#else
+  #if defined( _WIN32 )
+    #define DBL_INF             (_Inf._Double) /* <ymath.h> */
+    #define DBL_NAN             (_Nan._Double) /* <ymath.h> */
+//  #define DBL_EPS             DBL_EPS
+    #define DBL_ISFINITE(x)     _finite(x)     /* <float.h> */
+    #define DBL_ISNAN(x)        _isnan(x)      /* <float.h> */
+    #define DBL_ISINF(x)        (!ISFINITE(x) && !ISNAN(x))
+  #else
+    #define DBL_INF             INFINITY
+    #define DBL_NAN             NAN
+//  #define DBL_EPS             DBL_EPS
+    #define DBL_ISFINITE(x)     (((x)-(x)) == 0.0)
+    #define DBL_ISNAN(x)        ((x)!=(x))
+    #define DBL_ISINF(x)        (!ISFINITE(x) && !ISNAN(x))
+  #endif
+#endif
+/** @} */
+        
+/**
+ * \name Versionstrings
+ *
+ * @{
+ */
+#define SQLITE_VERSION_STRING     SQLITE_VERSION
+#define DEELX_VERSION_STRING      "1.2"
+/** @} */
+
+/* early bind of serializing functions (earlier MATLAB versions only) */
+#if defined( MATLAB_MEX_FILE ) && (CONFIG_EARLY_BIND_SERIALIZE)
+extern "C" mxArray* mxSerialize(const mxArray*);
+extern "C" mxArray* mxDeserialize(const void*, size_t);
+#endif
+
+typedef unsigned char byte;  ///< byte type
+
 
     
-#ifdef MAIN_MODULE
+#if defined( MAIN_MODULE )
 
 
 /* common global states */
-
-/// Flag: Show the welcome message, initializing...
-int             g_is_initialized        = 0;
-
-/// Max. length for fieldnames in MATLAB 
-int             g_namelengthmax         = 63;
-
-/// Flag: return NULL as NaN
-int             g_NULLasNaN             = CONFIG_NULL_AS_NAN;
-const double    g_NaN                   = mxGetNaN();         ///< global NaN representation
-
-/// Flag: Check for unique fieldnames
-int             g_check4uniquefields    = CONFIG_CHECK_4_UNIQUE_FIELDS;
 
 /**
  * \name Compression settings for typed BLOBs
@@ -196,14 +225,29 @@ int             g_compression_check     = CONFIG_COMPRESSION_CHECK;
 
 /// Flag: String representation (utf8 or ansi)
 int             g_convertUTF8           = CONFIG_CONVERT_UTF8;
+/// global NaN representation
+const double    g_NaN                   = DBL_NAN;
 
-/// Flag: Allow streaming
-int             g_streaming             = CONFIG_STREAMING;
+/// MATALAB specific globals
+#if defined( MATLAB_MEX_FILE )
+    /// Max. length for fieldnames in MATLAB 
+    int             g_namelengthmax         = 63;
 
-/// Data organisation of returning query results
-int             g_result_type           = CONFIG_RESULT_TYPE;
+    /// Flag: return NULL as NaN
+    int             g_NULLasNaN             = CONFIG_NULL_AS_NAN;
 
-/// Wrap parameters
-int             g_param_wrapping        = CONFIG_PARAM_WRAPPING;
+    /// Flag: Check for unique fieldnames
+    int             g_check4uniquefields    = CONFIG_CHECK_4_UNIQUE_FIELDS;
 
-#endif
+    /// Flag: Allow streaming
+    int             g_streaming             = CONFIG_STREAMING;
+
+    /// Data organisation of returning query results
+    int             g_result_type           = CONFIG_RESULT_TYPE;
+
+    /// Wrap parameters
+    int             g_param_wrapping        = CONFIG_PARAM_WRAPPING;
+#endif  // defined( MATLAB_MEX_FILE )
+
+#endif  // defined( MAIN_MODULE )
+

@@ -180,38 +180,44 @@ void mex_module_deinit()
  */
 void mex_module_init()
 {
-    mxArray *plhs[3] = {0};
-
-    if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
-    {
-        g_compression_type = BLOSC_DEFAULT_ID;
-        blosc_init();
-        sqlite3_initialize();
-        mexAtExit( mex_module_deinit );
-        typed_blobs_init();
-
-        mexPrintf( ::getLocaleMsg( MSG_HELLO ), 
-                   SQLITE_VERSION );
-
-        mexPrintf( "Platform: %s, %s\n\n", 
-                   TBH_platform, 
-                   TBH_endian[0] == 'L' ? "little endian" : "big endian" );
-
-        g_is_initialized = true;
-    }
-    else
-    {
-        FINALIZE( MSG_ERRPLATFORMDETECT );
-    }
+    static bool init_once = false;  // only one initialization per module
     
-    if( 0 == mexCallMATLAB( 1, plhs, 0, NULL, "namelengthmax" ) )
+    if( !init_once )
     {
-        g_namelengthmax = (int)mxGetScalar( plhs[0] );
-    }
+        mxArray *plhs[3] = {0};
+
+        if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
+        {
+            g_compression_type = BLOSC_DEFAULT_ID;
+            blosc_init();
+            sqlite3_initialize();
+            mexAtExit( mex_module_deinit );
+            typed_blobs_init();
+
+            mexPrintf( ::getLocaleMsg( MSG_HELLO ), 
+                       SQLITE_VERSION );
+
+            mexPrintf( "Platform: %s, %s\n\n", 
+                       TBH_platform, 
+                       TBH_endian[0] == 'L' ? "little endian" : "big endian" );
+
+            init_once = true;
+        }
+        else
+        {
+            FINALIZE( MSG_ERRPLATFORMDETECT );
+        }
+
+        if( 0 == mexCallMATLAB( 1, plhs, 0, NULL, "namelengthmax" ) )
+        {
+            g_namelengthmax = (int)mxGetScalar( plhs[0] );
+        }
 
 #if CONFIG_USE_HEAP_CHECK
-    mexPrintf( "Heap checking is on, this may slow down execution time dramatically!\n" );
+        mexPrintf( "Heap checking is on, this may slow down execution time dramatically!\n" );
 #endif
+        
+    }
 }
 
 
@@ -261,13 +267,20 @@ public:
     }
     
     
-    /// Dtor
-    ~Mksqlite()
+    /// Destroy object
+    void Destroy()
     {
         if( m_command )
         {
             ::utils_free_ptr( m_command );
         }
+    }
+    
+    
+    /// Dtor
+    ~Mksqlite()
+    {
+        Destroy();
     }
     
     /// Returns true, if any error is pending
@@ -418,6 +431,8 @@ public:
             m_dbid = ( m_dbid_req < 0 ) ? 1 : m_dbid_req;
         }
 
+        SQLstack.switchTo( m_dbid-1 );  // base 0
+        SQLstack.current().clearErr();
         m_err.clear();
         return true;
     }
@@ -527,11 +542,11 @@ public:
             {
                 if( m_nlhs == 0 )
                 {
-                    mexPrintf( "mksqlite Version %s\n", MKSQLITE_VERSION_STRING );
+                    mexPrintf( "mksqlite Version %s\n", CONFIG_MKSQLITE_VER_STRING );
                 } 
                 else
                 {
-                    m_plhs[0] = mxCreateString( MKSQLITE_VERSION_STRING );
+                    m_plhs[0] = mxCreateString( CONFIG_MKSQLITE_VER_STRING );
                 }
             }
             return true;
@@ -675,9 +690,6 @@ public:
             return false;
         }
         
-        // Clear recent SQLite error
-        SQLstack.current().clearErr();
-
         if( !SQLstack.current().setEnableLoadExtension( flagOnOff ) )
         {
             m_err.set( SQLstack.current().getErr() );
@@ -1044,8 +1056,6 @@ public:
             return false;
         }
         
-        SQLstack.current().clearErr();
-        
         if( !m_narg && !SQLstack.current().getBusyTimeout( iTimeout ) )
         {
             /*
@@ -1061,8 +1071,6 @@ public:
             // argGetNextInteger() sets m_err
             return false;
         }
-        
-        SQLstack.current().clearErr();
         
         if( !SQLstack.current().setBusyTimeout( iTimeout ) )
         {
@@ -1186,8 +1194,6 @@ public:
         m_parg++;
         m_narg--;
 
-        SQLstack.switchTo( m_dbid-1 );  // base 0
-        
         // close database if open
         if( !SQLstack.current().closeDb() )
         {
@@ -1327,8 +1333,6 @@ public:
              * inform the user
              */
             
-            SQLstack.switchTo( m_dbid-1 );  // base 0
-
             if( !SQLstack.current().closeDb() )
             {
                 // adopt sql error message
@@ -1699,10 +1703,6 @@ public:
         
         /*** Selecting database ***/
 
-        assert( SQLstack.isValidId( m_dbid-1 ) );
-
-        SQLstack.switchTo( m_dbid-1 );  // base 0
-
         if( !ensureDbIsOpen() )
         {
             // ensureDbIsOpen() sets m_err
@@ -1971,14 +1971,9 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
     /*
      * Print version information, initializing, ...
      */
-    if( !g_is_initialized )
-    {
-        mex_module_init();
-    }
+    mex_module_init();  // only done once
     
     Mksqlite mksqlite( nlhs, plhs, nrhs, prhs );
-    
-    SQLstack.current().clearErr();
     
     // read first numeric argument if given and use it as dbid, then read command string
     if( !mksqlite.argTryReadValidDbid() || !mksqlite.argReadCommand() )
@@ -2018,8 +2013,8 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
     }
 
 #if CONFIG_USE_HEAP_CHECK
-    mksqlite.~Mksqlite();
-    HeapCheck.Walk();
+    mksqlite.Destroy();    // antedate destructors work
+    HeapCheck.Release();   // Report and free heap, if any leaks exist
 #endif
     
     return;

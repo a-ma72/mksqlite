@@ -27,23 +27,53 @@
   #define GCC_PACKED_STRUCT __attribute__((packed))
 #endif
   
-  /**
-   * \file
-   * Size of blob-header identifies type 1 or type 2 (with compression feature).
-   *
-   * BLOBs of type mxUNKNOWN_CLASS reflects serialized (streamed) data and should be handled
-   * as mxCHAR_CLASS thus. Before packing data into a typed blob the caller is 
-   * responsible to ensure not to deal with mxUNKNOWN_CLASS data.
-   *
-   * In this module it's countless if the data is serialized or not, since it's a simple char
-   * array in that case. 
-   *
-   * Store type and dimensions of MATLAB vectors/arrays in BLOBs 
-   * native and free of matlab types, to provide data sharing 
-   * with other applications.\n
-   * Switched with the command mksqlite('typedBLOBs', \<integer value\>), 
-   * where \<integer value\> is 0 for "off" and 1 for "on".
-   */
+/**
+ * \file
+ * Size of blob-header identifies type 1 or type 2 (with compression feature).
+ *
+ * BLOBs of type mxUNKNOWN_CLASS reflects serialized (streamed) data and should be handled
+ * as mxCHAR_CLASS thus. Before packing data into a typed blob the caller is 
+ * responsible to ensure not to deal with mxUNKNOWN_CLASS data.
+ *
+ * In this module it's countless if the data is serialized or not, since it's a simple char
+ * array in that case. 
+ *
+ * Store type and dimensions of MATLAB vectors/arrays in BLOBs 
+ * native and free of matlab types, to provide data sharing 
+ * with other applications.\n
+ * Switched with the command mksqlite('typedBLOBs', \<integer value\>), 
+ * where \<integer value\> is 0 for "off" and 1 for "on".
+ */
+
+
+#if !defined( MATLAB_MEX_FILE )
+    typedef enum 
+    {
+        mxUNKNOWN_CLASS = 0,
+        mxCELL_CLASS,
+        mxSTRUCT_CLASS,
+        mxLOGICAL_CLASS,
+        mxCHAR_CLASS,
+        mxVOID_CLASS,
+        mxDOUBLE_CLASS,
+        mxSINGLE_CLASS,
+        mxINT8_CLASS,
+        mxUINT8_CLASS,
+        mxINT16_CLASS,
+        mxUINT16_CLASS,
+        mxINT32_CLASS,
+        mxUINT32_CLASS,
+        mxINT64_CLASS,
+        mxUINT64_CLASS,
+        mxFUNCTION_CLASS,
+        mxOPAQUE_CLASS,
+        mxOBJECT_CLASS
+    } mxClassID;
+
+    typedef size_t  mwSize;
+
+    #define mxGetClassID(x) mxUINT8_CLASS
+#endif
 
 
 /**
@@ -92,6 +122,7 @@ void typed_blobs_init()
     
     assert( old_version::check_compatibility() );
     
+#if defined( MATLAB_MEX_FILE)
     if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
     {
         mxGetString( plhs[0], TBH_platform, TBH_PLATFORM_MAXLEN );
@@ -101,6 +132,9 @@ void typed_blobs_init()
         ::utils_destroy_array( plhs[1] );
         ::utils_destroy_array( plhs[2] );
     }
+#else
+    /// \todo How getting platform and endian?
+#endif
 }
 
 /// Set mode of typed blob usage
@@ -201,6 +235,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
   }
   
   
+#if defined( MATLAB_MEX_FILE )
   /// Get data size of an array in bytes
   static
   size_t getDataSize( const mxArray* pItem )
@@ -217,6 +252,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
     
     return data_size;
   }
+#endif
 };
 
 
@@ -294,7 +330,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
     assert( !nDims || pSize );
     
     m_nDims[0] = nDims;
-    for( int i = 0; i < nDims; i++ )
+    for( int i = 0; i < (int)nDims; i++ )
     {
       m_nDims[i+1] = (int32_t)pSize[i];
     }
@@ -387,7 +423,7 @@ struct GCC_PACKED_STRUCT TBHData : public HeaderBaseType
     mxArray* pItem = NULL;
     mxClassID clsid = (mxClassID)HeaderBaseType::m_clsid;
     
-    for( int i = 0; i < nDims; i++ )
+    for( int i = 0; i < (int)nDims; i++ )
     {
       dimensions[i] = (mwSize)m_nDims[i+1];
     }
