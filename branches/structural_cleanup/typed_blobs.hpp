@@ -47,6 +47,7 @@
 
 
 #if !defined( MATLAB_MEX_FILE )
+    /// MATLAB identifiers, if compiling modules reside MATLAB
     typedef enum 
     {
         mxUNKNOWN_CLASS = 0,
@@ -72,6 +73,7 @@
 
     typedef size_t  mwSize;
 
+    /// If not compiling a max file, data type is native byte
     #define mxGetClassID(x) mxUINT8_CLASS
 #endif
 

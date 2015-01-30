@@ -75,8 +75,13 @@ static struct SQLstack
     SQLiface m_db[COUNT_DB];     ///< SQLite interface slots
     int      m_dbid;             ///< selected current database id, base 0
     
+    
     /// Standard Ctor (first database slot is default)
-    SQLstack(): m_dbid(0) {};
+    SQLstack(): m_dbid(0) 
+    {
+        sqlite3_initialize();
+    };
+    
     
     /**
      * \brief Dtor
@@ -89,11 +94,13 @@ static struct SQLstack
         sqlite3_shutdown();
     }
     
+    
     /// Checks if database \p newId is in valid range
     bool isValidId( int newId )
     {
         return newId >= 0 && newId < COUNT_DB;
     }
+    
     
     /// Makes \p newId as current database id
     void switchTo( int newId )
@@ -102,12 +109,14 @@ static struct SQLstack
         m_dbid = newId;
     }
     
+    
     /// Returns the current SQL interface
     SQLiface& current()
     {
         assert( m_dbid >= 0 );
         return m_db[m_dbid];
     }
+    
     
     /// Outputs current status for each database slot
     void printStati()
@@ -117,6 +126,7 @@ static struct SQLstack
             mexPrintf( "DB Handle %d: %s\n", i, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
         }
     }
+    
     
     /// Returns the first next free id slot (base 0). Database must be closed
     int getNextFreeId()
@@ -134,6 +144,7 @@ static struct SQLstack
         
         return -1;  // no free slot available
     }
+    
     
     /// Closes all open databases and returns the number of closed DBs, if any open
     int closeAllDbs()
@@ -173,6 +184,7 @@ void mex_module_deinit()
     blosc_destroy();
 }
 
+
 /**
  * \brief Module initialization
  *
@@ -190,7 +202,6 @@ void mex_module_init()
         {
             g_compression_type = BLOSC_DEFAULT_ID;
             blosc_init();
-            sqlite3_initialize();
             mexAtExit( mex_module_deinit );
             typed_blobs_init();
 
@@ -267,8 +278,8 @@ public:
     }
     
     
-    /// Destroy object
-    void Destroy()
+    /// Release object
+    void Release()
     {
         if( m_command )
         {
@@ -280,7 +291,7 @@ public:
     /// Dtor
     ~Mksqlite()
     {
-        Destroy();
+        Release();
     }
     
     /// Returns true, if any error is pending
@@ -288,6 +299,7 @@ public:
     {
         return m_err.isPending();
     }
+    
     
     /// Clear recent error
     void errClear()
@@ -304,9 +316,12 @@ public:
      */
     void returnWithError()
     {
+        const char *errId  = NULL;
+        const char *errMsg = m_err.get( &errId );
+        
         assert( errPending() );
         
-        mexErrMsgTxt( m_err.get() );
+        mexErrMsgIdAndTxt( errId ? errId : "MKSQLITE:ANY", errMsg );
     }
     
     
@@ -692,7 +707,8 @@ public:
         
         if( !SQLstack.current().setEnableLoadExtension( flagOnOff ) )
         {
-            m_err.set( SQLstack.current().getErr() );
+            const char* errid = NULL;
+            m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
 
@@ -988,11 +1004,12 @@ public:
         // No arguments, then report current state
         if( !m_narg )
         {
+            const char* errid = NULL;
             /*
              * Print current result type
              */
             mexPrintf( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
-            m_err.set( SQLstack.current().getErr() );
+            m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
         
@@ -1058,11 +1075,12 @@ public:
         
         if( !m_narg && !SQLstack.current().getBusyTimeout( iTimeout ) )
         {
+            const char* errid = NULL;
             /*
              * Anything wrong? free the database id and inform the user
              */
             mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( SQLstack.current().getErr() );
+            m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
         
@@ -1072,13 +1090,18 @@ public:
             return false;
         }
         
+        // Note that negative timeout values are allowed:
+        // "Calling this routine with an argument less than or equal 
+        // to zero turns off all busy handlers."
+        
         if( !SQLstack.current().setBusyTimeout( iTimeout ) )
         {
+            const char* errid = NULL;
             /*
              * Anything wrong? free the database id and inform the user
              */
             mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( SQLstack.current().getErr() );
+            m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
         
@@ -1197,7 +1220,8 @@ public:
         // close database if open
         if( !SQLstack.current().closeDb() )
         {
-            m_err.set( SQLstack.current().getErr() );
+            const char* errid = NULL;
+            m_err.set( SQLstack.current().getErr(&errid), errid );
         }
         
         /*
@@ -1270,7 +1294,8 @@ public:
             if( !SQLstack.current().openDb( dbname, openFlags ) )
             {
                 // adopt sql error message
-                m_err.set( SQLstack.current().getErr() );
+                const char* errid = NULL;
+                m_err.set( SQLstack.current().getErr(&errid), errid );
             }
         }
         
@@ -1279,10 +1304,12 @@ public:
          */
         if( !errPending() )
         {
+            const char* errid = NULL;
+            
             if( !SQLstack.current().setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
             {
                 mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-                m_err.set( SQLstack.current().getErr() );
+                m_err.set( SQLstack.current().getErr(&errid), errid );
             }
         }
         
@@ -1336,7 +1363,8 @@ public:
             if( !SQLstack.current().closeDb() )
             {
                 // adopt sql error message
-                m_err.set( SQLstack.current().getErr() );
+                const char* errid = NULL;
+                m_err.set( SQLstack.current().getErr(&errid), errid );
             }
         }
         
@@ -1429,6 +1457,7 @@ public:
         
         return item;
     }
+    
     
     /**
      * \brief Create a MATLAB cell array of column names
@@ -1689,7 +1718,6 @@ public:
     }
     
     
-    
     /**
      * \brief Handle common SQL statement
      *
@@ -1736,7 +1764,8 @@ public:
 
         if( !SQLstack.current().setQuery( m_query ) )
         {
-            m_err.set( SQLstack.current().getErr() );
+            const char* errid = NULL;
+            m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
 
@@ -1814,7 +1843,8 @@ public:
             {
                 if( !SQLstack.current().bindParameter( iParam+1, *nextBindParam++, can_serialize() ) )
                 {
-                    m_err.set( SQLstack.current().getErr() );
+                    const char* errid = NULL;
+                    m_err.set( SQLstack.current().getErr(&errid), errid );
                     return false;
                 }
             }
@@ -1824,7 +1854,8 @@ public:
             // cumulate in "cols"
             if( !errPending() && !SQLstack.current().fetch( cols ) )
             {
-                m_err.set( SQLstack.current().getErr() );
+                const char* errid = NULL;
+                m_err.set( SQLstack.current().getErr(&errid), errid );
                 return false;
             }
 
@@ -2013,8 +2044,8 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
     }
 
 #if CONFIG_USE_HEAP_CHECK
-    mksqlite.Destroy();    // antedate destructors work
-    HeapCheck.Release();   // Report and free heap, if any leaks exist
+    mksqlite.Release();    // antedate destructors work
+    HeapCheck.Walk();      // Report, if any leaks exist
 #endif
     
     return;

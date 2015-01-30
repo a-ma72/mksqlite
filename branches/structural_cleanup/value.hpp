@@ -959,7 +959,7 @@ public:
 /**
  * \brief mxArray replacement for speed improvement
  *
- * \todo
+ * \todo not supported/used yet
  * Allocating a mxArray is time expensive. BLOB items are handled as
  * mxArrays. Extensive usage is very slow. It's untested whether SQL or the
  * mxArray is the bottleneck. Speed improvements may be possible...

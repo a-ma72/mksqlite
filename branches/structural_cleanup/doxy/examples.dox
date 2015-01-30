@@ -95,6 +95,10 @@ made through SQL access.
 A logging file (text,csv) is read and pushed into a SQL table. 
 Then some statistics can easily be made through SQL access.
 
+\subpage example_14
+
+Demonstration of catching exceptions with mksqlite.
+
 */
 
 /**
@@ -136,4 +140,7 @@ Then some statistics can easily be made through SQL access.
 
 \page example_13 A real example no usage of regular expressions (statistics over log file)
 \htmlinclude sqlite_real_example_no_regex.html
+
+\page example_14 Exception handling with mksqlite
+\htmlinclude sqlite_exceptions.html
 */

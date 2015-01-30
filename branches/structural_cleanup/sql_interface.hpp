@@ -55,6 +55,7 @@ public:
       // Multiple calls of sqlite3_initialize() are harmless no-ops
       sqlite3_initialize();
   }
+    
   
   /// Dtor
   ~SQLiface()
@@ -62,26 +63,39 @@ public:
       closeDb();
   }
   
+  
   /// Clear recent error message
   void clearErr()
   {
       m_lasterr.clear();
   }
+  
 
   /// Get recent error message
-  const char* getErr()
+  const char* getErr( const char** errid = NULL )
   {
       if( m_lasterr.get() == SQL_ERR || m_lasterr.get() == SQL_ERR_CLOSE )
       {
-          // Get translation
-          return trans_err_to_ident();
+          if( errid )
+          {
+              *errid = trans_err_to_ident();
+          }
+          
+          // return SQLite error message
+          return sqlite3_errmsg( m_db );
       }
       else
       {
-          // No translation available, get original text
+          if( errid )
+          {
+              *errid = NULL;
+          }
+          
+          // return mksqlite error message
           return m_lasterr.get();
       }
   }
+  
   
   /// Returns true, if an unhandled error is pending
   bool errPending()
@@ -89,11 +103,13 @@ public:
       return m_lasterr.isPending();
   }
   
+  
   /// Returns true, if database is open
   bool isOpen()
   {
       return NULL != m_db;
   }
+  
   
   /// Sets the busy tiemout in milliseconds
   bool setBusyTimeout( int iTimeoutValue )
@@ -112,6 +128,7 @@ public:
       return true;
   }
   
+  
   /// Returns the busy timeout in milliseconds
   bool getBusyTimeout( int& iTimeoutValue )
   {
@@ -128,6 +145,7 @@ public:
       }
       return true;
   }
+  
 
   /// Enable or disable load extensions
   bool setEnableLoadExtension( int flagOnOff )
@@ -146,6 +164,7 @@ public:
       return true;
   }
   
+  
   /// Closing current statement
   void closeStmt()
   {
@@ -159,6 +178,7 @@ public:
           m_command = NULL;
       }
   }
+  
   
   /// Close database
   bool closeDb()
@@ -178,6 +198,7 @@ public:
       
       return !isOpen();
   }
+  
   
   /**
    * \brief Opens (or create) database
@@ -215,55 +236,108 @@ public:
   
   
   /**
-   * \brief Get least SQLite error code and return as message
+   * \brief Get least SQLite error code and return identifier as string
    */
   const char* trans_err_to_ident()
   {
-#if 1
-      return sqlite3_errmsg( m_db );
-#else
       static char dummy[32];
 
-      int errorcode = sqlite3_errcode( m_db );
+      int errorcode = sqlite3_extended_errcode( m_db );
 
       switch( errorcode )
-       {    
-          case SQLITE_OK:         return( "SQLITE:OK" );
-          case SQLITE_ERROR:      return( "SQLITE:ERROR" );
-          case SQLITE_INTERNAL:   return( "SQLITE:INTERNAL" );
-          case SQLITE_PERM:       return( "SQLITE:PERM" );
-          case SQLITE_ABORT:      return( "SQLITE:ABORT" );
-          case SQLITE_BUSY:       return( "SQLITE:BUSY" );
-          case SQLITE_LOCKED:     return( "SQLITE:LOCKED" );
-          case SQLITE_NOMEM:      return( "SQLITE:NOMEM" );
-          case SQLITE_READONLY:   return( "SQLITE:READONLY" );
-          case SQLITE_INTERRUPT:  return( "SQLITE:INTERRUPT" );
-          case SQLITE_IOERR:      return( "SQLITE:IOERR" );
-          case SQLITE_CORRUPT:    return( "SQLITE:CORRUPT" );
-          case SQLITE_NOTFOUND:   return( "SQLITE:NOTFOUND" );
-          case SQLITE_FULL:       return( "SQLITE:FULL" );
-          case SQLITE_CANTOPEN:   return( "SQLITE:CANTOPEN" );
-          case SQLITE_PROTOCOL:   return( "SQLITE:PROTOCOL" );
-          case SQLITE_EMPTY:      return( "SQLITE:EMPTY" );
-          case SQLITE_SCHEMA:     return( "SQLITE:SCHEMA" );
-          case SQLITE_TOOBIG:     return( "SQLITE:TOOBIG" );
-          case SQLITE_CONSTRAINT: return( "SQLITE:CONSTRAINT" );
-          case SQLITE_MISMATCH:   return( "SQLITE:MISMATCH" );
-          case SQLITE_MISUSE:     return( "SQLITE:MISUSE" );
-          case SQLITE_NOLFS:      return( "SQLITE:NOLFS" );
-          case SQLITE_AUTH:       return( "SQLITE:AUTH" );
-          case SQLITE_FORMAT:     return( "SQLITE:FORMAT" );
-          case SQLITE_RANGE:      return( "SQLITE:RANGE" );
-          case SQLITE_NOTADB:     return( "SQLITE:NOTADB" );
-          case SQLITE_ROW:        return( "SQLITE:ROW" );
-          case SQLITE_DONE:       return( "SQLITE:DONE" );
-
+      {    
+          case SQLITE_OK:                         return( "SQLITE:OK" );
+          case SQLITE_ERROR:                      return( "SQLITE:ERROR" );
+          case SQLITE_INTERNAL:                   return( "SQLITE:INTERNAL" );
+          case SQLITE_PERM:                       return( "SQLITE:PERM" );
+          case SQLITE_ABORT:                      return( "SQLITE:ABORT" );
+          case SQLITE_BUSY:                       return( "SQLITE:BUSY" );
+          case SQLITE_LOCKED:                     return( "SQLITE:LOCKED" );
+          case SQLITE_NOMEM:                      return( "SQLITE:NOMEM" );
+          case SQLITE_READONLY:                   return( "SQLITE:READONLY" );
+          case SQLITE_INTERRUPT:                  return( "SQLITE:INTERRUPT" );
+          case SQLITE_IOERR:                      return( "SQLITE:IOERR" );
+          case SQLITE_CORRUPT:                    return( "SQLITE:CORRUPT" );
+          case SQLITE_NOTFOUND:                   return( "SQLITE:NOTFOUND" );
+          case SQLITE_FULL:                       return( "SQLITE:FULL" );
+          case SQLITE_CANTOPEN:                   return( "SQLITE:CANTOPEN" );
+          case SQLITE_PROTOCOL:                   return( "SQLITE:PROTOCOL" );
+          case SQLITE_EMPTY:                      return( "SQLITE:EMPTY" );
+          case SQLITE_SCHEMA:                     return( "SQLITE:SCHEMA" );
+          case SQLITE_TOOBIG:                     return( "SQLITE:TOOBIG" );
+          case SQLITE_CONSTRAINT:                 return( "SQLITE:CONSTRAINT" );
+          case SQLITE_MISMATCH:                   return( "SQLITE:MISMATCH" );
+          case SQLITE_MISUSE:                     return( "SQLITE:MISUSE" );
+          case SQLITE_NOLFS:                      return( "SQLITE:NOLFS" );
+          case SQLITE_AUTH:                       return( "SQLITE:AUTH" );
+          case SQLITE_FORMAT:                     return( "SQLITE:FORMAT" );
+          case SQLITE_RANGE:                      return( "SQLITE:RANGE" );
+          case SQLITE_NOTADB:                     return( "SQLITE:NOTADB" );
+          case SQLITE_NOTICE:                     return( "SQLITE:NOTICE" );
+          case SQLITE_WARNING:                    return( "SQLITE:WARNING" );
+          case SQLITE_ROW:                        return( "SQLITE:ROW" );
+          case SQLITE_DONE:                       return( "SQLITE:DONE" );
+          /* extended codes */
+          case SQLITE_IOERR_READ:                 return( "SQLITE:IOERR_READ" );
+          case SQLITE_IOERR_SHORT_READ:           return( "SQLITE:IOERR_SHORT_READ" );
+          case SQLITE_IOERR_WRITE:                return( "SQLITE:IOERR_WRITE" );
+          case SQLITE_IOERR_FSYNC:                return( "SQLITE:IOERR_FSYNC" );
+          case SQLITE_IOERR_DIR_FSYNC:            return( "SQLITE:IOERR_DIR_FSYNC" );
+          case SQLITE_IOERR_TRUNCATE:             return( "SQLITE:IOERR_TRUNCATE" );
+          case SQLITE_IOERR_FSTAT:                return( "SQLITE:IOERR_FSTAT" );
+          case SQLITE_IOERR_UNLOCK:               return( "SQLITE:IOERR_UNLOCK" );
+          case SQLITE_IOERR_RDLOCK:               return( "SQLITE:IOERR_RDLOCK" );
+          case SQLITE_IOERR_DELETE:               return( "SQLITE:IOERR_DELETE" );
+          case SQLITE_IOERR_BLOCKED:              return( "SQLITE:IOERR_BLOCKED" );
+          case SQLITE_IOERR_NOMEM:                return( "SQLITE:IOERR_NOMEM" );
+          case SQLITE_IOERR_ACCESS:               return( "SQLITE:IOERR_ACCESS" );
+          case SQLITE_IOERR_CHECKRESERVEDLOCK:	  return( "SQLITE:IOERR_CHECKRESERVEDLOCK" );
+          case SQLITE_IOERR_LOCK:                 return( "SQLITE:IOERR_LOCK" );
+          case SQLITE_IOERR_CLOSE:                return( "SQLITE:IOERR_CLOSE" );
+          case SQLITE_IOERR_DIR_CLOSE:            return( "SQLITE:IOERR_DIR_CLOSE" );
+          case SQLITE_IOERR_SHMOPEN:              return( "SQLITE:IOERR_SHMOPEN" );
+          case SQLITE_IOERR_SHMSIZE:              return( "SQLITE:IOERR_SHMSIZE" );
+          case SQLITE_IOERR_SHMLOCK:              return( "SQLITE:IOERR_SHMLOCK" );
+          case SQLITE_IOERR_SHMMAP:               return( "SQLITE:IOERR_SHMMAP" );
+          case SQLITE_IOERR_SEEK:                 return( "SQLITE:IOERR_SEEK" );
+          case SQLITE_IOERR_DELETE_NOENT:         return( "SQLITE:IOERR_DELETE_NOENT" );
+          case SQLITE_IOERR_MMAP:                 return( "SQLITE:IOERR_MMAP" );
+          case SQLITE_IOERR_GETTEMPPATH:          return( "SQLITE:IOERR_GETTEMPPATH" );
+          case SQLITE_IOERR_CONVPATH:             return( "SQLITE:IOERR_CONVPATH" );
+          case SQLITE_LOCKED_SHAREDCACHE:         return( "SQLITE:LOCKED_SHAREDCACHE" );
+          case SQLITE_BUSY_RECOVERY:              return( "SQLITE:BUSY_RECOVERY" );
+          case SQLITE_BUSY_SNAPSHOT:              return( "SQLITE:BUSY_SNAPSHOT" );
+          case SQLITE_CANTOPEN_NOTEMPDIR:         return( "SQLITE:CANTOPEN_NOTEMPDIR" );
+          case SQLITE_CANTOPEN_ISDIR:             return( "SQLITE:CANTOPEN_ISDIR" );
+          case SQLITE_CANTOPEN_FULLPATH:          return( "SQLITE:CANTOPEN_FULLPATH" );
+          case SQLITE_CANTOPEN_CONVPATH:          return( "SQLITE:CANTOPEN_CONVPATH" );
+          case SQLITE_CORRUPT_VTAB:               return( "SQLITE:CORRUPT_VTAB" );
+          case SQLITE_READONLY_RECOVERY:          return( "SQLITE:READONLY_RECOVERY" );
+          case SQLITE_READONLY_CANTLOCK:          return( "SQLITE:READONLY_CANTLOCK" );
+          case SQLITE_READONLY_ROLLBACK:          return( "SQLITE:READONLY_ROLLBACK" );
+          case SQLITE_READONLY_DBMOVED:           return( "SQLITE:READONLY_DBMOVED" );
+          case SQLITE_ABORT_ROLLBACK:             return( "SQLITE:ABORT_ROLLBACK" );
+          case SQLITE_CONSTRAINT_CHECK:           return( "SQLITE:CONSTRAINT_CHECK" );
+          case SQLITE_CONSTRAINT_COMMITHOOK:      return( "SQLITE:CONSTRAINT_COMMITHOOK" );
+          case SQLITE_CONSTRAINT_FOREIGNKEY:      return( "SQLITE:CONSTRAINT_FOREIGNKEY" );
+          case SQLITE_CONSTRAINT_FUNCTION:        return( "SQLITE:CONSTRAINT_FUNCTION" );
+          case SQLITE_CONSTRAINT_NOTNULL:         return( "SQLITE:CONSTRAINT_NOTNULL" );
+          case SQLITE_CONSTRAINT_PRIMARYKEY:      return( "SQLITE:CONSTRAINT_PRIMARYKEY" );
+          case SQLITE_CONSTRAINT_TRIGGER:         return( "SQLITE:CONSTRAINT_TRIGGER" );
+          case SQLITE_CONSTRAINT_UNIQUE:          return( "SQLITE:CONSTRAINT_UNIQUE" );
+          case SQLITE_CONSTRAINT_VTAB:            return( "SQLITE:CONSTRAINT_VTAB" );
+          case SQLITE_CONSTRAINT_ROWID:           return( "SQLITE:CONSTRAINT_ROWID" );
+          case SQLITE_NOTICE_RECOVER_WAL:         return( "SQLITE:NOTICE_RECOVER_WAL" );
+          case SQLITE_NOTICE_RECOVER_ROLLBACK:    return( "SQLITE:NOTICE_RECOVER_ROLLBACK" );
+          case SQLITE_WARNING_AUTOINDEX:          return( "SQLITE:WARNING_AUTOINDEX" );
+          case SQLITE_AUTH_USER:                  return( "SQLITE:AUTH_USER" );
+          
           default:
-              _snprintf( dummy, sizeof( dummy ), "SQLITE: %d", errorcode );
+              _snprintf( dummy, sizeof( dummy ), "SQLITE:ERRNO%d", errorcode );
               return dummy;
        }
-#endif
   }
+  
   
   /**
    * \brief Attach user functions to database object
@@ -297,6 +371,7 @@ public:
           sqlite3_create_function( m_db, "md5", 1, SQLITE_UTF8, NULL, MD5_func, NULL, NULL );                       // Message-Digest (RSA)
       }
   }
+  
   
   /**
    * \brief Dispatch a SQL query
@@ -332,11 +407,13 @@ public:
       return true;
   }
   
+  
   /// Returns the count of parameters the current statement expects
   int getParameterCount()
   {
       return m_stmt ? sqlite3_bind_parameter_count( m_stmt ) : 0;
   }
+  
   
   /// Clears all parameter bindings from current statement
   void clearBindings()
@@ -346,6 +423,7 @@ public:
           sqlite3_clear_bindings( m_stmt );
       }
   }
+  
   
   /**
    * \brief Binds one parameter from current statement to a MATLAB array
@@ -487,17 +565,20 @@ public:
       return !errPending();
   }
   
+  
   /// Evaluates current SQL statement
   int step()
   {
       return m_stmt ? sqlite3_step( m_stmt ) : SQLITE_ERROR;
   }
   
+  
   /// Returns the column count for current statement
   int colCount()
   {
       return m_stmt ? sqlite3_column_count( m_stmt ) : 0;
   }
+  
   
   /**
    * \brief Returns the (prefered) type of one column for current statement
@@ -510,11 +591,13 @@ public:
       return m_stmt ? sqlite3_column_type( m_stmt, index ) : -1;
   }
   
+  
   /// Returns an integer value for least fetch and column number
   long long colInt64( int index )
   {
       return m_stmt ? sqlite3_column_int64( m_stmt, index ) : 0;
   }
+  
   
   /// Returns a floating point value for least fetch and column number
   double colFloat( int index )
@@ -522,11 +605,13 @@ public:
       return m_stmt ? sqlite3_column_double( m_stmt, index ) : 0.0;
   }
   
+  
   /// Returns a text value for least fetch and column number
   const unsigned char* colText( int index )
   {
       return m_stmt ? sqlite3_column_text( m_stmt, index ) : (const unsigned char*)"";
   }
+  
   
   /// Returns a BLOB for least fetch and column number
   const void* colBlob( int index )
@@ -536,17 +621,20 @@ public:
       return m_stmt ? sqlite3_column_blob( m_stmt, index ) : NULL;
   }
   
+  
   /// Returns the size of one value of least fetch and column number in bytes
   size_t colBytes( int index )
   {
       return m_stmt ? sqlite3_column_bytes( m_stmt, index ) : 0;
   }
   
+  
   /// Returns the column name least fetch and column number 
   const char* colName( int index )
   {
       return m_stmt ? sqlite3_column_name( m_stmt, index ) : "";
   }
+  
   
   /// Converts one char to a printable (non-white-space) character
   struct to_alphanum
@@ -557,6 +645,7 @@ public:
           return ::isalnum(a) ? a : '_';
       }
   };
+  
   
   /**
    * \brief Returns the column names of least fetch
@@ -640,6 +729,7 @@ public:
       return (int)names.size();
   }
   
+  
   /// Reset current SQL statement
   void reset()
   {
@@ -649,6 +739,7 @@ public:
       }
   }
   
+  
   /// Clear parameter bindings and finalize current statement
   void finalize()
   {
@@ -656,6 +747,7 @@ public:
       sqlite3_finalize( m_stmt );
       m_stmt = NULL;
   }
+  
     
   /** 
    * \brief Proceed a table fetch
@@ -759,6 +851,7 @@ public:
             cols[jCol].append( value );
         }
     }
+    
     
     if( errPending() )
     {

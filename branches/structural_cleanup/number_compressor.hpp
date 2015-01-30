@@ -139,10 +139,10 @@ public:
     }
     
 
-    /// Get recent error message
+    /// Get recent error message id
     int get_err()
     {
-        return m_err.getErrId();
+        return m_err.getMsgId();
     }
     
     

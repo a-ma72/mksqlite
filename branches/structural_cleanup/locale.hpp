@@ -104,10 +104,11 @@ int           getLocale     ();
  */
 class Err
 {
-    const char* m_err_msg;    ///< Holds pointer to message test if m_errId == MSG_PURESTRING
-    char m_err_string[1024];  ///< Text buffer for non-const (generated) messages
-    bool m_isPending;         ///< Message has still to be handled if this flag is set
-    int  m_errId;             ///< Message ID (see \ref MSG_IDS "Message Identifiers")
+    int         m_msgId;              ///< Message ID (see \ref MSG_IDS "Message Identifiers")
+    const char* m_err_msg;            ///< Holds pointer to message text
+    const char* m_err_id;             ///< Holds the error id (for MATLAB exception handling f.e.)
+    char        m_err_string[1024];   ///< (Shared) text buffer for non-const (generated) messages
+    bool        m_isPending;          ///< Message has still to be handled if this flag is set
     
 public:
     
@@ -120,75 +121,101 @@ public:
     /**
      * \brief Set error message to a constant string (without translation)
      *
-     * \param[in] strMsg Pointer to constant message text
+     * \param[in] strMsg Pointer to constant error message text
+     * \param[in] strId  Pointer to constant error identifier
      */
-    void set( const char* strMsg )
+    void set( const char* strMsg, const char* strId = NULL )
     {
+         m_msgId      = MSG_PURESTRING;
          m_err_msg    = strMsg;
-        *m_err_string = 0;
+         m_err_id     = strId;
          m_isPending  = true;
-         m_errId      = MSG_PURESTRING;
+        *m_err_string = 0;     // not used and thus emptied
     }
+    
     
     /** \brief Set error message to non-constant string (no translation)
      *
      * \param[in] strMsg Pointer to message text
+     * \param[in] strId  Pointer to constant error identifier
      */
-    void set( char* strMsg )
+    void set( char* strMsg, const char* strId = NULL )
     {
-        m_isPending   = true;
-        m_errId       = MSG_PURESTRING;
-        m_err_msg     = NULL;
+        m_err_id = strId;
         
         if( !strMsg ) 
         { 
+            m_msgId       = MSG_NOERROR;
             m_err_msg     = "";
             m_isPending   = false;
-            m_errId       = MSG_NOERROR;
+            *m_err_string = 0;
         }
-        
-        _snprintf( m_err_string, sizeof(m_err_string), "%s", strMsg );
+        else
+        {
+            m_msgId       = MSG_PURESTRING;
+            m_err_msg     = m_err_string;
+            m_isPending   = true;
+            
+            _snprintf( m_err_string, sizeof(m_err_string), "%s", strMsg );
+        }
     }
+    
     
     /** 
      * \brief Set error message by identifier (translations available)
      *
      * \param[in] iMessageNr Message identifier (see \ref MSG_IDS "Message Identifiers")
+     * \param[in] strId  Pointer to constant error identifier
      */
-    void set( int iMessageNr )
+    void set( int iMessageNr, const char* strId = NULL )
     {
-         set( ::getLocaleMsg( iMessageNr ) );
+         set( ::getLocaleMsg( iMessageNr ), strId );
+         
          if( iMessageNr == MSG_NOERROR )
          {
             m_isPending = false;
          }
-         m_errId = iMessageNr;
+         
+         m_msgId = iMessageNr;
     }
+    
     
     /// Reset error message
     void clear()
     {
-        set( MSG_NOERROR );
+        set( MSG_NOERROR, NULL );
     }
     
     
-    /// Get the current error message
-    const char* get()
+    /**
+     * \brief Get the current error message
+     *
+     * \param[in] errId Pointer to constant error identifier
+     */
+    const char* get( const char** errId = NULL )
     {
-        return m_err_msg ? m_err_msg : m_err_string;
+        if( errId )
+        {
+            *errId = m_err_id;
+        }
+        
+        return m_err_msg;
     }
+    
     
     /// Get the current message identifier
-    int getErrId()
+    int getMsgId()
     {
-        return m_errId;
+        return m_msgId;
     }
+    
     
     /// Returns true, if the current error message is still not handled
     bool isPending()
     { 
         return m_isPending;
     }
+    
     
     /// Omits a warning with the current error message
     void warn( int iMessageNr )

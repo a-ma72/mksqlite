@@ -870,7 +870,7 @@ finalize:
     // free cdata and byteStream if left any
     ::utils_destroy_array( byteStream );
     
-    return err.getErrId();
+    return err.getMsgId();
 }
 
 
@@ -1020,7 +1020,7 @@ finalize:
     // so inhibit from freeing through destructor:
     ::utils_destroy_array( pItem );
 
-    return err.getErrId();
+    return err.getMsgId();
 }
 
 

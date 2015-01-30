@@ -17,7 +17,7 @@
 #pragma once
 
 #ifndef _GLOBAL_H
-#define _GLOBAL_H
+#define _GLOBAL_H   /**< include guard (redundant) */
 #endif
 
 /* Common global definitions */
@@ -51,7 +51,7 @@
   #define _strnicmp   strncasecmp
   #define _snprintf   snprintf
   #define _strdup     strdup
-  typedef long int ptrdiff_t;  // linux a64
+  typedef long int    ptrdiff_t;  // linux a64
 #endif
 
 #include "config.h"
@@ -88,9 +88,18 @@
  * 
  * Use ::utils_free_ptr() instead of MEM_FREE, when a NULL check
  * must be performed on \p ptr and &ptr must be set to NULL after freeing.
+ *
+ * \def WALKHEAP
+ * When heap checking is on (\ref CONFIG_USE_HEAP_CHECK), reports 
+ * the monitored heap allocation state (MATLAB command window).
+ *
+ * \def FREEHEAP
+ * When heap checking is on (\ref CONFIG_USE_HEAP_CHECK), frees 
+ * heap space where allocation was monitored.
+ * 
  */
 
-// define standard memory handlers
+// define standard memory handlers used by mksqlite
 #undef  MEM_ALLOC
 #undef  MEM_REALLOC
 #undef  MEM_FREE
@@ -109,27 +118,33 @@
     #define MEM_REALLOC( ptr, size )    HC_ASSERT_ERROR
 #endif
 
+// definition how matrix arrays are managed
 #if 1 && defined( MATLAB_MEX_FILE )
     #define MAT_ARRAY_TYPE              mxArray
     #define MAT_ALLOC( m, n, typeID )   mxCreateNumericMatrix( m, n, typeID, mxREAL )
     #define MAT_FREE( ptr )             mxDestroyArray( ptr )
 #else
+    // \todo not supported yet
     struct tagNumericArray;
     #define MAT_ARRAY_TYPE              tagNumericArray
     #define MAT_ALLOC( m, n, typeID )   tagNumericArray::Create( m, n, typeID )
     #define MAT_FREE( ptr )             tagNumericArray::FreeArray( ptr )
 #endif
 
-
+/** 
+ * \def CONFIG_USE_HEAP_CHECK
+ * When defined, MEM_ALLOC, MEM_REALLOC and MEM_FREE actions were monitored
+ * and some simple boundary checks will be made.
+ */ 
 #if CONFIG_USE_HEAP_CHECK
-// redefine memory (de-)allocators
-// memory macros (MEM_ALLOC, MEM_REALLOC and MEM_FREE) used by heap_check.hpp
-#include "heap_check.hpp"
+    // redefine memory (de-)allocators, if heap checking is on
+    // memory macros MEM_ALLOC, MEM_REALLOC and MEM_FREE were used by heap_check.hpp
+    #include "heap_check.hpp"
         
-// Now redirect memory macros to heap checking functions
-#undef  MEM_ALLOC
-#undef  MEM_REALLOC
-#undef  MEM_FREE
+    // Now redirect memory macros to heap checking functions
+    #undef  MEM_ALLOC
+    #undef  MEM_REALLOC
+    #undef  MEM_FREE
    
     #define MEM_ALLOC(n,s)      (HeapCheck.New( (n) * (s), __FILE__, __FUNCTION__, /*notes*/ "", __LINE__ ))
     #define MEM_REALLOC(p,s)    (HeapCheck.Realloc( (void*)(p), (s), __FILE__, __FUNCTION__, /*notes*/ "", __LINE__ ))
@@ -145,19 +160,7 @@
     #define FREEHEAP            
 #endif // CONFIG_USE_HEAP_CHECK
         
-
-#if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
-  #define CALLOC(n,s)         MEM_ALLOC((n),(s))
-  #define REALLOC(p,s)        MEM_REALLOC((p),(s))
-  #define FREE(p)             MEM_FREE((p))
-#else /* standalone modules */
-  #include <malloc.h>
-  #define CALLOC(n,s)         ::calloc((n),(s))
-  #define REALLOC(p,s)        ::realloc((void*)(p),(s))
-  #define FREE(p)             ::free((void*)(p))
-  #define mxArray             void
-#endif
-        
+    
 /**
  * \name IEEE representation functions
  *
@@ -172,6 +175,7 @@
     #define DBL_EPS             mxGetEps()
 #else
   #if defined( _WIN32 )
+    // MSVC2010
     #define DBL_INF             (_Inf._Double) /* <ymath.h> */
     #define DBL_NAN             (_Nan._Double) /* <ymath.h> */
 //  #define DBL_EPS             DBL_EPS
@@ -179,12 +183,19 @@
     #define DBL_ISNAN(x)        _isnan(x)      /* <float.h> */
     #define DBL_ISINF(x)        (!ISFINITE(x) && !ISNAN(x))
   #else
-    #define DBL_INF             INFINITY
-    #define DBL_NAN             NAN
+    // gcc
+    #define DBL_INF             INFINITY       /* <cmath> */
+    #define DBL_NAN             NAN            /* <cmath> */
 //  #define DBL_EPS             DBL_EPS
-    #define DBL_ISFINITE(x)     (((x)-(x)) == 0.0)
-    #define DBL_ISNAN(x)        ((x)!=(x))
-    #define DBL_ISINF(x)        (!ISFINITE(x) && !ISNAN(x))
+    #if 0  // \todo
+      #define DBL_ISFINITE(x)     (((x)-(x)) == 0.0)
+      #define DBL_ISNAN(x)        ((x)!=(x))
+      #define DBL_ISINF(x)        (!DBL_ISFINITE(x) && !DBL_ISNAN(x))
+    #else
+      #define DBL_ISFINITE(x)     isfinite(x)  /* <cmath> */
+      #define DBL_ISNAN(x)        isnan(x)     /* <cmath> */
+      #define DBL_ISINF(x)        isinf(x)     /* <cmath> */
+    #endif
   #endif
 #endif
 /** @} */
