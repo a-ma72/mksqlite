@@ -227,6 +227,7 @@
 % (siehe auch test_regex.m für weitere Beispiele...)
 %
 %
-% (c) 2008 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2015 by Martin Kortmann <mail@kortmann.de>
+%                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 

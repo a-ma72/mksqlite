@@ -791,7 +791,8 @@ INPUT_ENCODING         = UTF-8
 
 FILE_PATTERNS          = *.dox \
                          *.h?? \
-                         *.c??
+                         *.c?? \
+                         *.h
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.
@@ -2029,7 +2030,9 @@ INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = MAIN_MODULE \
                          _WIN32 \
                          CONFIG_EARLY_BIND_SERIALIZE=0 \
-                         CONFIG_USE_HEAP_CHECK=1
+                         CONFIG_USE_HEAP_CHECK=1 \
+                         MATLAB_MEX_FILE \
+                         CONFIG_USE_HEAP_CHECK
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The
