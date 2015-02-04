@@ -1,0 +1,17 @@
+/**
+\mainpage Introduction
+
+\htmlinclude intro.html
+
+<HR class="center" size="1">
+\li \subpage short_desc
+\li \subpage detail_desc
+\li \subpage examples
+\li \subpage references
+
+*/
+
+/**
+\page short_desc Short description
+\htmlinclude mksqlite_eng.html
+*/

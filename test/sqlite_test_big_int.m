@@ -1,36 +1,54 @@
 function sqlite_test_big_int ()
 
-clc
-format long
+    clear all
+    close all
+    clc
+    dummy = mksqlite('version mex');
+    fprintf( '\n\n' );
+    
+    format long
 
-% Datenbank öffnen (in-memory)
-mksqlite('open', '');
+    % create in-memory database
+    mksqlite( 'open', '' );
 
-% Testtabelle erzeugen
-mksqlite('create table bigint (x int)');
+    % create simple table with one field of integer type
+    mksqlite( 'CREATE TABLE bigint (x INT)' );
 
-% mksqlite schaltet automatisch auf long long, wenn integer Typen nicht 
-% Verlustfrei als double zurueckgegeben werden koennen:
-for i = 1:2
-    if i == 1
-        value = uint8( hex2dec( ['CC'; 'CC'; 'CC'; 'CC'; '00'; '00'; '00'; '00'] ) );
-        value = typecast( value', 'int64' );
-    else
-        value = uint8( hex2dec( ['CC'; 'CC'; 'CC'; 'CC'; 'CC'; 'CC'; 'CC'; '7C'] ) );
-        value = typecast( value', 'int64' );
+    % mksqlite switches automatically to 64-bit integer return type, 
+    % if the value can't be lostless represented by double type
+    for i = 1:2
+        if i == 1
+            % small integer value as bigint
+            fprintf( 'Small value as bigint\n' );
+            value_orig = uint8( hex2dec( ['CC'; 'CC'; 'CC'; 'CC'; '00'; '00'; '00'; '00'] ) );
+            value_orig = typecast( value_orig', 'int64' );
+        else
+            % huge integer value as bigint
+            fprintf( 'Huge value as bigint\n' );
+            value_orig = uint8( hex2dec( ['CC'; 'CC'; 'CC'; 'CC'; 'CC'; 'CC'; 'CC'; '7C'] ) );
+            value_orig = typecast( value_orig', 'int64' );
+        end
+
+        % output value contents to be stored in database
+        fprintf( 'MATLAB original:\n\tdata type: %s, and value: %ld\n', ...
+                 class( value_orig ), value_orig );
+                 
+        % BTW: 
+        % 'uint64' type is not supported by SQLite and would thus run
+        % into an error.
+        mksqlite( 'INSERT INTO bigint VALUES (?)', value_orig );
+
+        % refetch value from database
+        value_fetched = mksqlite( 'SELECT x, PRINTF("%d",x) AS x_dec FROM bigint' );
+
+        % output data, how it is represented by SQL
+        fprintf( 'After fetching from database:\n\tdata type: %s, and value: %s', ...
+                 class( value_fetched.x ), value_fetched.x_dec );
+
+        fprintf( '\n\n' );
+        
+        % empty database
+        mksqlite( 'DELETE FROM bigint' ); 
     end
 
-    mksqlite('insert into bigint values (?)', value );
-
-    value = mksqlite('select x, printf("%d",x) as x_dec from bigint');
-
-    fprintf( 'Type: %s, Dec (SQL): %s\nMatlab representation:', class( value.x ), value.x_dec );
-    cast( value.x, 'int64' )
-    
-    fprintf( '\n\n' );
-    mksqlite( 'delete from bigint' );
-end
-
-mksqlite('close');
-
-
+    mksqlite( 'close' );

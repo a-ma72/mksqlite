@@ -65,15 +65,19 @@
 %
 % Example:
 %  mksqlite( 'insert firstName, lastName, city into AddressBook values (?,?,?)', ...
-%            'Gunther', 'Meyer', 'Munich' );
+%            'Paul', 'Meyer', 'Munich' );
 %
 % Instead of a listing of arguments, a cell array can be provided that 
 % contains the arguments.
 % If fewer arguments are given then required, the remaining parameters are 
 % filled with NULLs.  If more arguments are given than necessary, the
-% function reports an error.  An argument may be a real value (scalar or
-% array) or a string.  Non-scalar values are treated as a BLOB (unit8) SQL
-% datatype. ( BLOB = (B)inary (L)arge (OB)ject) )
+% function reports an error.  
+% If it is intended, that implicit calls with the same command and the remaining
+% arguments shall be done, so called parameter wrapping must be activated:
+% mksqlite('param_wrapping', 0|1)
+% An argument may be a real value (scalar or array) or a string.  
+% Non-scalar values are treated as a BLOB (unit8) SQL datatype. 
+% ( BLOB = (B)inary (L)arge (OB)ject) )
 %
 % Example:
 %  data = rand(10,15);
@@ -98,7 +102,7 @@
 % Type conversion only works with numeric arrays and vectors.  structs,
 % cell arrays and complex data must be converted beforehand.  Matlab
 % can do this conversion through undocumented functions:
-% getByteStreamFromArray() und getArrayFromByteStream(). 
+% getByteStreamFromArray() and getArrayFromByteStream(). 
 % This functionality is activated by following command:
 %
 %   mksqlite ( 'typedBLOBs', 2); % expanded activation
@@ -150,14 +154,42 @@
 % 
 % =======================================================================
 %
+% Control the format of result for queries
+%
+% Beside the described calling convention, one can retrieve two further
+% often needed results:
+% 1. The row count (rowcount)
+% 2. The original table column names (colnames)
+% Both results are given with the common call already:
+% [result,rowcount,colnames] = mksqlite(...)
+%
+% Per default an array of structs will be returned for table queries.
+% You can decide between three differet kinds of result types:
+% 1: array of structs (default)
+% 2: struct of arrays
+% 3: cell matrix
+% You can change the default setting (n=1) with following call:
+% mksqlite( 'result_type', n );
+% (see sqlite_test_result_types.m)
+%
+% =======================================================================
+%
 % Extra SQL functions:
 % mksqlite offers additional SQL functions besides the known "core functions"
 % like replace, trim, abs, round, ...
-% This version offers 7 additional functions:
-% In dieser Version werden 7 weitere Funktionen angeboten:
+% This version offers 10 additional functions:
 %   * pow(x,y):
 %     Calculates x raised to exponent y.  If the result is not representable
-%     the return value is NULL
+%     the return value is NULL.
+%   * lg(x):
+%     Calculates the decadic logarithm of x. If the result is not representable
+%     the return value is NULL.
+%   * ln(x):
+%     Calculates the natural logarithm of x. If the result is not representable
+%     the return value is NULL.
+%   * exp(x):
+%     Calculates the exponential function with e raised x. If the result is not representable
+%     the return value is NULL.
 %   * regex(str,pattern):
 %     Finds the first substring of str that matches the regular expression pattern.
 %   * regex(str,pattern,repstr):
@@ -185,6 +217,7 @@
 % (also see test_regex.m for further examples...)
 %
 %
-% (c) 2008 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2015 by Martin Kortmann <mail@kortmann.de>
+%                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 

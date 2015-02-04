@@ -1,3 +1,21 @@
+Version 2.0  (build 92 - 04. Feb. 2015)
+- Structural cleanup of "one file source" to "multiple file sources"
+- Added support for parameter wrapping
+  mksqlite('param_wrapping', 0|1)
+  (Default is off)
+- Added support for different results types for table queries:
+  0: array of structs (default)
+  1: struct of arrays
+  2: cell matrix
+  mksqlite('result_type', 0|1|2)
+- mksqlite returns row count and column names for table queries now
+  [result,rowcount,colnames] = mksqlite('SELECT...')
+- Source documentation with doxygen
+- python filter function for doxygen (python must be installed)
+- Added new sql user math functions (lg, ln, exp)
+- Added wrapper function sql(...) with sprintf feature (see script help)
+- SQLite update to version 3.8.8.1
+
 Version 1.15 (build 71 - 13. Oct 2014)
 - Large integer values (INT64) suffered from numeric fuzziness of double types.
   They now will be returned as INT64 MATLAB type. (Thanks to Alan Race)
