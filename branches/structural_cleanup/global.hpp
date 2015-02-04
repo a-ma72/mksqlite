@@ -176,32 +176,36 @@
 #else
   #if defined( _WIN32 )
     // MSVC2010
-    #define DBL_INF             (_Inf._Double) /* <ymath.h> */
-    #define DBL_NAN             (_Nan._Double) /* <ymath.h> */
+    #define DBL_INF             (_Inf._Double) /* <ymath.h> -?-/double */
+    #define DBL_NAN             (_Nan._Double) /* <ymath.h> -?-/double */
 //  #define DBL_EPS             DBL_EPS
-    #define DBL_ISFINITE(x)     _finite(x)     /* <float.h> */
-    #define DBL_ISNAN(x)        _isnan(x)      /* <float.h> */
-    #define DBL_ISINF(x)        (!ISFINITE(x) && !ISNAN(x))
+    #define DBL_ISFINITE(x)     _finite(x)     /* <float.h> -?-/double */
+    #define DBL_ISNAN(x)        _isnan(x)      /* <float.h> -?-/double */
+    #define DBL_ISINF(x)        (!DBL_ISFINITE(x) && !DBL_ISNAN(x))
   #else
     // gcc
-    #define DBL_INF             INFINITY       /* <cmath> */
-    #define DBL_NAN             NAN            /* <cmath> */
+    #define DBL_INF             INFINITY       /* <cmath> implementation defined */
+    #define DBL_NAN             NAN            /* <cmath> implementation defined */
 //  #define DBL_EPS             DBL_EPS
-    #if 0  // \todo
+    #if 0
       #define DBL_ISFINITE(x)     (((x)-(x)) == 0.0)
       #define DBL_ISNAN(x)        ((x)!=(x))
       #define DBL_ISINF(x)        (!DBL_ISFINITE(x) && !DBL_ISNAN(x))
     #else
-      #define DBL_ISFINITE(x)     isfinite(x)  /* <cmath> */
-      #define DBL_ISNAN(x)        isnan(x)     /* <cmath> */
-      #define DBL_ISINF(x)        isinf(x)     /* <cmath> */
+      #define DBL_ISFINITE(x)     isfinite(x)  /* <cmath> float/double */
+      #define DBL_ISNAN(x)        isnan(x)     /* <cmath> float/double */
+      #define DBL_ISINF(x)        isinf(x)     /* <cmath> float/double */
     #endif
   #endif
 #endif
 /** @} */
+    
         
 /**
  * \name Versionstrings
+ *
+ * mksqlite version string is defined in config.h
+ * (\ref CONFIG_MKSQLITE_VERSION_STRING)
  *
  * @{
  */

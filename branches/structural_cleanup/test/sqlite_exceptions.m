@@ -16,6 +16,10 @@ function sqlite_exceptions
     };
 
     for i = 1:numel( commands )
+        if i == numel( commands )
+            fprintf( '\nNext error will not be catched and thus terminates this script:' );
+        end
+        
         fprintf( '\nCalling %s\n', commands{i} );
 
         try
@@ -37,7 +41,7 @@ function sqlite_exceptions
 
                 otherwise
                     % Split "SQLITE:NAME" into its fields --> C={'SQLITE','NAME'}
-                    C = strsplit( ex.identifier, ':' );
+                    C = regexp( ex.identifier, ':', 'split' );
 
                     if numel(C) == 2 && strcmpi( C{1}, 'SQLITE' )
                         % Handler for all remaining SQLite errors

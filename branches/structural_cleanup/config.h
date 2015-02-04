@@ -51,26 +51,26 @@
 	    RESULT_TYPE_MAX_ID = RESULT_TYPE_MATRIX
 	};
 
-    #define CONFIG_MKSQLITE_VER_STRING    "2.0beta"     ///< mksqlite version string
+  #define CONFIG_MKSQLITE_VERSION_STRING    "2.0beta"     ///< mksqlite version string
     
-	#define CONFIG_MAX_NUM_OF_DBS         5             ///< maximum number of databases, simultaneous open
-	#define CONFIG_CHECK_4_UNIQUE_FIELDS  BOOL_TRUE     ///< ensure unique fields in query return structure by default
+	#define CONFIG_MAX_NUM_OF_DBS           5             ///< maximum number of databases, simultaneous open
+	#define CONFIG_CHECK_4_UNIQUE_FIELDS    BOOL_TRUE     ///< ensure unique fields in query return structure by default
 
 	/// Allow streaming to convert MATLAB variables into byte streams
-	#define CONFIG_STREAMING              BOOL_FALSE    ///< streaming is disabled by default
+	#define CONFIG_STREAMING                BOOL_FALSE    ///< streaming is disabled by default
 
 	/// SQLite itself limits BLOBs to 1MB, mksqlite limits to INT32_MAX
-	#define CONFIG_MKSQLITE_MAX_BLOB_SIZE ((mwSize)INT32_MAX)  ///< max. size in bytes of a blob
+	#define CONFIG_MKSQLITE_MAX_BLOB_SIZE   ((mwSize)INT32_MAX)  ///< max. size in bytes of a blob
 
 	/// Early bind mxSerialize and mxDeserialize
 	/// BOOL_TRUE: mksqlite has to be linked with MATLAB lib, BOOL_FALSE: dynamic calls to MATLAB functions
 	#ifndef CONFIG_EARLY_BIND_SERIALIZE
-	#define CONFIG_EARLY_BIND_SERIALIZE   BOOL_FALSE    ///< early binding if off by default
+	#define CONFIG_EARLY_BIND_SERIALIZE     BOOL_FALSE    ///< early binding if off by default
 	#endif
 
 	/// Data organisation of query results
-	#define CONFIG_RESULT_TYPE            RESULT_TYPE_ARRAYOFSTRUCTS   ///< return array of structs by default
+	#define CONFIG_RESULT_TYPE              RESULT_TYPE_ARRAYOFSTRUCTS   ///< return array of structs by default
 
 	/// Wrap parameters
-	#define CONFIG_PARAM_WRAPPING         BOOL_FALSE    ///< paramter wrapping is off by default
+	#define CONFIG_PARAM_WRAPPING           BOOL_FALSE    ///< paramter wrapping is off by default
 #endif
