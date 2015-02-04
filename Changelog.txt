@@ -1,4 +1,4 @@
-Version 2.0  (build 77 - 15. Jan 2015)
+Version 2.0  (build 90 - 30. Jan 2015)
 - Structural cleanup of "one file source" to "multiple file sources"
 - Added support for parameter wrapping
   mksqlite('param_wrapping', 0|1)

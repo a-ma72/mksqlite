@@ -851,7 +851,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
         tbh1->init( value.Item() );
 
         // and copy uncompressed data
-        /// \todo: Do byteswapping here if big endian? 
+        /// \todo Do byteswapping here if big endian? 
         // (Most platforms use little endian)
         memcpy( tbh1->getData(), value.Data(), value.ByData() );
 
@@ -910,7 +910,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
     if( !tbh1->validPlatform() )
     {
         mexWarnMsgIdAndTxt( "MATLAB:MKSQLITE:BlobDiffArch", ::getLocaleMsg( MSG_WARNDIFFARCH ) );
-        /// \todo: warning, error or automatic conversion..?
+        /// \todo warning, error or automatic conversion..?
         // since mostly platforms (except SunOS) use LE encoding
         // and unicode is not supported here, there is IMHO no need 
         // for conversions...
@@ -983,7 +983,7 @@ int blob_unpack( const void* pBlob, size_t blob_size, bool bStreamable,
                   *pdRatio = 0.0;
               }
 
-              /// \todo: Do byteswapping here if needed, depend on endian?
+              /// \todo Do byteswapping here if needed, depend on endian?
           }
           break;
       }

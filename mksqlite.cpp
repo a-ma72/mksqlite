@@ -557,11 +557,11 @@ public:
             {
                 if( m_nlhs == 0 )
                 {
-                    mexPrintf( "mksqlite Version %s\n", CONFIG_MKSQLITE_VER_STRING );
+                    mexPrintf( "mksqlite Version %s\n", CONFIG_MKSQLITE_VERSION_STRING );
                 } 
                 else
                 {
-                    m_plhs[0] = mxCreateString( CONFIG_MKSQLITE_VER_STRING );
+                    m_plhs[0] = mxCreateString( CONFIG_MKSQLITE_VERSION_STRING );
                 }
             }
             return true;

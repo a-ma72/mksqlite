@@ -7,7 +7,7 @@
  MKSQLITE offers an interface to this database engine.
  <HR>
 
- \section p1s1 General calling sequence:
+ \section detail_desc_sec1 General calling sequence:
  \code
   [[dbid][, rowcount][, colnames]] = mksqlite([dbid, ] SQLCommand [, Argument 1][, Argument 2], ...)
  \endcode
@@ -17,7 +17,7 @@
  and \a colnames will take the table column names.
  <HR>
  
- \section p1s2 Function calls
+ \section detail_desc_sec2 Function calls
  \anchor cmd_open
  \code
   mksqlite('open', 'dataBaseName')
@@ -95,7 +95,7 @@
  <HR>
 
 
- \section p1s3 Parameter binding
+ \section detail_desc_sec3 Parameter binding
  The SQL syntax allows the use of parameters, which are identified
  by placeholders, and then filled with contents by trailing arguments.\n
  Allowed placeholders in SQLlite are: ?, ?NNN, :NNN, \$NAME, \@NAME
@@ -196,7 +196,7 @@
  <HR>
  
 
- \section p1s4 Control the format of result for queries
+ \section detail_desc_sec4 Control the format of result for queries
  \anchor cmd_result_type
  
  Beside the described calling convention, one can retrieve two further
@@ -223,7 +223,7 @@
  <HR>
 
 
- \section p1s5 Extra SQL functions
+ \section detail_desc_sec5 Extra SQL functions
  mksqlite offers additional SQL functions besides the known "core functions"
  like replace, trim, abs, round, ...
  This version offers 10 additional functions:
@@ -269,7 +269,7 @@
   <HR>
  
  
- \section p1s6 Summary of mksqlite commands
+ \section detail_desc_sec6 Summary of mksqlite commands
  <table>
  <tr><th>Command</th>                                           <th>Description</th>                                            <th>Valid parameter(s)</th>        <th>Default value(s)</th></tr>
  <tr><td>\ref cmd_version_mex "'version mex'"</td>              <td>Returns the version of mksqlite</td>                        <td>-</td>                         <td>-</td></tr>
