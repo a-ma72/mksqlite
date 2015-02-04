@@ -1,0 +1,156 @@
+/**
+\page examples Examples
+\tableofcontents
+
+\subpage example_1
+
+An example showing the speed improvements by using an in-memory database
+instead of an on-disc one. Also demonstrates, how to copy entire tables
+easily with one SELECT statement.
+
+\subpage example_2 
+
+Demonstration of passing arguments to a sql statement through "parameter 
+binding". So numbers don't have to be converted to strings to pass with
+an SQL statement. In case of BLOB datatypes, aruments are stored as byte 
+arrays. With a screenshot this is shown in this example.\n
+Introducing "cell extraction", function calls to mksqlite can extremely
+shortened.
+
+\subpage example_3
+
+Databases can be opened with different access rights. This example gives
+a short insight.
+
+\subpage example_4
+
+There are 3 types of result for table queries:\n
+"array of structs",\n
+"struct of arrays" and\n
+"(cell) matrix"\n
+This example explains, how to get fetched results in either of these formats.
+Further mksqlite has two additional return paramters if needed, which 
+introduced in this example.
+
+\subpage example_5
+
+With mksqlite you have the ability of using regular expressions in queries.
+Here's not yet another explanation of regular expression, but a short overview,
+how to use with mksqlite and SQL databases.\n
+Also you get an example how to scan recursively a path and store the results
+into a database to easy fetch summaries (or details) later. The algorithm 
+is not an example doing it "right", "efficient" or "fast", it's only an
+example.
+
+\subpage example_6
+
+mksqlite stores numeric arrays always as an array of bytes (uint8),
+since SQLite only supports native byte array (BLOB). When you fetch 
+a BLOB you will always get your result as byte array of type uint8.\n
+With typed BLOBs mksqlite stores additionally informations (dimensions and 
+numeric type), so it can be returned in the same format as it was before. 
+No casting or reshaping will be necessary.
+
+\subpage example_7
+
+When mksqlite is called with a statement containing bind parameters ('?'), 
+you have to pass arguments with the exact count needed, or less. In latter 
+case missing arguments are assumed to be NULL.\n
+With the "parameter wrapping" switch (param_wrapping) set, you may pass more 
+arguments than needed. Then the current statement will be processed again
+and again, until all arguments have been passed. In this mode, arguments
+for all parameters for each subsequent call must be given.
+
+\subpage example_8
+
+An example how to use data compression in SQL databases. This feature is
+only supported for typed BLOBs. mksqlite delivers lossy ('QLIN16' and
+'QLOG16') and some lossless (BLOSC) compressors. This example demonstrates
+the lossless compressors only and calculates some statistics about time
+consumption and compression ratios.
+
+\subpage example_9
+
+Another example of using compression.
+
+\subpage example_10
+
+mksqlite comes with some user defined functions. md5() computes the md5 
+hasing value, waht is shown here.\n
+Further some measurings for different compression levels are shown and 
+the differences in use of lossy compression is shown.
+
+\subpage example_11
+
+A short example, how to use SQLites' language extension feature.
+
+\subpage example_12
+
+A logging file (text,csv) is read and pushed into a SQL table. Some optional
+columns are build by parsing (regex). Then some statistics can easily be
+made through SQL access.
+
+\subpage example_13
+
+A logging file (text,csv) is read and pushed into a SQL table. 
+Then some statistics can easily be made through SQL access.
+
+\subpage example_14
+
+Demonstration of catching exceptions with mksqlite.
+
+\subpage example_15
+
+MATLAB 64-bit integer type values are stored as SQL integer type. When
+refetching such values, mksqlite will prefer double type, except when
+the value is such huge, that it can't be lossless represented by a double.\n
+This example shows these two conditions.
+
+*/
+
+/**
+\page example_1 Speed test
+\htmlinclude sqlite_test.html
+
+\page example_2 Parameter Binding
+\htmlinclude sqlite_test_bind.html
+
+\page example_3 Controlling access rights
+\htmlinclude sqlite_test_access_mode.html
+
+\page example_4 Controlling storage format of query results
+\htmlinclude sqlite_test_result_types.html
+
+\page example_5 Regular expressions
+\htmlinclude sqlite_test_regex.html
+
+\page example_6 Typed BLOBs
+\htmlinclude sqlite_test_bind_typed.html
+
+\page example_7 Wrapping bind parameters
+\htmlinclude sqlite_test_bind_wrapping.html
+
+\page example_8 Compression (BLOB)
+\htmlinclude sqlite_test_blosc.html
+
+\page example_9 Parameter Binding with compression
+\htmlinclude sqlite_test_bind_typed_compressed.html
+
+\page example_10 MD5 hashing and packaging
+\htmlinclude sqlite_test_md5_and_packaging.html
+
+\page example_11 Using language extension
+\htmlinclude sqlite_test_load_extension.html
+
+\page example_12 A real example (statistics over log file)
+\htmlinclude sqlite_real_example.html
+
+\page example_13 A real example no usage of regular expressions (statistics over log file)
+\htmlinclude sqlite_real_example_no_regex.html
+
+\page example_14 Exception handling with mksqlite
+\htmlinclude sqlite_exceptions.html
+
+\page example_15 Exception handling 64-bit integer types
+\htmlinclude sqlite_test_big_int.html
+*/

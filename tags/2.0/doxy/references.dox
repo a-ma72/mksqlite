@@ -1,0 +1,25 @@
+/**
+\page references References and recommendations
+
+ \section references_sec1 References
+ mksqlite uses following modules:
+
+ -# DEELX perl compatible regex engine Version 1.2 (Sswater@gmail.com)\n
+    There is also a very good tracing tool for evaluation regular expressions.\n
+    [http://www.regexlab.com/]
+ -# BLOSC/LZ4 1.3.0-rc3.dev for data compression (Francesc Alted / Yann Collett)\n
+    [http://www.blosc.org/] 
+ -# MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n
+    [http://waterjuice.org/c-source-code-for-md5/]
+
+ <HR>
+
+ \section references_sec2 Recommendations
+
+ To me, mksqlite is an essential tool in my work meanwhile. It has been shown,
+ that there is a great tool that is also very important for me, when dealing 
+ with databases. It is the "DB Browser for SQLite" that is also available at
+ sourceforge:
+ [https://sourceforge.net/projects/sqlitebrowser/]
+ 
+*/
