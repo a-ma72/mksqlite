@@ -1,102 +1,150 @@
-function mksqlite_test ()
+function sqlite_test
 
-database = 'my_testdb';
-table = 'testtabelle';
+    clear all
+    close all
+    clc
+    dummy = mksqlite('version mex');
+    fprintf( '\n\n' );
 
-NumOfSamples = 100000;
+    database = 'my_testdb';   % database file name
+    table    = 'test_table';  % sql table name
+    
+    ruler    = [repmat( '-', 1, 60 ), '\n'];  % ruler
 
-try
-    delete (database);
-catch
-    error ('Konnte db nicht löschen');
-end
 
-% Datenbank öffnen
-mksqlite('open', database);
-mksqlite('PRAGMA synchronous = OFF');
+    NumOfSamples = 100000;    % number of records in dataset
 
-% Testtabelle erzeugen
-fprintf ('Erstelle neue Tabelle\n');
-mksqlite(['create table ' table ' (Eintrag char(32), GrosserFloat double, KleinerFloat float, Zahl int, Zeichen tinyint, Boolean bit, VieleZeichen char(255))']);
-
-disp ('------------------------------------------------------------');
-
-fprintf ('Erstelle %d Einträge in einer Transaction\n', NumOfSamples);
-% Einträge erstellen
-VieleZeichen = '12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890';
-tic;
-mksqlite('begin');
-try
-    for idx=1:NumOfSamples
-        mksqlite(['insert into ' table ' (Eintrag, GrosserFloat, VieleZeichen) values (''' sprintf('Eintrag_%d', idx) ''', ' num2str(idx) ', ''' VieleZeichen ''')']);
+    % delete database file, if it still exists
+    try
+        delete( database );
+    catch
+        error( 'Unable to delete database' );
     end
-catch
-end
-mksqlite('commit');
-toc
-fprintf ('Einträge erstellt\n');
 
-fprintf ('Frage Anzahl der Einträge ab\n')
-res = mksqlite(['select count(*) as anzahl from ' table]);
-fprintf ('select count(*) liefert als Ergebnis %d\n', res.anzahl);
+    % open (creates a new) database
+    mksqlite( 'open', database );
+    % with synchronous OFF, SQLite continues without syncing 
+    % as soon as it has handed data off to the operating system
+    mksqlite( 'PRAGMA synchronous = OFF' );
 
-fprintf ('Summiere alle Werte zwischen 10 und 75 auf\n');
-res = mksqlite(['select sum(GrosserFloat) as summe from ' table ' where GrosserFloat between 10 and 75']);
-fprintf ('sum liefert %d\n', res.summe);
+    % create table
+    fprintf( 'Create new on-disc database\n' );
+    mksqlite( ['CREATE TABLE ' table        , ...
+               '  ( Entry       CHAR(32), ' , ...
+               '    BigFloat    DOUBLE, '   , ...
+               '    SmallFloat  FLOAT, '    , ...
+               '    Value       INT, '      , ...
+               '    Chars       TINYINT, '  , ...
+               '    Boolean     BIT, '      , ... 
+               '    ManyChars   CHAR(255) ) '] );
 
-disp ('------------------------------------------------------------');
-mksqlite('close');
-mksqlite('open', database);
+    fprintf( ruler );
 
-disp ('Lese alle Records in ein Array ein');
-tic;
-res = mksqlite(['SELECT * FROM ' table]);
-a = toc;
-fprintf ('fertig, %f sekunden = %d Records pro Sekunde\n', a, int32(NumOfSamples/a));
-disp ('fertig.');
+    % speed test: create records in one single translation
+    fprintf( 'Create %d records in one single transaction\n', NumOfSamples );
+    ManyChars = repmat( '1234567890', 1, 20 );
 
-% Datenbank weder schliessen
-mksqlite('close');
+    tic;
+    mksqlite( 'begin' );  % start transaction creation
 
-% Datenbank in memory kopieren
+        for idx = 1:NumOfSamples
+          mksqlite( ['INSERT INTO ', table                     , ...
+                     ' (Entry, BigFloat, ManyChars) '          , ...
+                     '  VALUES('                               , ...
+                                  sprintf( '"Entry_%d"', idx ) , ...
+                                  ','                          , ...
+                                  num2str(idx)                 , ...
+                                  ','                          , ...
+                                  '"', ManyChars, '"'          , ...
+                     '         )'                              ] );
+        end
+        
+    mksqlite( 'commit' );  % finalize transaction
+    fprintf( 'done.\n' );
+    toc
 
-disp (' ');
-disp ('-- In Memory test --');
+    % some sql statistics:
+    
+    % counting records in table
+    fprintf( 'Query amount of records\n' )
+    res = mksqlite( ['SELECT COUNT(*) AS count FROM ' table] );
+    fprintf( 'SELECT COUNT(*) returned %d\n', res.count );
 
-disp ('kopieren Datenbank in memory');
-% In mem Datenbank erstellen
-mksqlite('open', ':memory:');
+    % cumulating selected record fields
+    fprintf( 'Cumulate all values between 10 and 75\n' );
+    res = mksqlite( ['SELECT SUM(BigFloat) AS cumsum FROM ' table, ...
+                     ' WHERE BigFloat BETWEEN 10 AND 75'] );
+    fprintf( 'Sum is %d\n', res.cumsum );
 
-% Original attachen
-mksqlite(['ATTACH DATABASE ''' database ''' AS original']);
-mksqlite('begin');
-% Alle Tabellen kopieren
-tables = mksqlite('SELECT name FROM original.sqlite_master WHERE type = ''table''');
-for idx=1:length(tables)
-    mksqlite(['CREATE TABLE ''' tables(idx).name ''' AS SELECT * FROM original.''' tables(idx).name '''']);
-end
-% Alle Inicies kopieren
-tables = mksqlite('SELECT sql FROM original.sqlite_master WHERE type = ''index''');
-for idx=1:length(tables)
-    mksqlite(tables(idx).sql);
-end
-% Original Detachen
-mksqlite('commit');
-mksqlite('DETACH original');
-disp ('kopieren fertig.');
+    % speed test: fetching all records
+    fprintf( 'Read all records as array of structs\n' );
+    tic;
+    res = mksqlite( ['SELECT * FROM ' table] );
+    a = toc;
+    fprintf( 'ready, %f seconds = %d records per second\n\n\n', ...
+             a, int32(NumOfSamples/a) );
 
-% Nun den Test inmemory durchführen
-fprintf ('Frage Anzahl der Einträge ab\n')
-res = mksqlite(['select count(*) as anzahl from ' table]);
-fprintf ('select count(*) liefert als Ergebnis %d\n', res.anzahl);
+    % done with on-disc database tests
+    mksqlite('close');
+    
+    % -----------------------------------------------------------------
+    
+    % create an in-memory database now and copy all records from
+    % on-disc dataset into it
+    fprintf( 'Create new in-memory database\n' );
+    fprintf( ruler );
+    
+    % create an in-memory database ( mksqlite('open', '') does the same job )
+    mksqlite( 'open', ':memory:' );
 
-fprintf ('Summiere alle Werte zwischen 10 und 75 auf\n');
-res = mksqlite(['select sum(GrosserFloat) as summe from ' table ' where GrosserFloat between 10 and 75']);
-fprintf ('sum liefert %d\n', res.summe);
-disp ('Lese alle Records in ein Array ein');
-tic;
-res = mksqlite(['SELECT * FROM ' table]);
-a = toc;
-fprintf ('fertig, %f sekunden = %d Records pro Sekunde\n', a, int32(NumOfSamples/a));
-disp ('fertig.');
-mksqlite('close');
+    % attach previous on-disc database
+    mksqlite( ['ATTACH DATABASE "', database '" AS original'] );
+
+    % copy on-disc database into on-memory database
+    fprintf( 'copy database contents in one transaction\n' );
+    
+    mksqlite( 'begin' );  % begin transaction
+    
+        % duplicate each table via sql schema
+        tables = mksqlite( 'SELECT name FROM original.sqlite_master WHERE type = "table" ' );
+        for idx = 1:length( tables )
+            mksqlite( ['CREATE TABLE "' tables(idx).name '" ', ...
+                       'AS SELECT * FROM original."', tables(idx).name '"'] );
+        end
+
+        % duplicate all indexing tables via schema
+        tables = mksqlite( 'SELECT sql FROM original.sqlite_master WHERE type = "index" ');
+        for idx = 1:length( tables )
+            mksqlite( tables(idx).sql );
+        end
+    
+    mksqlite('commit');  % finalize transaction
+    
+    % detach original (on-disc) database
+    mksqlite( 'DETACH original' );
+    fprintf( 'Copying done.\n' );
+
+    % some sql statistics again:
+    % counting records in table
+    fprintf( 'Query record count\n' )
+    res = mksqlite( ['SELECT COUNT(*) AS count FROM ' table] );
+    fprintf( 'SELECT COUNT(*) returned %d\n', res.count);
+
+    % cumulating selected record fields
+    fprintf( 'Cumulate all values between 10 and 75\n' );
+    res = mksqlite( ['SELECT SUM(BigFloat) AS cumsum FROM ' table, ...
+                     ' WHERE BigFloat BETWEEN 10 AND 75'] );
+    fprintf( 'Sum is %d\n', res.cumsum );
+    
+    % speed test: fetching all records
+    fprintf( 'Read all records as array of structs\n' );
+    tic;
+    res = mksqlite( ['SELECT * FROM ' table] );
+    a = toc;
+    fprintf( 'ready, %f seconds = %d records per second\n', ...
+             a, int32(NumOfSamples/a) );
+
+    % Close database
+    mksqlite('close');
+
+    fprintf( 'done.\n' );

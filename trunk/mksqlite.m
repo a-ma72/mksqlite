@@ -69,13 +69,17 @@
 %
 % Beispiel:
 %  mksqlite( 'insert vorname, nachname, ort into Adressbuch values (?,?,?)', ...
-%            'Gunther', 'Meyer', 'München' );
+%            'Paul', 'Meyer', 'Muenchen' );
 %
 % Statt einer Auflistung von Argumenten, darf auch ein CellArray übergeben
 % werden, dass die Argumente enthält.
 % Werden weniger Argumente übergeben als benötigt, werden die verbleibenden
 % Parameter mit NULL belegt. Werden mehr Argumente übergeben als
 % benötigt, bricht die Funktion mit einer Fehlermeldung ab.
+% Wenn statt dessen mit den übrigen Argumenten ein impliziter erneuter Aufruf
+% ausgeführt werden soll, so muss das so genannte Parameter Wrapping aktiviert
+% werden:
+% mksqlite('param_wrapping', 0|1)
 % Ein Argument darf ein realer numerischer Wert (Skalar oder Array)
 % oder ein String sein. Nichtskalare Werte werden als Vektor vom SQL Datentyp
 % BLOB (uint8) verarbeitet. ( BLOB = (B)inary (L)arge (OB)ject) )
@@ -158,12 +162,41 @@
 %
 % =======================================================================
 %
+% Steuerung der Rückgabewerte von Queries
+%
+% Neben der beschrieben Aufrufform der Art result = mksqlite(...) können
+% zwei weitere Ergebnisse abgefragt werden, die häufig gefragt sind:
+% 1. Die Anzahl der Zeilen  (rowcount)
+% 2. Die original Spaltenüberschriften der Tabelle (colnames)
+% Beide Ergebnisse werden mit dem gewöhnlichen Aufruf bereits übergeben:
+% [result,rowcount,colnames] = mksqlite(...)
+%
+% Per Voreinstellung wird ein Strukturarray (array of structs) zurückgegeben.
+% Wahlweise sind insgesamt drei Rückgabetypen möglich:
+% 1: array of structs (Vorgabe)
+% 2: struct of arrays
+% 3: cell matrix
+% Die Voreinstellung (n=1) kann mit folgendem Befehl geändert werden:
+% mksqlite( 'result_type', n );
+% (see sqlite_test_result_types.m)
+%
+% =======================================================================
+%
 % Extra SQL Funktionen:
 % mksqlite bietet zusätzliche SQL Funktionen neben der bekannten "core functions"
 % wie replace,trim,abs,round,...
-% In dieser Version werden 7 weitere Funktionen angeboten:
+% In dieser Version werden 10 weitere Funktionen angeboten:
 %   * pow(x,y):
 %     Berechnet x potenziert um den Exponenten y. Ist der Zahlenwert des Ergebnisses
+%     nicht darstellbar ist der Rückgabewert NULL.
+%   * lg(x):
+%     Berechnet den dekadischen Logarithmus von x. Ist der Zahlenwert des Ergebnisses
+%     nicht darstellbar ist der Rückgabewert NULL.
+%   * ln(x):
+%     Berechnet den natürlichen Logarithmus von x. Ist der Zahlenwert des Ergebnisses
+%     nicht darstellbar ist der Rückgabewert NULL.
+%   * exp(x):
+%     Berechnet die Potenz der Basis e um den Exponenten x. Ist der Zahlenwert des Ergebnisses
 %     nicht darstellbar ist der Rückgabewert NULL.
 %   * regex(str,pattern):
 %     Ermittelt den ersten Teilstring von str, der dem Regulären Ausdruck pattern
@@ -194,6 +227,7 @@
 % (siehe auch test_regex.m für weitere Beispiele...)
 %
 %
-% (c) 2008 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2015 by Martin Kortmann <mail@kortmann.de>
+%                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 

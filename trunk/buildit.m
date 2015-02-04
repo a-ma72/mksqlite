@@ -204,11 +204,12 @@ fprintf ('packing mksqlite release files\n');
 
 % copy files
 % release
-copyfile('README.TXT',    reldir);
-copyfile('Changelog.txt', reldir);
-copyfile('mksqlite.m',    reldir);
-copyfile('mksqlite_en.m', reldir);
-copyfile('sql.m',         reldir);
+copyfile('README.TXT',              reldir);
+copyfile('Changelog.txt',           reldir);
+copyfile('mksqlite.m',              reldir);
+copyfile('mksqlite_en.m',           reldir);
+copyfile('sql.m',                   reldir);
+copyfile('doxy/chm/mksqlite*.chm',  reldir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 if exist( 'mksqlite.mexw32', 'file' )
@@ -232,26 +233,45 @@ if exist( 'mksqlite.mexmaci64', 'file' )
   copyfile('mksqlite.mexmaci64', reldir);
 end
 
-copyfile('docu/', [reldir '/docu']);
-copyfile('test/', [reldir '/test']);
+copyfile('docs/',                  [reldir '/docs']);
+copyfile('test/',                  [reldir '/test']);
+copyfile('doxy/chm/mksqlite*.chm', [reldir '/docs']);
+
 
 % source
-copyfile('README.TXT',         srcdir);
-copyfile('Changelog.txt',      srcdir);
-copyfile('buildit.m',          srcdir);
-copyfile('mksqlite.m',         srcdir);
-copyfile('mksqlite_en.m',      srcdir);
-copyfile('sql.m',              srcdir);
-copyfile('mksqlite.cpp',       srcdir);
-copyfile('sqlite/',           [srcdir '/sqlite']);
-copyfile('blosc/',            [srcdir '/blosc']);
-copyfile('deelx/',            [srcdir '/deelx']);
-copyfile('md5/',              [srcdir '/md5']);
-copyfile('docu/',             [srcdir '/docu']);
-copyfile('test/',             [srcdir '/test']);
-copyfile('svn_revision.dummy', srcdir);
-copyfile('svn_revision.h',     srcdir);
-copyfile('svn_revision.tmpl',  srcdir);
+copyfile('README.TXT',              srcdir);
+copyfile('Doxyfile',                srcdir);
+copyfile('mksqlite.dox',            srcdir);
+copyfile('Changelog.txt',           srcdir);
+copyfile('buildit.m',               srcdir);
+copyfile('mksqlite.m',              srcdir);
+copyfile('mksqlite_en.m',           srcdir);
+copyfile('sql.m',                   srcdir);
+copyfile('mksqlite.cpp',            srcdir);
+copyfile('config.h',                srcdir);
+copyfile('global.hpp',              srcdir);
+copyfile('heap_check.hpp',          srcdir);
+copyfile('locale.hpp',              srcdir);
+copyfile('number_compressor.hpp',   srcdir);
+copyfile('serialize.hpp',           srcdir);
+copyfile('sql_interface.hpp',       srcdir);
+copyfile('sql_user_functions.hpp',  srcdir);
+copyfile('typed_blobs.hpp',         srcdir);
+copyfile('utils.hpp',               srcdir);
+copyfile('value.hpp',               srcdir);
+copyfile('sqlite/',                [srcdir '/sqlite']);
+copyfile('blosc/',                 [srcdir '/blosc']);
+copyfile('deelx/',                 [srcdir '/deelx']);
+copyfile('md5/',                   [srcdir '/md5']);
+copyfile('docs/',                  [srcdir '/docs']);
+copyfile('test/',                  [srcdir '/test']);
+copyfile('py/',                    [srcdir '/py']);
+copyfile('logo/*.png',             [srcdir '/logo']);
+copyfile('doxy/*.html',            [srcdir '/doxy/']);
+copyfile('doxy/*.dox',             [srcdir '/doxy/']);
+copyfile('svn_revision.dummy',      srcdir);
+copyfile('svn_revision.h',          srcdir);
+copyfile('svn_revision.tmpl',       srcdir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 if exist( 'mksqlite.mexw32', 'file' )
