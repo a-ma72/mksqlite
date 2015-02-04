@@ -124,7 +124,7 @@ else
     end
 
     [status, str_revision] = system( [svnversion_cmd, ' -n'] );
-    if status ~= 0
+    if status ~= 0  % || 1
         copyfile('svn_revision.dummy','svn_revision.h');
     else
         fid = fopen( 'svn_revision.h', 'w' );
