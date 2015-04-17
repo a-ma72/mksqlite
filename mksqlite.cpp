@@ -123,7 +123,7 @@ static struct SQLstack
     {
         for( int i = 0; i < COUNT_DB; i++ )
         {
-            mexPrintf( "DB Handle %d: %s\n", i, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
+            mexPrintf( "DB Handle %d: %s\n", i+1, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
         }
     }
     

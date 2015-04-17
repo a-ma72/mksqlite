@@ -21,5 +21,9 @@
  with databases. It is the "DB Browser for SQLite" that is also available at
  sourceforge:
  [https://sourceforge.net/projects/sqlitebrowser/]
+
+
+ Here is a good article how to improve SQL databases:
+ [http://stackoverflow.com/questions/1711631/improve-insert-per-second-performance-of-sqlite]
  
 */
