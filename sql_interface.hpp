@@ -7,7 +7,7 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -291,7 +291,7 @@ public:
           case SQLITE_IOERR_BLOCKED:              return( "SQLITE:IOERR_BLOCKED" );
           case SQLITE_IOERR_NOMEM:                return( "SQLITE:IOERR_NOMEM" );
           case SQLITE_IOERR_ACCESS:               return( "SQLITE:IOERR_ACCESS" );
-          case SQLITE_IOERR_CHECKRESERVEDLOCK:	  return( "SQLITE:IOERR_CHECKRESERVEDLOCK" );
+          case SQLITE_IOERR_CHECKRESERVEDLOCK:    return( "SQLITE:IOERR_CHECKRESERVEDLOCK" );
           case SQLITE_IOERR_LOCK:                 return( "SQLITE:IOERR_LOCK" );
           case SQLITE_IOERR_CLOSE:                return( "SQLITE:IOERR_CLOSE" );
           case SQLITE_IOERR_DIR_CLOSE:            return( "SQLITE:IOERR_DIR_CLOSE" );
@@ -412,6 +412,12 @@ public:
   int getParameterCount()
   {
       return m_stmt ? sqlite3_bind_parameter_count( m_stmt ) : 0;
+  }
+  
+  /// kv69: Returns the number of last row id; usefull for inserts in tables with autoincrement primary keys
+  int getLastRowID()
+  {
+    return m_stmt ? sqlite3_last_insert_rowid(m_db) : 0;
   }
   
   
@@ -555,10 +561,10 @@ public:
                   break;
               }
 
-			  default:
-				  // all other (unsuppored types)
-				  m_lasterr.set( MSG_INVALIDARG );
-				  break;
+        default:
+          // all other (unsuppored types)
+          m_lasterr.set( MSG_INVALIDARG );
+          break;
 
           } // end switch
           break;
@@ -767,23 +773,28 @@ public:
    * \brief Proceed a table fetch
    *
    * \param[out] cols Column vectors to collect results
+   * \param[in] initialize Initializing \a cols if set (only on first call of fetch() 
+   *                       when parameter wrapping is on)
    *
    * Stepping through the results and stores the results in column vectors.
    */
-  bool fetch( ValueSQLCols& cols )
+  bool fetch( ValueSQLCols& cols, bool initialize = false ) // kv69: enable for skipping initialization to accumulate query results
   {
-    ValueSQLCol::StringPairList  names;
-    
+  if( initialize )
+  {
+        ValueSQLCol::StringPairList  names;
+
     getColNames( names );
     cols.clear();
 
     // build column vectors
     for( int i = 0; i < (int)names.size(); i++ )
     {
-        cols.push_back( ValueSQLCol(names[i]) );
+        cols.push_back(ValueSQLCol(names[i]) );
     }
-    
-    names.clear();
+
+      names.clear();
+  }
 
     // step through
     for( ; !errPending() ; )
@@ -793,17 +804,15 @@ public:
          */
         int step_res = step();
 
-        if( step_res == SQLITE_ERROR )
+    if (step_res == SQLITE_DONE) // kv69 sqlite has finished executing
         {
-            m_lasterr.set( SQL_ERR );
-            break;
+      break;
         }
 
-        /*
-         * no row left? break out of the loop
-         */
-        if( step_res != SQLITE_ROW )
+
+    if (step_res != SQLITE_ROW) // kv69 no other row ? this must be an error
         {
+            m_lasterr.set( SQL_ERR );
             break;
         }
 

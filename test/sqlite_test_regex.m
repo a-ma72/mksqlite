@@ -6,7 +6,7 @@ function sqlite_test_regex
     dummy = mksqlite('version mex');
     fprintf( '\n\n' );
 
-    % create a new in-memory database
+    %% Create a new in-memory database
     db = mksqlite( 0, 'open', ':memory:' );
     
     % define an email address
@@ -14,7 +14,7 @@ function sqlite_test_regex
 
     fprintf( 'Some examples on regular expressions (email="%s"):\n\n', email );
 
-    % some regex examples (only some ideas, you'll find your specific needs...)
+    %% Some regex examples (only some ideas, you'll find your specific needs...)
     fprintf( '%s\n', 'Find matching string: mksqlite( ''SELECT REGEX(?,"M...r") as result'', email )' );
     disp( mksqlite( db, 'SELECT REGEX(?,"M...r") as result', email ) )
 
@@ -36,8 +36,7 @@ function sqlite_test_regex
     
     % ---------------------------------------------------------------
 
-    % Small example recursive scanning a path and storing results into
-    % a database to easily query some statistics later
+    %% Small example recursive scanning a path and storing results into a database to easily query some statistics later
     clc
     
     % on-disc database filename to create
@@ -71,7 +70,7 @@ function sqlite_test_regex
         path_trace( root, {'.exe', '.dll', '.bat'} ); 
     end
 
-    % query statistics from database and display
+    %% Query statistics from database and display
     clc
     fprintf( '\n\n%s\n', 'Analyse path scan: count files and file sizes, grouped by extension' );
     query = mksqlite( ['SELECT SUM(CAST(size AS REAL)) AS sum, ', ...
@@ -84,7 +83,7 @@ function sqlite_test_regex
     end
 
     
-    % rebuild full file names of all found DLLs and display
+    %% Rebuild full file names of all found DLLs and display
     fprintf( '\n\n%s\n', 'Display filenames of found DLLs (first 20)' );
     
     if length(dbstack) == 1
@@ -95,7 +94,7 @@ function sqlite_test_regex
                        'WHERE REGEX(lower(name),"^.*\.(.*)$","$1")="dll" ', ...
                        'ORDER BY date LIMIT 20'] );
 
-    % rebuild full path by backtracing and display
+    %% Rebuild full path by backtracing and display
     for i = 1:numel( query )
         q = query(i);
         name = q.name;
@@ -110,7 +109,7 @@ function sqlite_test_regex
     mksqlite( 'close' );
 
 
-% path scan tool for recursive search
+%% Path scan tool for recursive search
 function path_trace( pathname, extensions, parent_id )
     if nargin < 3
       parent_id = 0;

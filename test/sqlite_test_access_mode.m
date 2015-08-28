@@ -15,7 +15,7 @@ function sqlite_test_access_mode
         delete( db_name );
     end
 
-    % Without write access the following command will fail...
+    %% Without write access the following command will fail...
     try
         s = 'mksqlite( ''open'', db_name, ''RO'' );';
         fprintf( [s,'\n'] );
@@ -30,7 +30,7 @@ function sqlite_test_access_mode
     % and is the same as:
     % mksqlite( 'open', db_name, 'RWC', 'Single' )
 
-    % Create database with some records
+    %% Create database with some records
     mksqlite( 'open', db_name ); % Open with read/write-access (single-thread)
 
     % create a table with a single column and insert one record
@@ -39,13 +39,13 @@ function sqlite_test_access_mode
     mksqlite( 'close' );
     fprintf( 'Database with one record (%s) has been created\n', db_name );
 
-    % Now since the database is existing, we're able to open it with read-only access:
+    %% Now since the database is existing, we're able to open it with read-only access:
     fprintf( 'Open database with read-only access:\n' );
     s = 'mksqlite( ''open'', db_name, ''RO'' );'; % Open read-only (single-thread)
     fprintf( [s,'\n'] );
     eval( s );
 
-    % Write access to the database should not be possible:
+    %% Write access to the database should not be possible:
     try
         s = 'mksqlite( ''insert into data (Col_1) values( "A String")'' );';
         fprintf( [s,'\n'] );
@@ -56,7 +56,7 @@ function sqlite_test_access_mode
         fprintf( 'Catch block: Write access denied, test succeeded!\n' );
     end
 
-    % now open database in multithreading mode (without further tests
+    %% Now open database in multithreading mode (without further tests
     fprintf( 'Open database in multithreading modes...\n');
     mksqlite( 0, 'close' ); % Close all open databases
     mksqlite( 'open', db_name, 'RW', 'Multi' ); % Open in multithread-mode

@@ -6,7 +6,7 @@
  *  @details   class implementations (SQLstack and Mksqlite)
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -1539,7 +1539,10 @@ public:
 
                 if( !item )
                 {
-                    m_err.set( MSG_ERRMEMORY );
+                    if( !m_err.isPending() )
+                    {
+                        m_err.set( MSG_ERRMEMORY );
+                    }
                 }
                 else
                 {
@@ -1796,12 +1799,13 @@ public:
          * statement may be passed. 
          */
         
+        int count = 1; // kv69: number of repeated statements calls 
         if( g_param_wrapping )
         {
             // exceeding argument list allowed to omit multiple queries
             
-            int count       = argsNeeded ? ( countBindParam / argsNeeded ) : 1;  // amount of proposed queries
-            int remain      = argsNeeded ? ( countBindParam % argsNeeded ) : 0;  // must be 0
+            count       = argsNeeded ? ( countBindParam / argsNeeded ) : 1;  // amount of proposed queries
+            int remain  = argsNeeded ? ( countBindParam % argsNeeded ) : 0;  // must be 0
 
             // remain must be 0, all placeholders must be fulfilled
             if( remain || !count )
@@ -1830,11 +1834,25 @@ public:
             }
         }
 
-        // loop over parameters
-        for(;;)
+        // kv69: for storing last_insert_row_id after each statement reuse
+        long* last_insert_row = NULL;
+        last_insert_row = new long[count];
+        
+        if( !last_insert_row )
         {
+            m_err.set( MSG_ERRMEMORY );
+            return false;
+        }
+
+        bool initialize = true; // kv69: flag indicating initialization within first call of fetch procedure
+
+        // loop over parameters
+        for( int i = 0; i < count; i++ ) // kv69: fixed length loop becaus we know how often the stmt should be repeated
+        {
+
             // reset SQL statement
             SQLstack.current().reset();
+
 
             /*** Bind parameters ***/
         
@@ -1852,17 +1870,16 @@ public:
             /*** fetch results and store results for output ***/
 
             // cumulate in "cols"
-            if( !errPending() && !SQLstack.current().fetch( cols ) )
+            if( !errPending() && !SQLstack.current().fetch( cols, initialize ) )
             {
                 const char* errid = NULL;
                 m_err.set( SQLstack.current().getErr(&errid), errid );
                 return false;
             }
+            initialize = false; // kv69: for next statement use do not initialize query results again but accumulated it
 
-            if( countBindParam <= 0 )
-            {
-                break;
-            }
+            // kv69: collect last_insert_row_id
+            last_insert_row[i] = SQLstack.current().getLastRowID();
         }
 
         /*
@@ -1947,7 +1964,31 @@ public:
                 // Get a cell matrix of column name relations (SQL <-> MATLAB)
                 m_plhs[2] = createResultColNameMatrix( cols );
             }
+            // kv69: if more than 3 return parameters, output the last_insert_row_id as vector
+            if( m_nlhs > 3 )
+            {
+                mxArray* result;
+                result = mxCreateDoubleMatrix(count, 1, mxREAL);   
+                if( !result )
+                {
+                    m_err.set( MSG_CANTCREATEOUTPUT );
+                }    
+                if( !errPending() )                
+                {
+                    for (int i = 0; i < count; i++)
+                    {
+                        mxGetPr(result)[i] = (double)last_insert_row[i];
+                    }
+                }
+                m_plhs[3] = result;
+            } 
+            
         }
+
+        // kv69: clear array for last insert row 
+        delete[] last_insert_row;
+        last_insert_row = NULL;
+
 
         return !errPending();
         

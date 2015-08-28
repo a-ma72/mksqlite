@@ -40,7 +40,7 @@ function sqlite_test
 
     fprintf( ruler );
 
-    % speed test: create records in one single translation
+    %% Speed test: create records in one single translation
     fprintf( 'Create %d records in one single transaction\n', NumOfSamples );
     ManyChars = repmat( '1234567890', 1, 20 );
 
@@ -63,20 +63,20 @@ function sqlite_test
     fprintf( 'done.\n' );
     toc
 
-    % some sql statistics:
+    %% Some sql statistics:
     
-    % counting records in table
+    % Counting records in table
     fprintf( 'Query amount of records\n' )
     res = mksqlite( ['SELECT COUNT(*) AS count FROM ' table] );
     fprintf( 'SELECT COUNT(*) returned %d\n', res.count );
 
-    % cumulating selected record fields
+    % Cumulating selected record fields
     fprintf( 'Cumulate all values between 10 and 75\n' );
     res = mksqlite( ['SELECT SUM(BigFloat) AS cumsum FROM ' table, ...
                      ' WHERE BigFloat BETWEEN 10 AND 75'] );
     fprintf( 'Sum is %d\n', res.cumsum );
 
-    % speed test: fetching all records
+    % Speed test: fetching all records
     fprintf( 'Read all records as array of structs\n' );
     tic;
     res = mksqlite( ['SELECT * FROM ' table] );
@@ -89,18 +89,17 @@ function sqlite_test
     
     % -----------------------------------------------------------------
     
-    % create an in-memory database now and copy all records from
-    % on-disc dataset into it
+    %% create an in-memory database now and copy all records from on-disc dataset into it
     fprintf( 'Create new in-memory database\n' );
     fprintf( ruler );
     
-    % create an in-memory database ( mksqlite('open', '') does the same job )
+    % Create an in-memory database ( mksqlite('open', '') does the same job )
     mksqlite( 'open', ':memory:' );
 
-    % attach previous on-disc database
+    % Attach previous on-disc database
     mksqlite( ['ATTACH DATABASE "', database '" AS original'] );
 
-    % copy on-disc database into on-memory database
+    % Copy on-disc database into on-memory database
     fprintf( 'copy database contents in one transaction\n' );
     
     mksqlite( 'begin' );  % begin transaction
@@ -124,7 +123,8 @@ function sqlite_test
     mksqlite( 'DETACH original' );
     fprintf( 'Copying done.\n' );
 
-    % some sql statistics again:
+    %% Some sql statistics again:
+    
     % counting records in table
     fprintf( 'Query record count\n' )
     res = mksqlite( ['SELECT COUNT(*) AS count FROM ' table] );
@@ -144,7 +144,7 @@ function sqlite_test
     fprintf( 'ready, %f seconds = %d records per second\n', ...
              a, int32(NumOfSamples/a) );
 
-    % Close database
+    %% Close database
     mksqlite('close');
 
     fprintf( 'done.\n' );

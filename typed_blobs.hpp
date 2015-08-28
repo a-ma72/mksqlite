@@ -6,7 +6,7 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -185,7 +185,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
   /// Check identifying string (magic)
   bool validMagic()
   {
-    return 0 == strncmp( m_magic, TBH_MAGIC, TBH_MAGIC_MAXLEN );
+    return 0 == _strnicmp( m_magic, TBH_MAGIC, TBH_MAGIC_MAXLEN );
   }
   
   /// Check if class id is valid for typed blob (TYBLOB_ARRAYS)
@@ -233,7 +233,7 @@ struct GCC_PACKED_STRUCT TypedBLOBHeaderBase
   /// Check if originate platform equals to running one
   bool validPlatform()
   {
-    return TBH_endian[0] == m_endian && 0 == strncmp( TBH_platform, m_platform, TBH_PLATFORM_MAXLEN );
+    return TBH_endian[0] == m_endian && 0 == _strnicmp( TBH_platform, m_platform, TBH_PLATFORM_MAXLEN );
   }
   
   

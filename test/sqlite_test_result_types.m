@@ -6,7 +6,8 @@ function sqlite_test_result_types
     dummy = mksqlite('version mex');
     fprintf( '\n\n' );
 
-    
+    %% Create new on-disc database
+
     database  = 'my_testdb';    % name of the database file
     table     = 'test_table';   % name of the table
 
@@ -38,7 +39,6 @@ function sqlite_test_result_types
     % take a look at the boolean field (you would surely never
     % name a column like that) and see later, how mksqlite handles
     % invalid MATLAB field name characters.
-    fprintf( 'Create new on-disc database\n' );
     mksqlite( ['CREATE TABLE ' table        , ...
                '  ( Entry         CHAR(32), ' , ...
                '    BigFloat      DOUBLE, '   , ...
@@ -53,7 +53,7 @@ function sqlite_test_result_types
     
     ManyChars = repmat( '1234567890', 1, 20 );
     
-    % Create datasets in one transaction
+    %% Create datasets in one transaction
     tic;
     mksqlite('begin');
 
@@ -75,7 +75,7 @@ function sqlite_test_result_types
 
     fprintf( ruler )
 
-    fprintf( 'Read all records as array of structs (default)\n' );
+    %% Read all records as array of structs (default)
     tic;
     mksqlite( 'result_type', 0 );  % array of structs
     
@@ -91,14 +91,14 @@ function sqlite_test_result_types
     a = toc;
     fprintf( 'ready, %f seconds = %d records per second\n\n', a, int32(NumOfSamples/a) );
 
-    fprintf( 'Read all records as struct of arrays\n' );
+    %% Read all records as struct of arrays
     tic;
     mksqlite( 'result_type', 1 );  % struct of arrays
     [res, res_count, col_names] = mksqlite(['SELECT *,value FROM ' table])
     a = toc;
     fprintf ('ready, %f seconds = %d records per second\n\n', a, int32(NumOfSamples/a));
 
-    fprintf( 'Read all records as cell array/matrix\n' );
+    %% Read all records as cell array/matrix
     tic;
     mksqlite( 'result_type', 2 );  % (cell) matrix
     [res, res_count, col_names] = mksqlite(['SELECT *,value FROM ' table])
@@ -107,5 +107,5 @@ function sqlite_test_result_types
 
     fprintf('done.\n');
 
-    % close database
+    %% Close database
     mksqlite('close');

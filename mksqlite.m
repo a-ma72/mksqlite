@@ -111,7 +111,7 @@
 % wird durch folgenden Befehl aktiviert:
 %
 %   mksqlite ( 'typedBLOBs', 2); % erweitertes Aktivieren
-% 
+%
 %
 %
 % Die Daten in einem BLOB werden entweder unkomprimiert (Standard) oder komprimiert
@@ -152,12 +152,12 @@
 % werden, da sie als spezielle Zahl (65529..65535) abgelegt werden.
 % Unterschiedliche Kompressionsraten werden nicht unterstützt, sie sollte
 % für diesen Kompressor immer auf 1 gesetzt werden.
-% 
+%
 % "QLOG16":
 % Arbeitet wie QLIN16, die Quantisierung erfolgt jedoch über die
 % logarithmierten Werte, daher sind hier keine negativen Werte erlaubt.
 % Null, NaN und Infinity werden trotzdem akzeptiert.
-% Unterschiedliche Kompressionsraten werden auch hier nicht unterstützt, 
+% Unterschiedliche Kompressionsraten werden auch hier nicht unterstützt,
 % sie sollten ebenfalls immer auf 1 gesetzt werden.
 %
 % =======================================================================
@@ -173,10 +173,10 @@
 %
 % Per Voreinstellung wird ein Strukturarray (array of structs) zurückgegeben.
 % Wahlweise sind insgesamt drei Rückgabetypen möglich:
-% 1: array of structs (Vorgabe)
-% 2: struct of arrays
-% 3: cell matrix
-% Die Voreinstellung (n=1) kann mit folgendem Befehl geändert werden:
+% (0) array of structs (Vorgabe)
+% (1) struct of arrays
+% (2) cell matrix
+% Die Voreinstellung (n=0) kann mit folgendem Befehl geändert werden:
 % mksqlite( 'result_type', n );
 % (see sqlite_test_result_types.m)
 %

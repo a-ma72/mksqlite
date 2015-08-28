@@ -9,12 +9,13 @@
 
  \section detail_desc_sec1 General calling sequence:
  \code
-  [[dbid][, rowcount][, colnames]] = mksqlite([dbid, ] SQLCommand [, Argument 1][, Argument 2], ...)
+  [[dbid][, rowcount][, colnames][, row_id]] = mksqlite([dbid, ] SQLCommand [, Argument 1][, Argument 2], ...)
  \endcode
  Parameters \a dbid, \a rowcount and \a colnames are optional. \a dbid is only necessary if one is
  working with multiple databases at once. If \a dbid is left out, then 
- database number 1 is used. On fetch queries \a rowcount will take the number of rows 
- and \a colnames will take the table column names.
+ database number 1 is used. On fetch queries \a rowcount will take the number of rows,
+ \a colnames will take the table column names and \a row_id the corresponding rowid. If 
+ \a param_wrapping feature is set, \a row_id catches all ROWIDs in a row vector.
  <HR>
  
  \section detail_desc_sec2 Function calls
@@ -131,7 +132,7 @@
  BLOBs are always stored as a vector of uint8 values in the database.
  In order to retrieve the original format (for example, double) and
  dimensions of the matrix, explict typecast() and reshape() functions
- must be used. (Refer to the example \ref example_2)\n
+ must be used. (Refer to the examples \ref example_2 and \ref example_16)\n
  Optionally this information (type) can be stored after the BLOB.
  The indicated post-processing is then no longer necessary, but the
  database is then no longer compatible with other software!\n
@@ -211,11 +212,11 @@
 
  Per default an array of structs will be returned for table queries.
  You can decide between three differet kinds of result types:
- -# array of structs (default)
- -# struct of arrays
- -# cell matrix
+ - (0) array of structs (default)
+ - (1) struct of arrays
+ - (2) cell matrix
 
- You can change the default setting (n=1) with following call:
+ You can change the default setting (n=0) with following call:
  \code
   mksqlite( 'result_type', n );
  \endcode

@@ -53,9 +53,19 @@ No casting or reshaping will be necessary.
 
 \subpage example_7
 
-When mksqlite is called with a statement containing bind parameters ('?'), 
+When mksqlite is called with a statement containing bind parameters ('?', ':name', ...), 
 you have to pass arguments with the exact count needed, or less. In latter 
 case missing arguments are assumed to be NULL.\n
+With the "parameter wrapping" switch (param_wrapping) set, you may pass more 
+arguments than needed. Then the current statement will be processed again
+and again, until all arguments have been passed. In this mode, arguments
+for all parameters for each subsequent call must be given.
+
+\subpage example_16
+
+When \a sql.m is called with a statement containing named bind parameters (':name'), 
+you may pass a struct with fieldnames as used in the query. It values will be passed
+in the right place (no ordering is necessary).\n
 With the "parameter wrapping" switch (param_wrapping) set, you may pass more 
 arguments than needed. Then the current statement will be processed again
 and again, until all arguments have been passed. In this mode, arguments
@@ -129,6 +139,9 @@ This example shows these two conditions.
 
 \page example_7 Wrapping bind parameters
 \htmlinclude sqlite_test_bind_wrapping.html
+
+\page example_16 Named bound parameters using struct parameter
+\htmlinclude sqlite_test_bind_named.html
 
 \page example_8 Compression (BLOB)
 \htmlinclude sqlite_test_blosc.html

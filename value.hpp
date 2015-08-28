@@ -10,7 +10,7 @@
  *             - ValueSQLCol holding a complete table column
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -556,9 +556,9 @@ public:
             case mxSINGLE_CLASS: return (int) *( (float*)    mxGetData( m_pcItem ) );
             case mxDOUBLE_CLASS: return (int) *( (double*)   mxGetData( m_pcItem ) );
 
-			default: 
-				assert( false );
-				return errval;
+            default: 
+                assert( false );
+                return errval;
         }
 
         return errval;
@@ -576,9 +576,9 @@ public:
         {
             case mxINT64_CLASS : return *( (sqlite3_int64*)  mxGetData( m_pcItem ) );
 
-			default: 
-				assert( false );
-				return (sqlite3_int64) errval;
+            default: 
+                assert( false );
+                return (sqlite3_int64) errval;
         }
 
         return errval;

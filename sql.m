@@ -44,6 +44,18 @@ function varargout = sql( first_arg, varargin )
 
   args = [ dbid, {query}, varargin ];
 
+  % kv69 support named binding;
+  if  isstruct(args{end})
+      binds = regexp( query, ':(\w*)', 'tokens' ); % get bind names starting with ":" (but skipping)
+      binds = [binds{:}]; % resolve nested cells
+      [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
+      binds = binds( sort(idx) ); % get unique elements preserving order
+      args{end} = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
+      args{end} = orderfields( args{end}, binds ); % order remaining fields to match occurence in sql statement
+      args{end} = struct2cell( args{end}(:) ); % retrieve data from structure (column-wise datasets)
+  end
+
+
   % remaining arguments are for SQL parameter binding
   if ~nargout
     mksqlite( args{:} );

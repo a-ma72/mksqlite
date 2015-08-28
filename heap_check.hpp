@@ -6,7 +6,7 @@
  *  @details   Inspired by "Writing Bug-Free C Code" by Jerry Jongerius
  *  @see       http://www.duckware.com/index.html
  *  @author    Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -437,7 +437,7 @@ public:
      * @param[in] lpFunctionName Callers function name
      * @param[in] line Callers line numer
      */
-	extern "C"
+    extern "C"
     void HC_ReportAssert( const char* file, const char* lpFunctionName, long line )
     {
         char buffer[1024];

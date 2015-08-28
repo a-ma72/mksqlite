@@ -7,7 +7,7 @@ function sqlite_test_bind_wrapping
     fprintf( '\n\n' );
 
     
-    % create a database with some records
+    %% Create a database with some records
     fprintf( 'Creating in-memory database...\n' );
     mksqlite( 'open', ':memory:' ); % "in-memory"-database
 
@@ -31,7 +31,7 @@ function sqlite_test_bind_wrapping
     mksqlite( 'INSERT INTO demo VALUES (?,?,?,?)', mydata' );
     
     
-    % test how mksqlite handles incomplete bind parameters
+    %% Test how mksqlite handles incomplete bind parameters
     fprintf( 'Testing how mksqlite handles incomplete bind parameters... ' );
     errcount = 0;
     try
@@ -61,7 +61,7 @@ function sqlite_test_bind_wrapping
     % ------------------------------------------------------------------
 
     
-    % read back all records
+    %% Read back all records
     fprintf( 'Restore BLOB records...\n\n' )
 
     query = mksqlite( 'SELECT * FROM demo' );

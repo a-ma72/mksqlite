@@ -6,7 +6,7 @@
  *  @details   Using "blosc" as lossless compressor and a lossy quantising compressor
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -539,11 +539,11 @@ private:
                 // special values for zero, infinity and nan
                 if( fabs( rdata[i] ) == 0.0 )
                 {
-                    *pUintData++ = 0xFFF8u + 1 + ( copysign( 1.0, rdata[i] ) < 0.0 );
+                    *pUintData++ = 0xFFF8u + 1 + ( _copysign( 1.0, rdata[i] ) < 0.0 );
                 }
                 else if( DBL_ISINF( rdata[i] ) )
                 {
-                    *pUintData++ = 0xFFF8u + 3 + ( copysign( 1.0, rdata[i] ) < 0.0 );
+                    *pUintData++ = 0xFFF8u + 3 + ( _copysign( 1.0, rdata[i] ) < 0.0 );
                 }
                 else if( DBL_ISNAN( rdata[i] ) )
                 {

@@ -57,8 +57,8 @@ function sqlite_real_example
     sql( 'param_wrapping', 1 );  % allow implicit subsequent SQL queries
 
     % Pull entire data with a charming "three-liner"
-	% All subsequent queries in one transaction for speed (noticeable when using
-	% an on-disc database)
+  % All subsequent queries in one transaction for speed (noticeable when using
+  % an on-disc database)
     sql( 'begin' );
     sql( 'INSERT INTO mantab VALUES (?%s)', repmat( ',?', 1, colcnt-1 ), content' );
     sql( 'commit' );
@@ -111,5 +111,5 @@ function sqlite_real_example
                    'WHERE Distance NOT NULL ', ...
                    'GROUP BY 1 ORDER BY 1'] )
 
-	%% Close database
+  %% Close database
     sql( 'close' );

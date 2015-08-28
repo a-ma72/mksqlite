@@ -7,7 +7,7 @@ function sqlite_test_bind
     fprintf( '\n\n' );
 
     
-    % create a database with some records
+    %% Create a database with some records
     fprintf( 'Creating in-memory database...\n' );
     mksqlite( 'open', ':memory:' ); % "in-memory"-database
 
@@ -27,7 +27,7 @@ function sqlite_test_bind
         mksqlite( 'INSERT INTO demo VALUES (?,?,?,?)', mydata{i,:} );
     end
 
-    % take a screenshot (figure) as RGB-matrix...
+    %% Take a screenshot (figure) as RGB-matrix...
     h = figure;
     set( h, 'units', 'normalized', 'position', [0.5,0.5,0.2,0.2] );
     x = linspace( 0, 2*pi, 20 );
@@ -48,7 +48,7 @@ function sqlite_test_bind
     % ------------------------------------------------------------------
 
     
-    % read back all records
+    %% Read back all records
     fprintf( 'Restore BLOB records...\n\n' )
 
     query = mksqlite( 'SELECT * FROM demo' );

@@ -12,7 +12,7 @@ function sqlite_exceptions
       'mksqlite(''select column_doesnt_exist'');', ...        % select a column that not exist
       'mksqlite(''syntax error'');', ...                      % Unknown statements
       'mksqlite( -10, ''open'', '''' );', ...                 % Illegal dbid
-      'mksqlit( ''open'', '''' );', ...                       % MATLAB syntax error (not catched!)
+      'mksqlite( ''open'', '''' );', ...                      % MATLAB syntax error (not catched!)
     };
 
     for i = 1:numel( commands )

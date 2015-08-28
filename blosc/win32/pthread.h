@@ -56,11 +56,11 @@
  * See also: http://www.cse.wustl.edu/~schmidt/win32-cv-1.html
  */
 typedef struct {
-	LONG waiters;
-	int was_broadcast;
-	CRITICAL_SECTION waiters_lock;
-	HANDLE sema;
-	HANDLE continue_broadcast;
+    LONG waiters;
+    int was_broadcast;
+    CRITICAL_SECTION waiters_lock;
+    HANDLE sema;
+    HANDLE continue_broadcast;
 } pthread_cond_t;
 
 extern int pthread_cond_init(pthread_cond_t *cond, const void *unused);
@@ -73,13 +73,13 @@ extern int pthread_cond_broadcast(pthread_cond_t *cond);
  * Simple thread creation implementation using pthread API
  */
 typedef struct {
-	HANDLE handle;
-	void *(*start_routine)(void*);
-	void *arg;
+    HANDLE handle;
+    void *(*start_routine)(void*);
+    void *arg;
 } pthread_t;
 
 extern int pthread_create(pthread_t *thread, const void *unused,
-			  void *(*start_routine)(void*), void *arg);
+              void *(*start_routine)(void*), void *arg);
 
 /*
  * To avoid the need of copying a struct, we use small macro wrapper to pass

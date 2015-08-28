@@ -6,7 +6,7 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.0
+ *  @version   2.1
  *  @date      2008-2015
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -43,7 +43,6 @@
 #ifdef _WIN32
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
-  #define copysign _copysign  ///< alias (win/linux compatibility)
 #else  // linux
   #include <cstring>
   #include <ctype.h>
@@ -51,10 +50,11 @@
   #define _strnicmp   strncasecmp
   #define _snprintf   snprintf
   #define _strdup     strdup
-  typedef long int    ptrdiff_t;  // linux a64
+  #define _copysign   copysign  ///< alias (win/linux compatibility)
 #endif
 
 #include "config.h"
+#include <cstddef>
 #include <cmath>
 #include <cassert>
 #include <climits>
@@ -210,7 +210,7 @@
  * @{
  */
 #define SQLITE_VERSION_STRING     SQLITE_VERSION
-#define DEELX_VERSION_STRING      "1.2"
+#define DEELX_VERSION_STRING      "1.3"
 /** @} */
 
 /* early bind of serializing functions (earlier MATLAB versions only) */

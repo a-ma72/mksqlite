@@ -278,7 +278,7 @@ static int lz4hc_wrap_compress(const char* input, size_t input_length,
   if (input_length > (size_t)(2<<30))
     return -1;   /* input larger than 1 GB is not supported */
   cbytes = LZ4_compressHC_limitedOutput(input, output, (int)input_length,
-					(int)maxout);
+                                       (int)maxout);
   return cbytes;
 }
 
@@ -329,8 +329,8 @@ static int zlib_wrap_compress(const char* input, size_t input_length,
 {
   int status;
   uLongf cl = maxout;
-  status = compress2(
-	     (Bytef*)output, &cl, (Bytef*)input, (uLong)input_length, clevel);
+  status = compress2((Bytef*)output, &cl, 
+                     (Bytef*)input, (uLong)input_length, clevel);
   if (status != Z_OK){
     return 0;
   }
@@ -538,7 +538,7 @@ static int blosc_d(int32_t blocksize, int32_t leftoverblock,
 
       /* Check that decompressed bytes number is correct */
       if (nbytes != neblock) {
-	return -2;
+        return -2;
       }
 
     }
@@ -1545,7 +1545,7 @@ static const char *clibcode_to_clib(int code)
   if (code == BLOSC_LZ4_LIB)     return BLOSC_LZ4_LIBNAME;
   if (code == BLOSC_SNAPPY_LIB)  return BLOSC_SNAPPY_LIBNAME;
   if (code == BLOSC_ZLIB_LIB)    return BLOSC_ZLIB_LIBNAME;
-  return NULL;			/* should never be reached */
+  return NULL;      /* should never be reached */
 }
 
 static int compressor_to_clibcode(const char *compressor_)

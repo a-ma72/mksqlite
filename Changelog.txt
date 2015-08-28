@@ -1,3 +1,13 @@
+Version 2.1  (build 98 - 28. Aug. 2015 )
+- Bugfix: Not all SQLite errors were catched and passed to the user (kv69).
+- Bugfix: When using SELECT statements with param_wrapping is on, only
+  the last result was returned (kv69).
+- Returning rowid on queries as 4th parameter (even when using parameter wrapping).
+- sql.m handles struct parameter for parameter binding (kv69).
+- DEELX update to 1.3
+- SQLite update to 3.8.11.1
+* (Thanks to Knut Voigtlaender (kv69) for supporting)
+
 Version 2.0  (build 92 - 04. Feb. 2015)
 - Structural cleanup of "one file source" to "multiple file sources"
 - Added support for parameter wrapping

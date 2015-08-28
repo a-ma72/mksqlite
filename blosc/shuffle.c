@@ -25,7 +25,7 @@
 
 /* Shuffle a block.  This can never fail. */
 static void _shuffle(size_t bytesoftype, size_t blocksize,
-	                 uint8_t* _src, uint8_t* _dest)
+                     uint8_t* _src, uint8_t* _dest)
 {
   size_t i, j, neblock, leftover;
 

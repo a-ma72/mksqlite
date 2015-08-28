@@ -7,7 +7,7 @@ function sqlite_test_bind_typed
     fprintf( '\n\n' );
     
 
-    % create an in-memory database
+    %% Create an in-memory database
     mksqlite( 'open', ':memory:' );
 
     % mksqlite stores numeric arrays always as an array of bytes (uint8),
@@ -36,7 +36,7 @@ function sqlite_test_bind_typed
         mksqlite( 'INSERT INTO demo VALUES (?,?,?,?)', mydata{i,:} );
     end
 
-    % take a screenshot (figure) as RGB-matrix...
+    %% Take a screenshot (figure) as RGB-matrix...
     h = figure;
     set( h, 'units', 'normalized', 'position', [0.5,0.5,0.2,0.2] );
     x = linspace( 0, 2*pi, 20 );
@@ -46,7 +46,7 @@ function sqlite_test_bind_typed
     delete(h);
     data = F.cdata;
 
-    % store using typed BLOB feature
+    %% Store using typed BLOB feature
     mksqlite( 'INSERT INTO demo (Data) VALUES (?)', data );
 
     try
@@ -74,7 +74,7 @@ function sqlite_test_bind_typed
     end 
 
 
-    % now read back values
+    %% Now read back values
     clc
     fprintf( 'Get BLOB with the original data types from the database...\n\n' )
 

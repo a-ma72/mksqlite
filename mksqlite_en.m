@@ -165,10 +165,10 @@
 %
 % Per default an array of structs will be returned for table queries.
 % You can decide between three differet kinds of result types:
-% 1: array of structs (default)
-% 2: struct of arrays
-% 3: cell matrix
-% You can change the default setting (n=1) with following call:
+% (0) array of structs (default)
+% (1) struct of arrays
+% (2) cell matrix
+% You can change the default setting (n=0) with following call:
 % mksqlite( 'result_type', n );
 % (see sqlite_test_result_types.m)
 %
