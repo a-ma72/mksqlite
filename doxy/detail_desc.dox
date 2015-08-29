@@ -131,7 +131,7 @@
  \anchor cmd_typedblobs
  BLOBs are always stored as a vector of uint8 values in the database.
  In order to retrieve the original format (for example, double) and
- dimensions of the matrix, explict typecast() and reshape() functions
+ dimensions of the matrix, explicit typecast() and reshape() functions
  must be used. (Refer to the examples \ref example_2 and \ref example_16)\n
  Optionally this information (type) can be stored after the BLOB.
  The indicated post-processing is then no longer necessary, but the
@@ -169,7 +169,7 @@
    mksqlite( 'compression_check', 0 );  deactivate the check (1=activate)
  \endcode
  Compatibility:\n
- Stored compressed blobs cannot be retrieved with older versions of mqslite,
+ Stored compressed blobs cannot be retrieved with older versions of mkslite,
  this will trigger an error report. In contrast, uncompressed BLOBS can be 
  retrieved with older versions. Of course BLOBs stored with older versions
  can be retrieved with this version.\n
@@ -211,7 +211,7 @@
  \endcode
 
  Per default an array of structs will be returned for table queries.
- You can decide between three differet kinds of result types:
+ You can decide between three different kinds of result types:
  - (0) array of structs (default)
  - (1) struct of arrays
  - (2) cell matrix

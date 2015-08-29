@@ -29,7 +29,7 @@ There are 3 types of result for table queries:\n
 "struct of arrays" and\n
 "(cell) matrix"\n
 This example explains, how to get fetched results in either of these formats.
-Further mksqlite has two additional return paramters if needed, which 
+Further mksqlite has two additional return parameters if needed, which 
 introduced in this example.
 
 \subpage example_5
@@ -86,7 +86,7 @@ Another example of using compression.
 \subpage example_10
 
 mksqlite comes with some user defined functions. md5() computes the md5 
-hasing value, waht is shown here.\n
+hashing value, what is shown here.\n
 Further some measurings for different compression levels are shown and 
 the differences in use of lossy compression is shown.
 
