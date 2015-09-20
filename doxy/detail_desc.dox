@@ -169,7 +169,7 @@
    mksqlite( 'compression_check', 0 );  deactivate the check (1=activate)
  \endcode
  Compatibility:\n
- Stored compressed blobs cannot be retrieved with older versions of mkslite,
+ Stored compressed blobs cannot be retrieved with older versions of mksqlite,
  this will trigger an error report. In contrast, uncompressed BLOBS can be 
  retrieved with older versions. Of course BLOBs stored with older versions
  can be retrieved with this version.\n

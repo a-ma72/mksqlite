@@ -148,8 +148,8 @@ Version 1.2 (Build 11 - 14. Nov 2008)
 - SQLite Engine updated to Version 3.6.5
 
 Version 1.1 (Build 8 - 01. Sept 2008)
-- Source-code cleanup 
-- Source-code comments in English
+- Sourcecode cleanup 
+- Sourcecode comments in English
 - inserted the website contents as documentation
 
 Version 1.0 (Build 3 - 14. Aug 2008)

@@ -45,14 +45,25 @@ function varargout = sql( first_arg, varargin )
   args = [ dbid, {query}, varargin ];
 
   % kv69 support named binding;
-  if  isstruct(args{end})
+  if isstruct(args{end})
+      [match, tokens] = regexp( query, '\[(.?)#\]', 'match', 'tokens' );
+      for i = 1:numel( match )
+          query = strrep( query, match{i}, field_list( args{end}, tokens{i}{1} ) );
+      end
+        
+      args = [ dbid, {query}, varargin ];
+
       binds = regexp( query, ':(\w*)', 'tokens' ); % get bind names starting with ":" (but skipping)
       binds = [binds{:}]; % resolve nested cells
-      [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
-      binds = binds( sort(idx) ); % get unique elements preserving order
-      args{end} = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
-      args{end} = orderfields( args{end}, binds ); % order remaining fields to match occurence in sql statement
-      args{end} = struct2cell( args{end}(:) ); % retrieve data from structure (column-wise datasets)
+      if isempty( binds )
+          args(end) = [];
+      else
+          [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
+          binds = binds( sort(idx) ); % get unique elements preserving order
+          args{end} = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
+          args{end} = orderfields( args{end}, binds ); % order remaining fields to match occurence in sql statement
+          args{end} = struct2cell( args{end}(:) ); % retrieve data from structure (column-wise datasets)
+      end
   end
 
 
@@ -65,3 +76,39 @@ function varargout = sql( first_arg, varargin )
 
 end
 
+
+% Create a comma separated list of fields depending on "mode"
+function list = field_list( struct_var, mode )
+  assert( isstruct( struct_var ), '<struct_var must> be a structure type variable' );
+
+  if ~exist( 'mode', 'var' )
+    mode = '';
+  else
+    assert( ischar( mode ), '<mode> must be a char type variable' );
+  end
+
+  fnames = fieldnames( struct_var );
+  switch mode
+      case ''
+        % Comma separated field names
+        list = sprintf( '%s,', fnames{:} );
+      case ':'
+        % Comma separated field names, preceded by a colon
+        % Example: sql( 'INSERT INTO tbl ([#]) VALUES ([:#]) WHERE 1', struct( 'a', 3.14, 'b', 'String', 'd', 1:5 ) )
+        list = sprintf( ':%s,', fnames{:} );
+      case '='
+        % Comma separated list of assignments
+        % Example: sql( 'UPDATE tbl SET [=#] WHERE 1', struct( 'a', 3.14, 'b', 'String', 'd', 1:5 ) )
+        list = sprintf( '%s=:%%s,', fnames{:} );
+        list = sprintf( list, fnames{:} );
+      case '*'
+        % For SQL CREATE statement
+        % Example: sql( 'CREATE tbl ([*#])', struct( 'a', 'REAL', 'b', 'TEXT', 'ID', 'INTEGER PRIMARY KEY' ) )
+        defs = struct2cell( struct_var );
+        list = sprintf( '%s %%s,', fnames{:} );
+        list = sprintf( list, defs{:} );
+      otherwise
+        error( 'MKSQLITE:SQL:UNKMODE', 'Unknown parameter <mode>' );
+  end
+  list(end) = [];
+end
