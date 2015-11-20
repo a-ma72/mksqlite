@@ -62,7 +62,9 @@
 // Patch for Mac:
 // Tested on Mac OSX 10.9.2, Malab R2014a, 64 bit (Stefan Balke)
 #if defined(__APPLE__) || defined(TARGET_OS_X)
-    #include <tr1/cstdint>
+    // todo: Which header in needed on mac?
+    //#include <tr1/cstdint>
+    #include <cstdint>
 #else
     #include <cstdint>
 #endif

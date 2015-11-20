@@ -50,7 +50,7 @@ function varargout = sql( first_arg, varargin )
       for i = 1:numel( match )
           query = strrep( query, match{i}, field_list( args{end}, tokens{i}{1} ) );
       end
-        
+
       args = [ dbid, {query}, varargin ];
 
       binds = regexp( query, ':(\w*)', 'tokens' ); % get bind names starting with ":" (but skipping)
@@ -101,6 +101,12 @@ function list = field_list( struct_var, mode )
         % Example: sql( 'UPDATE tbl SET [=#] WHERE 1', struct( 'a', 3.14, 'b', 'String', 'd', 1:5 ) )
         list = sprintf( '%s=:%%s,', fnames{:} );
         list = sprintf( list, fnames{:} );
+      case '+'
+        % 'AND' joined list of comparisations for SQL WHERE statement i.e.
+        % Example: sql( 'SELECT ... WHERE [+#]', struct( 'a', 3.14, 'b', 'String' ) )
+        list = sprintf( '%s=:%%s AND ', fnames{:} );
+        list = sprintf( list, fnames{:} );
+        list(end-3:end) = [];
       case '*'
         % For SQL CREATE statement
         % Example: sql( 'CREATE tbl ([*#])', struct( 'a', 'REAL', 'b', 'TEXT', 'ID', 'INTEGER PRIMARY KEY' ) )

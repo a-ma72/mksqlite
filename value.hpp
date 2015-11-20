@@ -482,12 +482,25 @@ public:
         // get character stream from original string (MATLAB array)
         if( org_string )
         {
-            count   = mxGetM( org_string ) * mxGetN( org_string ) + 1;  // one extra char for NUL
-            result  = (char*) MEM_ALLOC( count, sizeof(char) );
+            char* temp = mxArrayToString( org_string );  // Handles multibyte strings, too
+            
+            // Copy string with own memory management
+            if( temp )
+            {
+                count  = strlen( temp ) + 1;
+                result = (char*) MEM_ALLOC( count, sizeof(char) );
+                
+                if( result )
+                {
+                    memcpy( result, temp, count );
+                }
+                
+                mxFree( temp );
+            }
         }
 
         // try to retrieve the character stream
-        if( !result || mxGetString( org_string, result, (int)count ) )
+        if( !result )
         {
             // free memory and return with error
             ::utils_free_ptr( result );

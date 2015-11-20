@@ -98,6 +98,20 @@ else
     buildargs = [ buildargs, ' -', arch ];
 end
 
+switch computer('arch')
+  case {'glnxa32', 'glnxa64'}
+    % Enable C++11 standard (gcc 4.4.7)
+    buildargs = [ buildargs, ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x"';];
+  case {'win32', 'win64'}
+    buildargs = [ buildargs, ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS"';];
+  case {'maci64'}
+    % todo: which settings for macintosh (I'm not able to test...)?
+    % (see also: http://libcxx.llvm.org/ )
+    buildargs = [ buildargs, ' LINKFLAGS="$LINKFLAGS -stdlib=libc++" ', ...
+                             '  CXXFLAGS="$CXXFLAGS -std=c++11 -nmacosx-version-min=$SDKVER -fno-common -fexceptions"';];
+end
+
+
 % save the current directory and get the version information
 mksqlite_compile_currdir = pwd;
 cd (fileparts(mfilename('fullpath')));
