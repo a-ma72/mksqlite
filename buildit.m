@@ -99,7 +99,7 @@ else
 end
 
 switch computer('arch')
-  case {'glnxa32', 'glnxa64'}
+  case {'glnx86', 'glnxa32', 'glnxa64'}
     % Enable C++11 standard (gcc 4.4.7)
     buildargs = [ buildargs, ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x"';];
   case {'win32', 'win64'}
