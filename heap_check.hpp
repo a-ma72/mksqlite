@@ -242,7 +242,7 @@ public:
         size_t      bytes_aligned = HC_DOALIGN( bytes );
         
         // Allocate memory with additional space for header and footer
-        mem_block = (tagHeader*)MEM_ALLOC( bytes_aligned + sizeof(tagHeader) + sizeof(tagFooter), 1 );
+        mem_block = (tagHeader*)MEM_CALLOC( bytes_aligned + sizeof(tagHeader) + sizeof(tagFooter), 1 );
         
         if( mem_block != NULL )
         {
@@ -375,7 +375,7 @@ public:
         
         if( header->lpMem == &header[1] ) 
         {
-            _snprintf( lpBuffer, szBuffer, "%08lx ", header );
+            _snprintf( lpBuffer, szBuffer, "%08lx ", (long unsigned)header );
             
             if( header->lpFilename && (left = (int)szBuffer - (int)strlen(lpBuffer)) > 1 )
             {
@@ -442,7 +442,7 @@ public:
     {
         char buffer[1024];
 
-        _snprintf( buffer, 1024, "Assertion failed in %s, %s line %d\n", file, lpFunctionName, line );
+        _snprintf( buffer, 1024, "Assertion failed in %s, %s line %ld\n", file, lpFunctionName, line );
 
     #if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
         mxAssert( 0, buffer );
