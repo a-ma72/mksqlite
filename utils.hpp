@@ -102,7 +102,7 @@ size_t utils_elbytes( mxClassID classID )
  *
  * @param [in]  s input string UTF8 encoded
  * @param [out] buffer optional pointer to where the string should be written (NULL allowed)
- * @returns always the count of bytes written (or needed) to convert input string
+ * @returns always the count of bytes written (or needed) to convert input string (including NUL)
  */
 int utils_utf2latin( const unsigned char *s, unsigned char *buffer = NULL )
 {
@@ -140,7 +140,7 @@ int utils_utf2latin( const unsigned char *s, unsigned char *buffer = NULL )
  *
  * @param [in]  s input string 
  * @param [out] buffer optional pointer to where the string should be written (NULL allowed)
- * @returns always the count of bytes written (or needed) to convert input string
+ * @returns always the count of bytes written (or needed) to convert input string (including NUL)
  */
 int utils_latin2utf( const unsigned char *s, unsigned char *buffer = NULL )
 {
@@ -179,7 +179,7 @@ int utils_latin2utf( const unsigned char *s, unsigned char *buffer = NULL )
  * @brief duplicate a string and recode from UTF8 to char due to flag \p flagConvertUTF8
  *
  * @param [in] s input string
- * @param [in] flagConvertUTF8 String duplicate will be UTF8 encoded, if flag is set
+ * @param [in] flagConvertUTF8 String \p s expected UTF8 encoded, if flag is set
  * @returns pointer to created duplicate (allocator @ref MEM_ALLOC) and must be freed with @ref MEM_FREE
  */
 char* utils_strnewdup(const char* s, int flagConvertUTF8 )

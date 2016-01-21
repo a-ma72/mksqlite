@@ -77,12 +77,14 @@ md5    = [' md5/md5.c '];
 
 uuid   = [];
 
+modules = [sqlite, blosc, md5, uuid];
+
 
 % get the mex arguments
 if buildrelease
-    buildargs = ['-output mksqlite -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O mksqlite.cpp ', sqlite, blosc, md5, uuid];
+    buildargs = ['-DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O '];
 else
-    buildargs = ['-output mksqlite -UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v mksqlite.cpp ', sqlite, blosc, md5, uuid];
+    buildargs = ['-UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v '];
 end
 
 % additional libraries
@@ -107,8 +109,9 @@ switch computer('arch')
   case {'maci64'}
     % todo: which settings for macintosh (I'm not able to test...)?
     % (see also: http://libcxx.llvm.org/ )
+
     buildargs = [ buildargs, ' LINKFLAGS="$LINKFLAGS -stdlib=libc++" ', ...
-                             '  CXXFLAGS="$CXXFLAGS -std=c++11 -nmacosx-version-min=$SDKVER -fno-common -fexceptions"';];
+                             ' CXXFLAGS="$CXXFLAGS -std=c++11 -fno-common -fexceptions"';];
 end
 
 
@@ -165,7 +168,17 @@ else
 end
 
 % do the compile via mex
-eval (['mex ' buildargs]);
+switch computer('arch')
+  case {'maci64'}
+    % Pass precompiled modules to mex
+    % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
+    [status,result] = system( ['clang -c -ldl -arch x86_64 ', buildargs, modules], '-echo' );
+    assert( status == 0 );
+    eval (['mex -output mksqlite ', buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
+
+  otherwise
+    eval (['mex -output mksqlite ', buildargs, ' mksqlite.cpp ', modules]);
+end
 
 % back to the start directory
 cd (mksqlite_compile_currdir);

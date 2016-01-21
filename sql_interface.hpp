@@ -221,17 +221,41 @@ public:
        * m_db is assigned by sqlite3_open_v2(), even if an error
        * occures
        */
-      int rc = sqlite3_open_v2( filename, &m_db, openFlags, NULL );
+      unsigned char* filename_utf8 = NULL;
+      int filename_utf8_bytes = utils_latin2utf( (const unsigned char*)filename, NULL );
 
-      if( SQLITE_OK != rc )
+      if( filename_utf8_bytes )
       {
-          m_lasterr.set( SQL_ERR );
-          return false;
+          filename_utf8 = (unsigned char*)MEM_ALLOC( filename_utf8_bytes, sizeof(char) );
+          utils_latin2utf( (const unsigned char*)filename, filename_utf8 );
+
+          if( !filename_utf8 )
+          {
+              m_lasterr.set( MSG_ERRMEMORY );
+          }
       }
 
-      attachFunctions();
-      
-      return true;
+      if( filename_utf8 && !errPending() )
+      {
+          int rc = sqlite3_open_v2( (char*)filename_utf8, &m_db, openFlags, NULL );
+
+          if( SQLITE_OK != rc )
+          {
+              m_lasterr.set( SQL_ERR );
+          }
+      }
+
+      MEM_FREE( filename_utf8 );
+
+      if( errPending() )
+      {
+          return false;
+      } 
+      else 
+      {
+          attachFunctions();
+          return true;
+      }
   }
   
   
