@@ -301,7 +301,7 @@ static const char* messages_1[] =
     "(c) 2008-2015 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
-    "mksqlite verwendet darüber hinaus:\n"
+    "mksqlite verwendet darueber hinaus:\n"
     " - DEELX perl kompatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
@@ -329,7 +329,7 @@ static const char* messages_1[] =
     "Unbekannter oder nicht unterstuetzter typisierter BLOB Header",
     "Fehler beim Identifizieren der Computerarchitektur",
     "BLOB wurde mit abweichender Computerarchitektur erstellt",
-    "BLOB ist zu groß",
+    "BLOB ist zu gross",
     "Fehler waehrend der Kompression aufgetreten",
     "unbekannte Komprimierung",
     "gewaehlter Kompressor erlaubt nur Datentyp 'double'",
