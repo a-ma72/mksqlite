@@ -108,8 +108,11 @@ switch arch
     % todo: which settings for macintosh (I'm not able to test...)?
     % (see also: http://libcxx.llvm.org/ )
 
-    buildargs = [ buildargs, ' -arch x86_64 ' ];
-    mexargs = 'CXX="/usr/bin/clang++ -v" CXXFLAGS="-std=c++11 -stdlib=libc++ -fno-common -fexceptions "';
+    mexargs = ['CXX="/usr/bin/clang++ -v " ', ...
+               'CXXFLAGS="-std=c++11 -stdlib=libc++ ', ...
+               '-fno-common -fexceptions ', ...
+               '-Winvalid-source-encoding ', ...
+               '-arch x86_64" ';
 end
 
 
@@ -166,13 +169,13 @@ else
 end
 
 % do the compile via mex
-switch computer('arch')
+switch arch
   case {'maci64'}
     % Pass precompiled modules to mex
     % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
     [status,result] = system( ['clang -c -ldl ', buildargs, modules], '-echo' );
     assert( status == 0 );
-    eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
+    eval (['mex -output mksqlite ', mexargs, buildargs, ' -arch x86_64 mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
 
   otherwise
     eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
