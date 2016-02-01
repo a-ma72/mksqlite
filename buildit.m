@@ -94,24 +94,22 @@ else
     buildargs = [buildargs ' -ldl'];
 end
 
-if ~exist( 'arch', 'var' )
-    buildargs = [ buildargs, ' -', computer('arch') ];
-else
-    buildargs = [ buildargs, ' -', arch ];
-end
+arch = computer('arch');
 
-switch computer('arch')
+switch arch
   case {'glnx86', 'glnxa32', 'glnxa64'}
     % Enable C++11 standard (gcc 4.4.7)
-    buildargs = [ buildargs, ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x"';];
+    buildargs = [ buildargs, ' -', arch ];
+    mexargs = ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x" ';
   case {'win32', 'win64'}
-    buildargs = [ buildargs, ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS"';];
+    buildargs = [ buildargs, ' -', arch ];
+    mexargs = ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS" ';
   case {'maci64'}
     % todo: which settings for macintosh (I'm not able to test...)?
     % (see also: http://libcxx.llvm.org/ )
 
-    buildargs = [ buildargs, ' LINKFLAGS="$LINKFLAGS -stdlib=libc++" ', ...
-                             ' CXXFLAGS="$CXXFLAGS -std=c++11 -fno-common -fexceptions"';];
+    buildargs = [ buildargs, ' -arch x86_64 ' ];
+    mexargs = 'CXX="/usr/bin/clang++ -v" CXXFLAGS="-std=c++11 -stdlib=libc++ -fno-common -fexceptions "';
 end
 
 
@@ -172,12 +170,12 @@ switch computer('arch')
   case {'maci64'}
     % Pass precompiled modules to mex
     % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
-    [status,result] = system( ['clang -c -ldl -arch x86_64 ', buildargs, modules], '-echo' );
+    [status,result] = system( ['clang -c -ldl ', buildargs, modules], '-echo' );
     assert( status == 0 );
-    eval (['mex -output mksqlite ', buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
+    eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
 
   otherwise
-    eval (['mex -output mksqlite ', buildargs, ' mksqlite.cpp ', modules]);
+    eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
 end
 
 % back to the start directory
