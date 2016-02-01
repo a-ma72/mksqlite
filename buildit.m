@@ -173,9 +173,9 @@ switch arch
   case {'maci64'}
     % Pass precompiled modules to mex
     % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
-    [status,result] = system( ['clang -c -ldl ', buildargs, modules], '-echo' );
+    [status,result] = system( ['clang -c -ldl -arch x86_64 ', buildargs, modules], '-echo' );
     assert( status == 0 );
-    eval (['mex -output mksqlite ', mexargs, buildargs, ' -arch x86_64 mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
+    eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
 
   otherwise
     eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
