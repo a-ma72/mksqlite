@@ -105,14 +105,16 @@ switch arch
     buildargs = [ buildargs, ' -', arch ];
     mexargs = ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS" ';
   case {'maci64'}
-    % todo: which settings for macintosh (I'm not able to test...)?
-    % (see also: http://libcxx.llvm.org/ )
-
-    mexargs = ['CXX="/usr/bin/clang++ -v " ', ...
-               'CXXFLAGS="-std=c++11 -stdlib=libc++ ', ...
-               '-fno-common -fexceptions ', ...
-               '-Winvalid-source-encoding ', ...
-               '-arch x86_64" '];
+    % Thx to napopa and zznaki for evaluate/test these settings!
+    % (Mac OS 10.11.2 and Xcode 7.1.1)
+    buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
+    mexargs = ['CXX="/usr/bin/clang++" ',                 ... % Override C++ compiler
+               'CXXFLAGS="-std=c++11 -stdlib=libc++ ',    ... % Override C++ compiler flags
+                         '-fno-common -fexceptions ',     ...
+                         '-v -Winvalid-source-encoding ', ...
+                         '-arch x86_64 " ',               ... 
+               'CC="/usr/bin/clang" ',                    ... % Override C compiler
+               'CFLAGS="-arch x86_64 " '];                    % Override C compiler flags
 end
 
 
@@ -171,12 +173,16 @@ end
 % do the compile via mex
 switch arch
   case {'maci64'}
-    % Pass precompiled modules to mex
-    % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
-    [status,result] = system( ['clang -c -ldl -arch x86_64 ', buildargs, modules], '-echo' );
-    assert( status == 0 );
-    eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
-
+    if 0
+        % Pass precompiled modules to mex
+        % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
+        [status,result] = system( ['clang -c -ldl -arch x86_64 ', buildargs, modules], '-echo' );
+        assert( status == 0 );
+        eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
+    else
+        eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
+    end
+    
   otherwise
     eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
 end
