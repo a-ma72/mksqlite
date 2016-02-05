@@ -19,18 +19,27 @@ function varargout = sql( first_arg, varargin )
 
   % Assert query to be a vector of char type
   assert( ischar(query) && min( size( query ) ) == 1 );
-
+  nParams = 0; 
+  
   % count sprintf placeholders (i.e. %d)
   % nParams holds the number of placeholders
-  % check for '%%' or '% ', which are no sprintf placeholders
-  i = find( query(1:end-1) == '%' );
-  nParams = sum( ~ismember( query(i+1), '% ') );
-  enforce_sprintf = any( query(i+1) == '%' );
+  i = 1;
+  while i < length(query)
+      if query(i) == '%'
+          nParams = nParams + 1;
+          % check for '%%', which is no sprintf placeholder
+          if query(i+1) == '%'
+              query(i+1) = [];
+              nParams = nParams - 1;
+          end
+      end
+      i = i + 1;
+  end
 
   % if there are placeholders in SQL string, build
   % the SQL query by sprintf() first.
   % First nParams parameters are taken as sprintf parameter list.
-  if nParams > 0 || enforce_sprintf
+  if nParams > 0
       query = sprintf( query, varargin{1:nParams} );
       varargin(1:nParams) = []; % remove sprintf parameters
   end
@@ -43,7 +52,7 @@ function varargout = sql( first_arg, varargin )
       for i = 1:numel( match )
           query = strrep( query, match{i}, field_list( args{end}, tokens{i}{1} ) );
       end
-        
+
       args = [ dbid, {query}, varargin ];
 
       binds = regexp( query, ':(\w*)', 'tokens' ); % get bind names starting with ":" (but skipping)
@@ -53,9 +62,10 @@ function varargout = sql( first_arg, varargin )
       else
           [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
           binds = binds( sort(idx) ); % get unique elements, preserving order
-          args{end} = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
-          args{end} = orderfields( args{end}, binds ); % order remaining fields to match occurence in sql statement
-          args{end} = struct2cell( args{end}(:) ); % retrieve data from structure (column-wise datasets)
+          dataset = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
+          dataset = orderfields( dataset, binds ); % order remaining fields to match occurence in sql statement
+          dataset = struct2cell( dataset(:) ); % retrieve data from structure (column-wise datasets)
+          args = [args(1:end-1), dataset(:)'];
       end
   end
 
