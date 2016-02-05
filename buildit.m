@@ -105,16 +105,32 @@ switch arch
     buildargs = [ buildargs, ' -', arch ];
     mexargs = ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS" ';
   case {'maci64'}
-    % Thx to napopa and zznaki for evaluate/test these settings!
-    % (Mac OS 10.11.2 and Xcode 7.1.1)
-    buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
-    mexargs = ['CXX="/usr/bin/clang++" ',                 ... % Override C++ compiler
-               'CXXFLAGS="-std=c++11 -stdlib=libc++ ',    ... % Override C++ compiler flags
-                         '-fno-common -fexceptions ',     ...
-                         '-v -Winvalid-source-encoding ', ...
-                         '-arch x86_64 " ',               ... 
-               'CC="/usr/bin/clang" ',                    ... % Override C compiler
-               'CFLAGS="-arch x86_64 " '];                    % Override C compiler flags
+    if 0
+        % Perhaps someone can resolve this to work anytime...
+        % (Mac OS 10.11.2 and Xcode 7.1.1)
+        buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
+        mexargs = ['CXX="/usr/bin/clang++" ',                 ... % Override C++ compiler
+                   'CXXFLAGS="-std=c++11 -stdlib=libc++ ',    ... % Override C++ compiler flags
+                             '-fno-common -fexceptions ',     ...
+                             '-v -Winvalid-source-encoding ', ...
+                             '-arch x86_64 " ',               ...
+                   'CC="/usr/bin/clang" ',                    ... % Override C compiler
+                   'CFLAGS="-arch x86_64 " '];                    % Override C compiler flags
+    else
+        % Pass precompiled modules to mex
+        % zznaki proposal, 2016-02-03 (Mac OS 10.11.2 and Xcode 7.1.1)
+        for srcFile = strsplit( strtrim(modules) )
+            clangStr = ['clang -o ', strrep( srcFile{1}, '.c', '.o' ),  ...
+                        ' -c -arch x86_64 ', buildargs,' ', srcFile{1}];
+            disp( clangStr )
+            [status,result] = system( clangStr, '-echo' );
+            assert( status == 0 );
+        end
+        mexStr = ['mex -output mksqlite ', mexargs, buildargs, ...
+                  ' mksqlite.cpp ', strrep( modules, '.c', '.o' )];
+        disp(mexStr)
+        eval (mexStr);
+    end
 end
 
 
@@ -182,7 +198,7 @@ switch arch
     else
         eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
     end
-    
+
   otherwise
     eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
 end
