@@ -1778,9 +1778,10 @@ public:
         const mxArray** nextBindParam   = m_parg;
         int             countBindParam  = m_narg;
         int             argsNeeded      = SQLstack.current().getParameterCount();
+        bool            haveSingleParam = ( countBindParam == 1 );
 
         // Check if a lonely cell argument is passed
-        if( countBindParam == 1 && ValueMex(*nextBindParam).IsCell() )
+        if( haveSingleParam && ValueMex(*nextBindParam).IsCell() )
         {
             // Only allowed, when streaming is off
             if( g_streaming )
@@ -1790,8 +1791,9 @@ public:
             }
             
             // redirect cell elements as bind arguments
-            countBindParam = (int)ValueMex(*nextBindParam).NumElements();
-            nextBindParam = (const mxArray**)ValueMex(*nextBindParam).Data();
+            countBindParam   = (int)ValueMex(*nextBindParam).NumElements();
+            nextBindParam    = (const mxArray**)ValueMex(*nextBindParam).Data();
+            haveSingleParam  = false;
         }
 
         /* 
@@ -1807,10 +1809,10 @@ public:
             count       = argsNeeded ? ( countBindParam / argsNeeded ) : 1;  // amount of proposed queries
             int remain  = argsNeeded ? ( countBindParam % argsNeeded ) : 0;  // must be 0
 
-            // remain must be 0, all placeholders must be fulfilled
+            // remainder must be 0, all placeholders must be fulfilled
             if( remain || !count )
             {
-                m_err.set( MSG_MISSINGARG );
+                m_err.set( haveSingleParam ? MSG_MISSINGARG_CELL : MSG_MISSINGARG );
                 return false;
             }
         }
@@ -1829,7 +1831,7 @@ public:
             // number of arguments must match now
             if( !flagIgnoreLessParameters && countBindParam != argsNeeded )
             {
-                m_err.set( MSG_MISSINGARGL );
+                m_err.set( haveSingleParam ? MSG_MISSINGARG_CELL : MSG_MISSINGARG );
                 return false;
             }
         }

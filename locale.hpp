@@ -88,13 +88,14 @@ int           getLocale     ();
 #define MSG_EXTENSION_DIS         34
 #define MSG_EXTENSION_FAIL        35
 #define MSG_MISSINGARG            36
-#define MSG_NUMARGEXPCT           37
-#define MSG_SINGLECELLNOTALLOWED  38
-#define MSG_ERRVARNAME            39
-#define MSG_STREAMINGNEEDTYBLOBS  40
-#define MSG_STREAMINGNOTSUPPORTED 41
-#define MSG_RESULTTYPE            42
-#define MSG_DBID_SUPFLOUS         43
+#define MSG_MISSINGARG_CELL       37
+#define MSG_NUMARGEXPCT           38
+#define MSG_SINGLECELLNOTALLOWED  39
+#define MSG_ERRVARNAME            40
+#define MSG_STREAMINGNEEDTYBLOBS  41
+#define MSG_STREAMINGNOTSUPPORTED 42
+#define MSG_RESULTTYPE            43
+#define MSG_DBID_SUPFLOUS         44
 /** @}  */
 
 
@@ -282,6 +283,7 @@ static const char* messages_0[] =
     "extension loading disabled for this db",
     "failed to set extension loading feature",
     "more argument(s) expected",
+    "more argument(s) expected (maybe matrix argument given, instead of a cell array?)",
     "numeric argument expected",
     "single cell argument not allowed when streaming enabled",
     "unable to create fieldname from column name",
@@ -343,6 +345,7 @@ static const char* messages_1[] =
     "DLL Erweiterungen fuer diese db deaktiviert",
     "Einstellung fuer DLL Erweiterungen nicht moeglich",
     "Argumentliste zu kurz",
+    "Argumentliste zu kurz (moeglicherweise eine Matrix statt Cell-Array uebergeben?)",
     "numerischer Parameter erwartet",
     "einzelnes Argument vom Typ Cell ist nicht erlaubt, wenn das Streaming eingeschaltet ist",
     "aus dem Spaltennamen konnte kein gueltiger Feldname erzeugt werden",
