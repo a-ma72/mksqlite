@@ -119,6 +119,8 @@ switch arch
     else
         % Pass precompiled modules to mex
         % zznaki proposal, 2016-02-03 (Mac OS 10.11.2 and Xcode 7.1.1)
+        mexargs = '';
+        buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
         for srcFile = strsplit( strtrim(modules) )
             clangStr = ['clang -o ', strrep( srcFile{1}, '.c', '.o' ),  ...
                         ' -c -arch x86_64 ', buildargs,' ', srcFile{1}];
