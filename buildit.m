@@ -117,21 +117,18 @@ switch arch
                    'CC="/usr/bin/clang" ',                    ... % Override C compiler
                    'CFLAGS="-arch x86_64 " '];                    % Override C compiler flags
     else
-        % Pass precompiled modules to mex
-        % zznaki proposal, 2016-02-03 (Mac OS 10.11.2 and Xcode 7.1.1)
+        % Precompile C-modules for mex
+        % zznaki proposal, 2016-02-03 ( OSX El Capitan version 10.11.3, Xcode Version 7.2.1 (7C1002) )
         mexargs = '';
         buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
         for srcFile = strsplit( strtrim(modules) )
             clangStr = ['clang -o ', strrep( srcFile{1}, '.c', '.o' ),  ...
-                        ' -c -arch x86_64 ', buildargs,' ', srcFile{1}];
+                        ' -c -arch x86_64 ', strrep( buildargs, ' -ldl ', ' '),' ', srcFile{1}];
             disp( clangStr )
             [status,result] = system( clangStr, '-echo' );
             assert( status == 0 );
         end
-        mexStr = ['mex -output mksqlite ', mexargs, buildargs, ...
-                  ' mksqlite.cpp ', strrep( modules, '.c', '.o' )];
-        disp(mexStr)
-        eval (mexStr);
+        modules = strrep( modules, '.c', '.o' );
     end
 end
 
@@ -189,21 +186,7 @@ else
 end
 
 % do the compile via mex
-switch arch
-  case {'maci64'}
-    if 0
-        % Pass precompiled modules to mex
-        % (clang -c -DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 *.c -ldl -arch x86_64)
-        [status,result] = system( ['clang -c -ldl -arch x86_64 ', buildargs, modules], '-echo' );
-        assert( status == 0 );
-        eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', strrep( modules, '.c', '.o' )]);
-    else
-        eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
-    end
-
-  otherwise
-    eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
-end
+eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
 
 % back to the start directory
 cd (mksqlite_compile_currdir);
