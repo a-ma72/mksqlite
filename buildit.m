@@ -123,7 +123,7 @@ switch arch
         buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
         for srcFile = strsplit( strtrim(modules) )
             clangStr = ['clang -o ', strrep( srcFile{1}, '.c', '.o' ),  ...
-                        ' -c -arch x86_64 ', strrep( buildargs, ' -ldl ', ' '),' ', srcFile{1}];
+                        ' -c -arch x86_64 ', strrep( buildargs, '-ldl', ' ' ), ' ', srcFile{1}];
             disp( clangStr )
             [status,result] = system( clangStr, '-echo' );
             assert( status == 0 );
