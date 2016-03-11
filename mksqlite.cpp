@@ -1849,7 +1849,7 @@ public:
         bool initialize = true; // kv69: flag indicating initialization within first call of fetch procedure
 
         // loop over parameters
-        for( int i = 0; i < count; i++ ) // kv69: fixed length loop becaus we know how often the stmt should be repeated
+        for( int i = 0; i < count; i++ ) // kv69: fixed length loop because we know how often the stmt should be repeated
         {
 
             // reset SQL statement

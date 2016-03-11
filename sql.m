@@ -109,7 +109,7 @@ function list = field_list( struct_var, mode )
         % Example: sql( 'SELECT ... WHERE [+#]', struct( 'a', 3.14, 'b', 'String' ) )
         fnames = [fnames(:),fnames(:)]';
         list = sprintf( '%s=:%s AND ', fnames{:} );
-        list(end-4:end) = [];
+        list(end-3:end) = []; % Remaining character deleted later
       case '*'
         % For SQL CREATE statement
         % Example: sql( 'CREATE TABLE tbl ([*#])', struct( 'a', 'REAL', 'b', 'TEXT', 'ID', 'INTEGER PRIMARY KEY' ) )

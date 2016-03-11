@@ -441,7 +441,7 @@ public:
   /// kv69: Returns the number of last row id; usefull for inserts in tables with autoincrement primary keys
   int getLastRowID()
   {
-    return m_stmt ? sqlite3_last_insert_rowid(m_db) : 0;
+      return m_stmt ? sqlite3_last_insert_rowid(m_db) : 0;
   }
   
   
@@ -585,25 +585,25 @@ public:
                   break;
               }
 
-        default:
-          // all other (unsuppored types)
-          m_lasterr.set( MSG_INVALIDARG );
-          break;
+              default:
+                  // all other (unsuppored types)
+                  m_lasterr.set( MSG_INVALIDARG );
+                  break;
 
           } // end switch
           break;
           
         case ValueMex::TC_EMPTY:
-          if( SQLITE_OK != sqlite3_bind_null( m_stmt, index ) )
-          {
-              m_lasterr.set( SQL_ERR );
-          }
-          break;
+            if( SQLITE_OK != sqlite3_bind_null( m_stmt, index ) )
+            {
+                m_lasterr.set( SQL_ERR );
+            }
+            break;
           
         default:
-          // all other (unsuppored types)
-          m_lasterr.set( MSG_INVALIDARG );
-          break;
+            // all other (unsuppored types)
+            m_lasterr.set( MSG_INVALIDARG );
+            break;
       }
       
       return !errPending();
@@ -804,109 +804,108 @@ public:
    */
   bool fetch( ValueSQLCols& cols, bool initialize = false ) // kv69: enable for skipping initialization to accumulate query results
   {
-  if( initialize )
-  {
-        ValueSQLCol::StringPairList  names;
+      if( initialize )
+      {
+          ValueSQLCol::StringPairList  names;
 
-    getColNames( names );
-    cols.clear();
+          getColNames( names );
+          cols.clear();
 
-    // build column vectors
-    for( int i = 0; i < (int)names.size(); i++ )
-    {
-        cols.push_back(ValueSQLCol(names[i]) );
-    }
+          // build column vectors
+          for( int i = 0; i < (int)names.size(); i++ )
+          {
+              cols.push_back( ValueSQLCol(names[i]) );
+          }
 
-      names.clear();
-  }
+          names.clear();
+      }
 
-    // step through
-    for( ; !errPending() ; )
-    {
-        /*
-         * Advance to the next row
-         */
-        int step_res = step();
+      // step through
+      for( ; !errPending() ; )
+      {
+          /*
+           * Advance to the next row
+           */
+          int step_res = step();
 
-    if (step_res == SQLITE_DONE) // kv69 sqlite has finished executing
-        {
-      break;
-        }
+          if (step_res == SQLITE_DONE) // kv69 sqlite has finished executing
+          {
+              break;
+          }
 
 
-    if (step_res != SQLITE_ROW) // kv69 no other row ? this must be an error
-        {
-            m_lasterr.set( SQL_ERR );
-            break;
-        }
+          if (step_res != SQLITE_ROW) // kv69 no other row ? this must be an error
+          {
+              m_lasterr.set( SQL_ERR );
+              break;
+          }
 
-        /*
-         * get new memory for the result
-         */
-        for( int jCol = 0; jCol < (int)cols.size() && !errPending(); jCol++ )
-        {
-            // Init value as SQLITE_NULL;
-            ValueSQL value;
+          /*
+           * get new memory for the result
+           */
+          for( int jCol = 0; jCol < (int)cols.size() && !errPending(); jCol++ )
+          {
+              // Init value as SQLITE_NULL;
+              ValueSQL value;
 
-            switch( colType( jCol ) )
-            {
-                 case SQLITE_NULL:      
-                   break;
+              switch( colType( jCol ) )
+              {
+                  case SQLITE_NULL:      
+                      break;
 
-                 case SQLITE_INTEGER:   
-                   value = ValueSQL( colInt64( jCol ) );
-                   break;
+                  case SQLITE_INTEGER:   
+                      value = ValueSQL( colInt64( jCol ) );
+                      break;
 
-                 case SQLITE_FLOAT:
-                   value = ValueSQL( colFloat( jCol ) );
-                   break;
+                  case SQLITE_FLOAT:
+                      value = ValueSQL( colFloat( jCol ) );
+                      break;
 
-                 case SQLITE_TEXT:
-                   value = ValueSQL( (char*)utils_strnewdup( (const char*)colText( jCol ), g_convertUTF8 ) );
-                   break;
+                  case SQLITE_TEXT:
+                      value = ValueSQL( (char*)utils_strnewdup( (const char*)colText( jCol ), g_convertUTF8 ) );
+                      break;
 
-                 case SQLITE_BLOB:      
-                 {
-                    size_t bytes = colBytes( jCol );
+                  case SQLITE_BLOB:      
+                  {
+                      size_t bytes = colBytes( jCol );
 
-                    mxArray* item = mxCreateNumericMatrix( (int)bytes, bytes ? 1 : 0, mxUINT8_CLASS, mxREAL );
+                      mxArray* item = mxCreateNumericMatrix( (int)bytes, bytes ? 1 : 0, mxUINT8_CLASS, mxREAL );
 
-                    if( item )
-                    {
-                        value = ValueSQL( item );
+                      if( item )
+                      {
+                          value = ValueSQL( item );
 
-                        if( bytes )
-                        {
-                            ValueMex v(item);
-                            memcpy( v.Data(), colBlob( jCol ), bytes );
-                        }
-                    }
-                    else
-                    {
-                        m_lasterr.set( MSG_ERRMEMORY );
-                        continue;
-                    }
+                          if( bytes )
+                          {
+                              ValueMex v(item);
+                              memcpy( v.Data(), colBlob( jCol ), bytes );
+                          }
+                      }
+                      else
+                      {
+                          m_lasterr.set( MSG_ERRMEMORY );
+                          continue;
+                      }
 
-                    break;
-                 }
+                      break;
+                  }
 
-                 default:
-                    m_lasterr.set( MSG_UNKNWNDBTYPE );
-                    continue;
-            }
-            
-            cols[jCol].append( value );
-        }
-    }
-    
-    
-    if( errPending() )
-    {
-        cols.clear();
-        return false;
-    }
+                  default:
+                      m_lasterr.set( MSG_UNKNWNDBTYPE );
+                      continue;
+              }
+              
+              cols[jCol].append( value );
+          }
+      }
+      
+      if( errPending() )
+      {
+          cols.clear();
+          return false;
+      }
 
-    return true;
+      return true;
   }
   
 };
