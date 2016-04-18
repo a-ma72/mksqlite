@@ -7,8 +7,8 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.1
- *  @date      2008-2015
+ *  @version   2.2
+ *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -438,10 +438,16 @@ public:
       return m_stmt ? sqlite3_bind_parameter_count( m_stmt ) : 0;
   }
   
-  /// kv69: Returns the number of last row id; usefull for inserts in tables with autoincrement primary keys
-  int getLastRowID()
+  /// Returns the name for nth parameter
+  const char* getParameterName( int n )
   {
-      return m_stmt ? sqlite3_last_insert_rowid(m_db) : 0;
+      return m_stmt ? sqlite3_bind_parameter_name( m_stmt, n ) : NULL;
+  }
+  
+  /// kv69: Returns the number of last row id; usefull for inserts in tables with autoincrement primary keys
+  long getLastRowID()
+  {
+      return m_stmt ? (long)sqlite3_last_insert_rowid(m_db) : 0;
   }
   
   

@@ -6,8 +6,8 @@
  *  @details   Inspired by "Writing Bug-Free C Code" by Jerry Jongerius
  *  @see       http://www.duckware.com/index.html
  *  @author    Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.1
- *  @date      2008-2015
+ *  @version   2.2
+ *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   

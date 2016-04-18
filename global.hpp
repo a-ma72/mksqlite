@@ -6,8 +6,8 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.1
- *  @date      2008-2015
+ *  @version   2.2
+ *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -53,6 +53,7 @@
   #define _strcmpi    strcasecmp
   #define _strnicmp   strncasecmp
   #define _snprintf   snprintf
+  #define _vsnprintf  vsnprintf
   #define _strdup     strdup
   #define _copysign   copysign  ///< alias (win/linux compatibility)
 #endif

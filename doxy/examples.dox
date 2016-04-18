@@ -63,13 +63,14 @@ for all parameters for each subsequent call must be given.
 
 \subpage example_16
 
-When \a sql.m is called with a statement containing named bind parameters (':name'), 
+When \a mksqlite is called with a statement containing named bind parameters (':name' i.e.), 
 you may pass a struct with fieldnames as used in the query. It values will be passed
 in the right place (no ordering is necessary).\n
 With the "parameter wrapping" switch (param_wrapping) set, you may pass more 
 arguments than needed. Then the current statement will be processed again
 and again, until all arguments have been passed. In this mode, arguments
 for all parameters for each subsequent call must be given.
+\a sql.m extends the capabilities of named parameters.
 
 \subpage example_8
 

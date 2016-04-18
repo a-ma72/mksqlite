@@ -10,8 +10,8 @@
  *             - ValueSQLCol holding a complete table column
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.1
- *  @date      2008-2015
+ *  @version   2.2
+ *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -340,6 +340,15 @@ public:
     }
 
     /**
+     * \brief Returns true if item is a struct array
+     */
+    inline
+    bool IsStruct() const
+    {
+        return mxIsStruct( m_pcItem );
+    }
+
+    /**
      * \brief Returns true if m_pcItem is of size 1xN or Mx1
      */
     inline
@@ -601,6 +610,18 @@ public:
     double GetScalar() const
     {
         return IsScalar() ? mxGetScalar( m_pcItem ) : DBL_NAN;
+    }
+
+    /**
+     * \brief Get field from a struct array
+     *
+     * \param n Index of the array
+     * \param name Name of the requested field
+     * \returns Handle to mxArray
+     */
+    const mxArray* GetField( int n, const char* name ) const
+    {
+        return mxGetField( m_pcItem, n, name );
     }
 };
 

@@ -108,14 +108,44 @@
   mksqlite( 'insert firstName, lastName, city into AddressBook values (?,?,?)', ...
             'Gunther', 'Meyer', 'Munich' );
  \endcode
- Instead of a listing of arguments, a cell array can be provided that 
+ Instead of a listing of arguments, a cell array or a struct array may be provided that 
  contains the arguments.\n
  If fewer arguments are given then required, the remaining parameters are 
  filled with NULLs.  If more arguments are given than necessary, the
  function reports an error.  \n
  If it is intended, that implicit calls with the same command and the remaining
  arguments shall be done, so called parameter wrapping must be activated:
- mksqlite('param_wrapping', 0|1)\n
+ \n
+ \b Examples:
+ \code
+  % Reorder arguments with numbered parameters
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (?3,?2,?1)', ...
+            'Munich', 'Meyer', 'Gunther' );
+
+  % Activate parameter wrapping to insert multiple datasets
+  mksqlite( 'param_wrapping', 1 ); 
+
+  % Insert 2 new datasets with named parameters
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (?city,?lastName,?firstName)', ...
+            'Munich', 'Meyer', 'Gunther', ...
+            'Frankfurt', 'Graf', 'Thomas' );
+
+  % Insert 2 new datasets with named parameters and arguments as cell array
+  data = {'Munich', 'Meyer', 'Gunther', 'Frankfurt', 'Graf', 'Thomas'};
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (?city,?lastName,?firstName)', ...
+            data );
+
+  % Insert 2 new datasets with named parameters and arguments as struct array
+  data = struct;
+  data(1).city = 'Munich';
+  data(1).firstName = 'Gunther';
+  data(1).lastName = 'Meyer';
+  data(2).city = 'Frankfurt';
+  data(2).firstName = 'Thomas';
+  data(2).lastName = 'Graf';
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (?city,?lastName,?firstName)', ...
+            data );
+ \endcode
  An argument may be a real value (scalar or array) or a string.  
  Non-scalar values are treated as a BLOB (unit8) SQL datatype. \n
  ( BLOB = (B)inary (L)arge (OB)ject) )
@@ -277,9 +307,9 @@
  <tr><td>\ref cmd_version_sql "'version sql'"</td>              <td>Returns the version of SQLite</td>                          <td>-</td>                         <td>-</td></tr>
  <tr><td>\ref cmd_open "'open'"</td>                            <td>Opens a database</td>                                       <td>Database (file-)name</td>      <td>-</td></tr>
  <tr><td>\ref cmd_close "'close'"</td>                          <td>Closes one or all database(s)</td>                          <td>-</td>                         <td>-</td></tr>
- <tr><td>\ref cmd_checkfields "'check4uniquefields'"</td>       <td>Avoids duplicate field names in MATLAB structs, \n                        
+ <tr><td>"'check4uniquefields'"</td>                            <td>Avoids duplicate field names in MATLAB structs, \n                        
                                                                     when set to 1</td>                                          <td>0|1</td>                       <td>1</td></tr>
- <tr><td>\ref cmd_convertUTF8 "'convertUTF8'"</td>              <td>Enables UTF8 text encoding, when set to 1</td>              <td>0|1</td>                       <td>1</td></tr>
+ <tr><td>"'convertUTF8'"</td>                                   <td>Enables UTF8 text encoding, when set to 1</td>              <td>0|1</td>                       <td>1</td></tr>
  <tr><td>\ref cmd_typedblobs "'typedBLOBs'"</td>                <td>Enables typed BLOB packaging, when set >0\n 
                                                                     - 0: Disable typed BLOBs (store as native byte array)\n 
                                                                     - 1: Enable typed BLOBS (array and data format information 
@@ -288,11 +318,11 @@
                                                                          like cell arrays, structs, a.s.o. may be stored\n 
                                                                          
                                                                     \ref example_6 "Example"</td>                               <td>0|1|2</td>                     <td>0</td></tr>
- <tr><td>\ref cmd_nullasnan "'NULLasNaN'"</td>                  <td>mksqlite returns NULL values as NaN,\n                                           
+ <tr><td>"'NULLasNaN'"</td>                                     <td>mksqlite returns NULL values as NaN,\n                                           
                                                                     when set to 1</td>                                          <td>0|1</td>                       <td>0</td></tr>
- <tr><td>\ref cmd_param_wrapping "'param_wrapping'"</td>        <td>Enables parameter wrapping, when set to 1\n 
+ <tr><td>"'param_wrapping'"                                     </td>        <td>Enables parameter wrapping, when set to 1\n 
                                                                     \ref example_12 "Example"</td>                              <td>0|1</td>                       <td>0</td></tr>
- <tr><td>\ref cmd_streaming "'streaming'"</td>                  <td>Returns 1, when serializing is enabled</td>                 <td>-</td>                         <td>-</td></tr>
+ <tr><td>"'streaming'"</td>                                     <td>Returns 1, when serializing is enabled</td>                 <td>-</td>                         <td>-</td></tr>
  <tr><td>\ref cmd_result_type "'result_type'"</td>              <td>Chooses the result type of sql queries.\n 
                                                                     - 0: Array of structs\n 
                                                                     - 1: Struct of arrays\n 
@@ -307,17 +337,17 @@
                                                                     the data accuracy</td>                                      <td>0|1</td>                       <td>0</td></tr>   
  <tr><td>\ref cmd_show_tables "'show tables'"</td>              <td>Display content of the sqlite_master. That is 
                                                                     the column definitions of tables, views and indexes</td>    <td>-</td>                         <td>-</td></tr>   
- <tr><td>\ref cmd_enable_extension "'enable extension'"</td>    <td>Enable extension loading at runtime\n 
+ <tr><td>"'enable extension'"</td>                              <td>Enable extension loading at runtime\n 
                                                                     \ref example_11 "Example"</td>                              <td>0|1</td>                       <td>0</td></tr>   
- <tr><td>\ref cmd_status "'status'"</td>                        <td>Show status of each mksqlite slot in command\n 
+ <tr><td>"'status'"</td>                                        <td>Show status of each mksqlite slot in command\n 
                                                                     window. Different slots are accessed trough its 
                                                                     dbids.</td>                                                 <td>-</td>                         <td>-</td></tr>   
- <tr><td>\ref cmd_setbusytimeout "'setbusytimeout'"</td>        <td>Sets the SQLite busy timeout. A SQL statement
+ <tr><td>"'setbusytimeout'"</td>                                <td>Sets the SQLite busy timeout. A SQL statement
                                                                     whose calculation exceeds this time limit
                                                                     leads into failure abort.</td>                              <td>time in ms</td>                <td>1000</td></tr>   
  </table>
  \n
  \n
- (c) 2015 by Martin Kortmann <mail@kortmann.de>, Andreas Martin <andimartin@users.sourceforge.net>
+ (c) 2016 by Martin Kortmann <mail@kortmann.de>, Andreas Martin <andimartin@users.sourceforge.net>
 */
 

@@ -7,8 +7,8 @@
  *             for the case of further translations.
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.1
- *  @date      2008-2015
+ *  @version   2.2
+ *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -20,6 +20,7 @@
 #include "config.h"
 //#include "global.hpp"
 #include "svn_revision.h" /* get the SVN revision number */
+#include <cstdarg>
 extern "C"
 {
   #include "blosc/blosc.h"
@@ -49,53 +50,55 @@ int           getLocale     ();
  *
  * @{
  */
-#define MSG_PURESTRING            -2
-#define MSG_NOERROR               -1
-#define MSG_HELLO                  0
-#define MSG_INVALIDDBHANDLE        1
-#define MSG_IMPOSSIBLE             2
-#define MSG_USAGE                  3
-#define MSG_INVALIDARG             4
-#define MSG_CLOSINGFILES           5
-#define MSG_CANTCOPYSTRING         6
-#define MSG_NOOPENARG              7
-#define MSG_NOFREESLOT             8
-#define MSG_CANTOPEN               9
-#define MSG_DBNOTOPEN             10
-#define MSG_INVQUERY              11
-#define MSG_CANTCREATEOUTPUT      12
-#define MSG_UNKNWNDBTYPE          13
-#define MSG_BUSYTIMEOUTFAIL       14
-#define MSG_MSGUNIQUEWARN         15
-#define MSG_UNEXPECTEDARG         16
-#define MSG_MISSINGARGL           17
-#define MSG_ERRMEMORY             18
-#define MSG_UNSUPPVARTYPE         19
-#define MSG_UNSUPPTBH             20   
-#define MSG_ERRPLATFORMDETECT     21
-#define MSG_WARNDIFFARCH          22
-#define MSG_BLOBTOOBIG            23
-#define MSG_ERRCOMPRESSION        24
-#define MSG_UNKCOMPRESSOR         25
-#define MSG_ERRCOMPRARG           26
-#define MSG_ERRCOMPRLOGMINVALS    27
-#define MSG_ERRUNKOPENMODE        28
-#define MSG_ERRUNKTHREADMODE      29
-#define MSG_ERRCANTCLOSE          30
-#define MSG_ERRCLOSEDBS           31
-#define MSG_ERRNOTSUPPORTED       32
-#define MSG_EXTENSION_EN          33
-#define MSG_EXTENSION_DIS         34
-#define MSG_EXTENSION_FAIL        35
-#define MSG_MISSINGARG            36
-#define MSG_MISSINGARG_CELL       37
-#define MSG_NUMARGEXPCT           38
-#define MSG_SINGLECELLNOTALLOWED  39
-#define MSG_ERRVARNAME            40
-#define MSG_STREAMINGNEEDTYBLOBS  41
-#define MSG_STREAMINGNOTSUPPORTED 42
-#define MSG_RESULTTYPE            43
-#define MSG_DBID_SUPFLOUS         44
+#define MSG_PURESTRING                  -2
+#define MSG_NOERROR                     -1
+#define MSG_HELLO                        0
+#define MSG_INVALIDDBHANDLE              1
+#define MSG_IMPOSSIBLE                   2
+#define MSG_USAGE                        3
+#define MSG_INVALIDARG                   4
+#define MSG_CLOSINGFILES                 5
+#define MSG_CANTCOPYSTRING               6
+#define MSG_NOOPENARG                    7
+#define MSG_NOFREESLOT                   8
+#define MSG_CANTOPEN                     9
+#define MSG_DBNOTOPEN                   10
+#define MSG_INVQUERY                    11
+#define MSG_CANTCREATEOUTPUT            12
+#define MSG_UNKNWNDBTYPE                13
+#define MSG_BUSYTIMEOUTFAIL             14
+#define MSG_MSGUNIQUEWARN               15
+#define MSG_UNEXPECTEDARG               16
+#define MSG_MISSINGARGL                 17
+#define MSG_ERRMEMORY                   18
+#define MSG_UNSUPPVARTYPE               19
+#define MSG_UNSUPPTBH                   20   
+#define MSG_ERRPLATFORMDETECT           21
+#define MSG_WARNDIFFARCH                22
+#define MSG_BLOBTOOBIG                  23
+#define MSG_ERRCOMPRESSION              24
+#define MSG_UNKCOMPRESSOR               25
+#define MSG_ERRCOMPRARG                 26
+#define MSG_ERRCOMPRLOGMINVALS          27
+#define MSG_ERRUNKOPENMODE              28
+#define MSG_ERRUNKTHREADMODE            29
+#define MSG_ERRCANTCLOSE                30
+#define MSG_ERRCLOSEDBS                 31
+#define MSG_ERRNOTSUPPORTED             32
+#define MSG_EXTENSION_EN                33
+#define MSG_EXTENSION_DIS               34
+#define MSG_EXTENSION_FAIL              35
+#define MSG_MISSINGARG                  36
+#define MSG_MISSINGARG_CELL             37
+#define MSG_MISSINGARG_STRUCT           38
+#define MSG_NUMARGEXPCT                 39
+#define MSG_SINGLECELLNOTALLOWED        40
+#define MSG_SINGLESTRUCTNOTALLOWED      41
+#define MSG_ERRVARNAME                  42
+#define MSG_STREAMINGNEEDTYBLOBS        43
+#define MSG_STREAMINGNOTSUPPORTED       44
+#define MSG_RESULTTYPE                  45
+#define MSG_DBID_SUPFLOUS               46
 /** @}  */
 
 
@@ -181,6 +184,36 @@ public:
     }
     
     
+    /** 
+     * \brief Set error message by identifier (translations available) with printf arguments
+     *
+     * \param[in] iMessageNr Message identifier (see \ref MSG_IDS "Message Identifiers")
+     * \param[in] strId  Pointer to constant error identifier
+     */
+    void set_printf( int iMessageNr, const char* strId, ... )
+    {
+         va_list va;
+         va_start( va, strId );
+         const char* message = ::getLocaleMsg( iMessageNr );
+
+         *m_err_string = 0;
+
+         if( message )
+         {
+            vsnprintf( m_err_string, sizeof( m_err_string ), message, va );
+         }
+         set( m_err_string, strId );
+         
+         if( iMessageNr == MSG_NOERROR )
+         {
+            m_isPending = false;
+         }
+         
+         m_msgId = iMessageNr;
+         va_end( va );
+    }
+    
+    
     /// Reset error message
     void clear()
     {
@@ -238,7 +271,7 @@ public:
 static const char* messages_0[] = 
 {
     "mksqlite Version " CONFIG_MKSQLITE_VERSION_STRING " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008-2015 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2016 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite uses further:\n"
@@ -247,50 +280,52 @@ static const char* messages_0[] =
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
     "   \n",
     
-    "invalid database handle",
-    "function not possible",
-    "usage: mksqlite([dbid,] command [, databasefile])\n",
-    "no or wrong argument",
-    "mksqlite: closing open databases",
-    "can\'t copy string in getstring()",
-    "open without database name",
-    "no free database handle available",
-    "cannot open database (check access privileges and existence of database)",
-    "database not open",
-    "invalid query string (semicolon?)",
-    "cannot create output matrix",
-    "unknown SQLITE data type",
-    "cannot set busy timeout",
-    "could not build unique field name for %s",
-    "unexpected arguments passed",
-    "missing argument list",
-    "memory allocation error",
-    "unsupported variable type",
-    "unknown/unsupported typed blob header",
-    "error while detecting the type of computer you are using",
-    "BLOB stored on different type of computer",
-    "BLOB exceeds maximum allowed size",
-    "error while compressing data",
-    "unknown compressor",
-    "chosen compressor accepts 'double' type only",
-    "chosen compressor accepts positive values only",
-    "unknown open modus (only 'ro', 'rw' or 'rwc' accepted)",
-    "unknown threading mode (only 'single', 'multi' or 'serial' accepted)",
-    "cannot close connection",
-    "not all connections could be closed",
-    "this Matlab version doesn't support this feature",
-    "extension loading enabled for this db",
-    "extension loading disabled for this db",
-    "failed to set extension loading feature",
-    "more argument(s) expected",
-    "more argument(s) expected (maybe matrix argument given, instead of a cell array?)",
-    "numeric argument expected",
-    "single cell argument not allowed when streaming enabled",
-    "unable to create fieldname from column name",
-    "streaming of variables needs typed BLOBs! Streaming is off",
-    "streaming not supported in this MATLAB version",
-    "Result type is ",
-    "Database ID is given, but superflous! ",
+/*  1*/    "invalid database handle",
+/*  2*/    "function not possible",
+/*  3*/    "usage: mksqlite([dbid,] command [, databasefile])\n",
+/*  4*/    "no or wrong argument",
+/*  5*/    "mksqlite: closing open databases",
+/*  6*/    "can\'t copy string in getstring()",
+/*  7*/    "open without database name",
+/*  8*/    "no free database handle available",
+/*  9*/    "cannot open database (check access privileges and existence of database)",
+/* 10*/    "database not open",
+/* 11*/    "invalid query string (semicolon?)",
+/* 12*/    "cannot create output matrix",
+/* 13*/    "unknown SQLITE data type",
+/* 14*/    "cannot set busy timeout",
+/* 15*/    "could not build unique field name for %s",
+/* 16*/    "unexpected arguments passed",
+/* 17*/    "missing argument list",
+/* 18*/    "memory allocation error",
+/* 19*/    "unsupported variable type",
+/* 20*/    "unknown/unsupported typed blob header",
+/* 21*/    "error while detecting the type of computer you are using",
+/* 22*/    "BLOB stored on different type of computer",
+/* 23*/    "BLOB exceeds maximum allowed size",
+/* 24*/    "error while compressing data",
+/* 25*/    "unknown compressor",
+/* 26*/    "chosen compressor accepts 'double' type only",
+/* 27*/    "chosen compressor accepts positive values only",
+/* 28*/    "unknown open modus (only 'ro', 'rw' or 'rwc' accepted)",
+/* 29*/    "unknown threading mode (only 'single', 'multi' or 'serial' accepted)",
+/* 30*/    "cannot close connection",
+/* 31*/    "not all connections could be closed",
+/* 32*/    "this Matlab version doesn't support this feature",
+/* 33*/    "extension loading enabled for this db",
+/* 34*/    "extension loading disabled for this db",
+/* 35*/    "failed to set extension loading feature",
+/* 36*/    "more argument(s) expected",
+/* 37*/    "more argument(s) expected (maybe matrix argument given, instead of a cell array?)",
+/* 38*/    "missing field in argument for SQL parameter '%s'",
+/* 39*/    "numeric argument expected",
+/* 40*/    "single cell argument not allowed when streaming is enabled while multiple\nSQL parameters are used or parameter wrapping is enabled, too",
+/* 41*/    "single struct argument not allowed when streaming is enabled while multiple\nSQL parameters are used or parameter wrapping is enabled, too",
+/* 42*/    "unable to create fieldname from column name",
+/* 43*/    "streaming of variables needs typed BLOBs! Streaming is off",
+/* 44*/    "streaming not supported in this MATLAB version",
+/* 45*/    "Result type is ",
+/* 46*/    "Database ID is given, but superflous! ",
 };
 
 
@@ -300,7 +335,7 @@ static const char* messages_0[] =
 static const char* messages_1[] = 
 {
     "mksqlite Version " CONFIG_MKSQLITE_VERSION_STRING " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008-2015 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2016 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite verwendet darueber hinaus:\n"
@@ -309,50 +344,52 @@ static const char* messages_1[] =
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
     "   \n",
     
-    "ungueltiger Datenbankhandle",
-    "Funktion nicht moeglich",
-    "Verwendung: mksqlite([dbid,] Befehl [, Datenbankdatei])\n",
-    "kein oder falsches Argument uebergeben",
-    "mksqlite: Die noch geoeffneten Datenbanken wurden geschlossen",
-    "getstring() kann keine neue Zeichenkette erstellen",
-    "Open Befehl ohne Datenbanknamen",
-    "Kein freier Datenbankhandle verfuegbar",
-    "Datenbank konnte nicht geoeffnet werden (ggf. Zugriffsrechte oder Existenz der Datenbank pruefen)",
-    "Datenbank nicht geoeffnet",
-    "ungueltiger query String (Semikolon?)",
-    "Kann Ausgabematrix nicht erstellen",
-    "unbekannter SQLITE Datentyp",
-    "busytimeout konnte nicht gesetzt werden",
-    "konnte keinen eindeutigen Bezeichner fuer Feld %s bilden",
-    "Argumentliste zu lang",
-    "keine Argumentliste angegeben",
-    "Fehler bei Speichermanagement", 
-    "Nicht unterstuetzter Variablentyp",
-    "Unbekannter oder nicht unterstuetzter typisierter BLOB Header",
-    "Fehler beim Identifizieren der Computerarchitektur",
-    "BLOB wurde mit abweichender Computerarchitektur erstellt",
-    "BLOB ist zu gross",
-    "Fehler waehrend der Kompression aufgetreten",
-    "unbekannte Komprimierung",
-    "gewaehlter Kompressor erlaubt nur Datentyp 'double'",
-    "gewaehlter Kompressor erlaubt nur positive Werte",
-    "unbekannter Zugriffmodus (nur 'ro', 'rw' oder 'rwc' moeglich)",
-    "unbekannter Threadingmodus (nur 'single', 'multi' oder 'serial' moeglich)",
-    "die Datenbank kann nicht geschlossen werden",
-    "nicht alle Datenbanken konnten geschlossen werden",
-    "Feature wird von dieser Matlab Version nicht unterstuetzt",
-    "DLL Erweiterungen fuer diese db aktiviert",
-    "DLL Erweiterungen fuer diese db deaktiviert",
-    "Einstellung fuer DLL Erweiterungen nicht moeglich",
-    "Argumentliste zu kurz",
-    "Argumentliste zu kurz (moeglicherweise eine Matrix statt Cell-Array uebergeben?)",
-    "numerischer Parameter erwartet",
-    "einzelnes Argument vom Typ Cell ist nicht erlaubt, wenn das Streaming eingeschaltet ist",
-    "aus dem Spaltennamen konnte kein gueltiger Feldname erzeugt werden",
-    "fuer das Streamen von Variablen sind typisierte BLOBS erforderlich! Streaming ist ausgeschaltet",
-    "Streaming wird von dieser MATLAB Version nicht unterstuetzt",
-    "Rueckgabetyp ist ",
-    "Datenbank ID wurde angegeben, ist fuer diesen Befehl jedoch ueberfluessig! ", 
+/*  1*/    "ungueltiger Datenbankhandle",
+/*  2*/    "Funktion nicht moeglich",
+/*  3*/    "Verwendung: mksqlite([dbid,] Befehl [, Datenbankdatei])\n",
+/*  4*/    "kein oder falsches Argument uebergeben",
+/*  5*/    "mksqlite: Die noch geoeffneten Datenbanken wurden geschlossen",
+/*  6*/    "getstring() kann keine neue Zeichenkette erstellen",
+/*  7*/    "Open Befehl ohne Datenbanknamen",
+/*  8*/    "Kein freier Datenbankhandle verfuegbar",
+/*  9*/    "Datenbank konnte nicht geoeffnet werden (ggf. Zugriffsrechte oder Existenz der Datenbank pruefen)",
+/* 10*/    "Datenbank nicht geoeffnet",
+/* 11*/    "ungueltiger query String (Semikolon?)",
+/* 12*/    "Kann Ausgabematrix nicht erstellen",
+/* 13*/    "unbekannter SQLITE Datentyp",
+/* 14*/    "busytimeout konnte nicht gesetzt werden",
+/* 15*/    "konnte keinen eindeutigen Bezeichner fuer Feld %s bilden",
+/* 16*/    "Argumentliste zu lang",
+/* 17*/    "keine Argumentliste angegeben",
+/* 18*/    "Fehler bei Speichermanagement", 
+/* 19*/    "Nicht unterstuetzter Variablentyp",
+/* 20*/    "Unbekannter oder nicht unterstuetzter typisierter BLOB Header",
+/* 21*/    "Fehler beim Identifizieren der Computerarchitektur",
+/* 22*/    "BLOB wurde mit abweichender Computerarchitektur erstellt",
+/* 23*/    "BLOB ist zu gross",
+/* 24*/    "Fehler waehrend der Kompression aufgetreten",
+/* 25*/    "unbekannte Komprimierung",
+/* 26*/    "gewaehlter Kompressor erlaubt nur Datentyp 'double'",
+/* 27*/    "gewaehlter Kompressor erlaubt nur positive Werte",
+/* 28*/    "unbekannter Zugriffmodus (nur 'ro', 'rw' oder 'rwc' moeglich)",
+/* 29*/    "unbekannter Threadingmodus (nur 'single', 'multi' oder 'serial' moeglich)",
+/* 30*/    "die Datenbank kann nicht geschlossen werden",
+/* 31*/    "nicht alle Datenbanken konnten geschlossen werden",
+/* 32*/    "Feature wird von dieser Matlab Version nicht unterstuetzt",
+/* 33*/    "DLL Erweiterungen fuer diese db aktiviert",
+/* 34*/    "DLL Erweiterungen fuer diese db deaktiviert",
+/* 35*/    "Einstellung fuer DLL Erweiterungen nicht moeglich",
+/* 36*/    "Argumentliste zu kurz",
+/* 37*/    "Argumentliste zu kurz (moeglicherweise eine Matrix statt Cell-Array uebergeben?)",
+/* 38*/    "Feld fuer SQL Parameter '%s' fehlt",
+/* 39*/    "numerischer Parameter erwartet",
+/* 40*/    "einzelnes Argument vom Typ Cell nicht erlaubt, bei aktiviertem Streaming mit\nmehreren SQL Parametern oder ebenfalls aktiviertem Parameter Wrapping",
+/* 41*/    "einzelnes Argument vom Typ Struct nicht erlaubt, bei aktiviertem Streaming mit\nmehreren SQL Parametern oder ebenfalls aktiviertem Parameter Wrapping",
+/* 42*/    "aus dem Spaltennamen konnte kein gueltiger Feldname erzeugt werden",
+/* 43*/    "fuer das Streamen von Variablen sind typisierte BLOBS erforderlich! Streaming ist ausgeschaltet",
+/* 44*/    "Streaming wird von dieser MATLAB Version nicht unterstuetzt",
+/* 45*/    "Rueckgabetyp ist ",
+/* 46*/    "Datenbank ID wurde angegeben, ist fuer diesen Befehl jedoch ueberfluessig! ", 
 };
 
 /**

@@ -9,6 +9,7 @@ function sqlite_test_bind_typed
 
     %% Create an in-memory database
     mksqlite( 'open', ':memory:' );
+    mksqlite( 'param_wrapping', 0 );
 
     % mksqlite stores numeric arrays always as an array of bytes (uint8),
     % since SQLite only supports native byte array (BLOB). When you fetch 

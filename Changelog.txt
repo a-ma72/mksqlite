@@ -1,9 +1,12 @@
-Version 2.2  (build xx - 21. Jan. 2016 )
+Version 2.2  (build 110 - 18. Apr. 2016)
 - Bugfix: Database filename/path with umlauts could not be opened.
-- SQLite update to 3.10.2
-- Updated buildit.m for mac users (untested)
+- Bugfix in sql.m: [+#] key evaluation deleted 1 char too much.
+- mksqlite handles named binding with struct argument.
+- SQLite update to 3.10.2.
+- Updated buildit.m for mac users.
 
-Version 2.1  (build 98 - 28. Aug. 2015 )
+
+Version 2.1  (build 98 - 28. Aug. 2015)
 - Bugfix: Not all SQLite errors were caught and passed to the user (kv69).
 - Bugfix: When using SELECT statements with param_wrapping is on, only
   the last result was returned (kv69).

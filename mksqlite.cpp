@@ -6,8 +6,8 @@
  *  @details   class implementations (SQLstack and Mksqlite)
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.1
- *  @date      2008-2015
+ *  @version   2.2
+ *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -1774,26 +1774,72 @@ public:
 
         /*** Progress parameters for subsequent queries ***/
 
-        ValueSQLCols    cols;
-        const mxArray** nextBindParam   = m_parg;
-        int             countBindParam  = m_narg;
-        int             argsNeeded      = SQLstack.current().getParameterCount();
-        bool            haveSingleParam = ( countBindParam == 1 );
+        ValueSQLCols     cols;
+        const mxArray**  nextBindParam       = m_parg;
+        int              countBindParam      = m_narg;
+        int              argsNeeded          = SQLstack.current().getParameterCount();
+        bool             haveParamCell       = false;
+        bool             haveParamStruct     = false;
+        long*            last_insert_row     = NULL;  // kv69: for storing last_insert_row_id after each statement reuse
+        bool             initialize          = true;  // kv69: flag indicating initialization within first call of fetch procedure
+        int              count               = 1;     // kv69: number of repeated statements calls 
 
-        // Check if a lonely cell argument is passed
-        if( haveSingleParam && ValueMex(*nextBindParam).IsCell() )
+
+
+        // steaming                   |               off                 |              on                 |
+        // parameter wrapping         | off            | on               | off           | on              |
+        // ---------------------------+----------------+------------------+---------------+-----------------+
+        // 'SELECT ?',   {1,2,3,4}    | fail=> 4>1     | ok=> 4 stmts     | ok=> 1 stmt   | ??              |
+        // 'SELECT ?,?', {1,2,3,4}    | fail=> 4>2     | ok=> 2 stmt      | ??            | ??              |
+        // 'SELECT ?',   struct(2)    | fail=> 2>1     | ok=> 2 stmt      | ok=> 1 stmt   | ??              |
+        // 'SELECT ?,?', struct(2)    | fail=> 2>1     | ok=> 2 stmt      | ??            | ??              |
+
+        // Check if a single cell argument is passed
+        if( countBindParam == 1 && ValueMex(*nextBindParam).IsCell() )
         {
-            // Only allowed, when streaming is off
+            haveParamCell = true;
+            
+            // If streaming is on, it is casually not clear, how to 
+            // handle the cell argument to any parameter
             if( g_streaming )
             {
-                m_err.set( MSG_SINGLECELLNOTALLOWED );
-                return false;
+                if( g_param_wrapping || (argsNeeded > 1) )
+                {
+                    m_err.set( MSG_SINGLECELLNOTALLOWED );
+                    goto finalize;
+                }
+                haveParamCell = false;
+            }
+
+            if( haveParamCell )
+            {
+                // redirect cell elements as bind arguments
+                countBindParam   = (int)ValueMex(*nextBindParam).NumElements();
+                nextBindParam    = (const mxArray**)ValueMex(*nextBindParam).Data();
+            }
+        }
+
+        // Check if a single struct argument is passed
+        if( countBindParam == 1 && ValueMex(*nextBindParam).IsStruct() )
+        {
+            haveParamStruct = true;
+
+            // If streaming is on, it is casually not clear, how to 
+            // handle the struct argument to any parameter
+            if( g_streaming )
+            {
+                if( g_param_wrapping || (argsNeeded > 1) )
+                {
+                    m_err.set( MSG_SINGLESTRUCTNOTALLOWED );
+                    goto finalize;
+                }
+                haveParamStruct = false;
             }
             
-            // redirect cell elements as bind arguments
-            countBindParam   = (int)ValueMex(*nextBindParam).NumElements();
-            nextBindParam    = (const mxArray**)ValueMex(*nextBindParam).Data();
-            haveSingleParam  = false;
+            if( haveParamStruct )
+            {
+                countBindParam  = argsNeeded * (int)ValueMex(*nextBindParam).NumElements();  // Number of fields doesn't matter!
+            }
         }
 
         /* 
@@ -1801,7 +1847,6 @@ public:
          * statement may be passed. 
          */
         
-        int count = 1; // kv69: number of repeated statements calls 
         if( g_param_wrapping )
         {
             // exceeding argument list allowed to omit multiple queries
@@ -1812,8 +1857,19 @@ public:
             // remainder must be 0, all placeholders must be fulfilled
             if( remain || !count )
             {
-                m_err.set( haveSingleParam ? MSG_MISSINGARG_CELL : MSG_MISSINGARG );
-                return false;
+                if( haveParamStruct )
+                {
+                    m_err.set( MSG_MISSINGARG_STRUCT );
+                } 
+                else if( haveParamCell )
+                {
+                    m_err.set( MSG_MISSINGARG_CELL );
+                }
+                else
+                {
+                    m_err.set( MSG_MISSINGARG );
+                }
+                goto finalize;
             }
         }
         else
@@ -1825,47 +1881,71 @@ public:
             if( countBindParam > argsNeeded )
             {
                 m_err.set( MSG_UNEXPECTEDARG );
-                return false;
+                goto finalize;
             }
 
             // number of arguments must match now
             if( !flagIgnoreLessParameters && countBindParam != argsNeeded )
             {
-                m_err.set( haveSingleParam ? MSG_MISSINGARG_CELL : MSG_MISSINGARG );
-                return false;
+                if( haveParamStruct )
+                {
+                    m_err.set( MSG_MISSINGARG_STRUCT );
+                } 
+                else if( haveParamCell )
+                {
+                    m_err.set( MSG_MISSINGARG_CELL );
+                }
+                else
+                {
+                    m_err.set( MSG_MISSINGARG );
+                }
+                goto finalize;
             }
         }
 
-        // kv69: for storing last_insert_row_id after each statement reuse
-        long* last_insert_row = NULL;
         last_insert_row = new long[count];
         
         if( !last_insert_row )
         {
             m_err.set( MSG_ERRMEMORY );
-            return false;
+            goto finalize;
         }
-
-        bool initialize = true; // kv69: flag indicating initialization within first call of fetch procedure
 
         // loop over parameters
         for( int i = 0; i < count; i++ ) // kv69: fixed length loop because we know how often the stmt should be repeated
         {
-
-            // reset SQL statement
+            // reset SQL statement and clear bindings
             SQLstack.current().reset();
-
+            SQLstack.current().clearBindings();
 
             /*** Bind parameters ***/
         
-            // bind each argument to SQL statements placeholders 
+            // bind each argument to SQL statement placeholders 
             for( int iParam = 0; !errPending() && iParam < argsNeeded && countBindParam; iParam++, countBindParam-- )
             {
-                if( !SQLstack.current().bindParameter( iParam+1, *nextBindParam++, can_serialize() ) )
+                const mxArray* bindParam = NULL;
+
+                if( !haveParamStruct )
+                {
+                   bindParam = *nextBindParam++;
+                }
+                else
+                {
+                    const char* name = SQLstack.current().getParameterName( iParam + 1 );
+                    bindParam = name ? ValueMex( *nextBindParam ).GetField( i, ++name ) : NULL;  // adjusting name behind either '?', ':', '$' or '@'!
+
+                    if( !bindParam )
+                    {
+                        m_err.set_printf( MSG_MISSINGARG_STRUCT, NULL, name ? name : "(unnamed)");
+                        goto finalize;
+                    }
+                }
+
+                if( !SQLstack.current().bindParameter( iParam + 1, bindParam, can_serialize() ) )
                 {
                     const char* errid = NULL;
                     m_err.set( SQLstack.current().getErr(&errid), errid );
-                    return false;
+                    goto finalize;
                 }
             }
 
@@ -1876,7 +1956,7 @@ public:
             {
                 const char* errid = NULL;
                 m_err.set( SQLstack.current().getErr(&errid), errid );
-                return false;
+                goto finalize;
             }
             initialize = false; // kv69: for next statement use do not initialize query results again but accumulated it
 
@@ -1884,6 +1964,7 @@ public:
             last_insert_row[i] = SQLstack.current().getLastRowID();
         }
 
+finalize:
         /*
          * finalize current sql statement
          */
@@ -1891,62 +1972,60 @@ public:
 
         /*** Prepare results to return ***/
         
-        if( errPending() )
+        if( !errPending() )
         {
-            return false;
-        }
-        
-        // check if result is empty (no columns)
-        if( !cols.size() )
-        {
-            /*
-             * got nothing? return an empty result to MATLAB
-             */
-            for( int i = 0; i < m_nlhs; i++ )
+            // check if result is empty (no columns)
+            if( !cols.size() )
             {
-                mxArray* result = mxCreateDoubleMatrix( 0, 0, mxREAL );
+                /*
+                 * got nothing? return an empty result to MATLAB
+                 */
+                for( int i = 0; i < m_nlhs; i++ )
+                {
+                    mxArray* result = mxCreateDoubleMatrix( 0, 0, mxREAL );
+                    if( !result )
+                    {
+                        m_err.set( MSG_CANTCREATEOUTPUT );
+                        break;
+                    }
+                    else
+                    {
+                        m_plhs[i] = result;
+                    }
+                }
+            }
+            else
+            {
+                mxArray* result = NULL;
+                
+                // dispatch regarding result type
+                switch( g_result_type )
+                {
+                    case RESULT_TYPE_ARRAYOFSTRUCTS:
+                        result = createResultAsArrayOfStructs( cols );
+                        break;
+                    
+                    case RESULT_TYPE_STRUCTOFARRAYS:
+                        result = createResultAsStructOfArrays( cols );
+                        break;
+                    
+                    case RESULT_TYPE_MATRIX:
+                        result = createResultAsMatrix( cols );
+                        break;
+                    
+                    default:
+                        assert( false );
+                        break;
+                }
+
                 if( !result )
                 {
                     m_err.set( MSG_CANTCREATEOUTPUT );
-                    break;
                 }
-                else
+                else 
                 {
-                    m_plhs[i] = result;
+                    m_plhs[0] = result;
                 }
-            }
-        }
-        else
-        {
-            mxArray* result = NULL;
-            
-            // dispatch regarding result type
-            switch( g_result_type )
-            {
-                case RESULT_TYPE_ARRAYOFSTRUCTS:
-                    result = createResultAsArrayOfStructs( cols );
-                    break;
-                
-                case RESULT_TYPE_STRUCTOFARRAYS:
-                    result = createResultAsStructOfArrays( cols );
-                    break;
-                
-                case RESULT_TYPE_MATRIX:
-                    result = createResultAsMatrix( cols );
-                    break;
-                
-                default:
-                    assert( false );
-                    break;
-            }
-
-            if( !result )
-            {
-                m_err.set( MSG_CANTCREATEOUTPUT );
-            }
-            else 
-            {
-                m_plhs[0] = result;
             }
         }
 
@@ -1989,8 +2068,6 @@ public:
 
         // kv69: clear array for last insert row 
         delete[] last_insert_row;
-        last_insert_row = NULL;
-
 
         return !errPending();
         
