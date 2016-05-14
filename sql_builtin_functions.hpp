@@ -2,7 +2,7 @@
  *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
  *  @file      sql_user_functions.hpp
- *  @brief     SQL user defined functions, automatically attached to each database
+ *  @brief     SQL builtin functions, automatically attached to each database
  *  @details   Additional functions in SQL statements (MD5, regex, pow, and packing ratio/time)
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
@@ -17,7 +17,7 @@
 
 #pragma once
 
-/* Extending SQLite with additional user functions */
+/* Extending SQLite with additional builtin functions */
 
 //#include "config.h"
 //#include "global.hpp"
@@ -59,7 +59,7 @@ int blob_unpack( const void* pBlob, size_t blob_size,
 
 #ifdef MAIN_MODULE
 
-/* sqlite user functions, implementations */
+/* sqlite builtin functions, implementations */
 
 /**
  * \brief Power function implementation
@@ -109,7 +109,7 @@ void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
 }
 
 
-/* sqlite user functions, implementations */
+/* sqlite builtin functions, implementations */
 
 /**
  * \brief Logarithm function to base 10 implementation

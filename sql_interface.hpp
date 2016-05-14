@@ -20,7 +20,7 @@
 //#include "config.h"
 //#include "global.hpp"
 //#include "sqlite/sqlite3.h"
-#include "sql_user_functions.hpp"
+#include "sql_builtin_functions.hpp"
 //#include "utils.hpp"
 //#include "value.hpp"
 //#include "locale.hpp"
@@ -253,7 +253,7 @@ public:
       } 
       else 
       {
-          attachFunctions();
+          attachBuiltinFunctions();
           return true;
       }
   }
@@ -364,9 +364,9 @@ public:
   
   
   /**
-   * \brief Attach user functions to database object
+   * \brief Attach builtin functions to database object
    *
-   * Following user functions are involved:
+   * Following builtin functions are involved:
    * - pow
    * - regex
    * - bcdratio
@@ -374,7 +374,7 @@ public:
    * - bdcunpacktime
    * - md5
    */
-  void attachFunctions()
+  void attachBuiltinFunctions()
   {
       if( !isOpen() )
       {
