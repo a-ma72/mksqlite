@@ -6,7 +6,7 @@
  *  @details   Inspired by "Writing Bug-Free C Code" by Jerry Jongerius
  *  @see       http://www.duckware.com/index.html
  *  @author    Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -145,7 +145,7 @@ public:
 #if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
         if( !count && !flag_blocks_checked )
         {
-            mexPrintf( "Heap check: ok\n" );
+            PRINTF( "Heap check: ok\n" );
         }
 #endif
         flag_blocks_checked = true;
@@ -417,9 +417,9 @@ public:
             /*--- print out buffer ---*/
             if( text )
             {
-                mexPrintf( "walk(%s): %s\n", text, buffer );
+                PRINTF( "walk(%s): %s\n", text, buffer );
             } else {
-                mexPrintf( "walk: %s\n", buffer );
+                PRINTF( "walk: %s\n", buffer );
             }
 #endif
         }

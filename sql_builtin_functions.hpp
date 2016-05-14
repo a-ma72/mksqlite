@@ -1,13 +1,13 @@
 /**
  *  <!-- mksqlite: A MATLAB Interface to SQLite -->
  * 
- *  @file      sql_user_functions.hpp
+ *  @file      sql_builtin_functions.hpp
  *  @brief     SQL builtin functions, automatically attached to each database
  *  @details   Additional functions in SQL statements (MD5, regex, pow, and packing ratio/time)
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -46,15 +46,15 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 
 
 // Forward declarations
-int blob_pack( const mxArray* pcItem, bool bStreamable, 
-               void** ppBlob, size_t* pBlob_size, 
-               double *pdProcess_time, double* pdRatio,
-               const char* compressor = g_compression_type, 
-               int level = g_compression_level );
-
-int blob_unpack( const void* pBlob, size_t blob_size, 
-                 bool bStreamable, mxArray** ppItem, 
-                 double* pProcess_time, double* pdRatio );
+int  blob_pack    ( const mxArray* pcItem, bool bStreamable, 
+                    void** ppBlob, size_t* pBlob_size, 
+                    double *pdProcess_time, double* pdRatio,
+                    const char* compressor = g_compression_type, 
+                    int level = g_compression_level );
+int  blob_unpack  ( const void* pBlob, size_t blob_size, 
+                    bool bStreamable, mxArray** ppItem, 
+                    double* pProcess_time, double* pdRatio );
+void blob_free    ( void** pBlob );
 
 
 #ifdef MAIN_MODULE
@@ -669,13 +669,25 @@ void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv 
  * Functions for BLOB handling (compression and typing)
  */
 
+/**
+ * @brief Free memory allocated for a BLOB
+ */
+void blob_free( void** ppBlob )
+{
+    if( ppBlob )
+    {
+        sqlite3_free( *ppBlob );
+        *ppBlob = NULL;
+    }
+}
+
 
 /**
  * \brief create a compressed typed blob from a Matlab item (deep copy)
  *
  * \param[in] pcItem MATLAB array to compress
  * \param[in] bStreamable if true, streaming preprocess is intended
- * \param[out] ppBlob Created BLOB
+ * \param[out] ppBlob Created BLOB, allocated by sqlite3_malloc
  * \param[out] pBlob_size Size of BLOB in bytes
  * \param[out] pdProcess_time Processing time in seconds
  * \param[out] pdRatio Realized compression ratio

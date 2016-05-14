@@ -10,7 +10,7 @@
  *             - ValueSQLCol holding a complete table column
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -43,9 +43,13 @@ class   ValueSQLCol;
 struct  tagNativeArray;
 
 
+#define SQLITE_BLOBX 20   ///< Identifier to flag another allocator as used for SQLITE_BLOB
+
+
 /**
  * \brief Base class for ValueMex and ValueSQL
  *
+ * This class doesn't free objects' memory nor manage its lifetime!
  * Member \p m_largest_field is only used to copy the content of the union.
  * 
  */
@@ -53,14 +57,14 @@ HC_ASSERT( sizeof( sqlite3_int64 ) <= sizeof( long long ) );
 class ValueBase
 {
 public:
-    bool                m_isConst;          ///< if flagged as non-const, class has memory ownership (custody)
+    bool                m_isConst;          ///< if flagged as non-const, class may swap memory ownership (custody)
     union
     {
       double            m_float;            ///< floating point representation
       sqlite3_int64     m_integer;          ///< integer representation
-      const char*       m_text;             ///< text representation
-      const mxArray*    m_blob;             ///< binary large object representation
-      const mxArray*    m_pcItem;           ///< MATLAB variable representation
+      char*             m_text;             ///< text representation or allocated memory ()
+      mxArray*          m_blob;             ///< binary large object representation
+      mxArray*          m_pcItem;           ///< MATLAB variable representation
       tagNativeArray*   m_array;            ///< self allocated variable representation
       
       long long         m_largest_field;    ///< largest member used to copy entire union (dummy field)
@@ -69,7 +73,8 @@ public:
     /// Dtor
     ~ValueBase()
     {
-        // Class ValueBase manages no memory, so constant fields are assumed!
+        // Class ValueBase manages no memory, so when object runs out of scope memory must have been freed
+        // already or be const either.
         assert( m_isConst || !m_largest_field );
     }
     
@@ -100,7 +105,7 @@ protected:
     /// Move ctor for rvalues (temporary objects)
     ValueBase( ValueBase&& other )
     {
-        *this           = std::move(other);
+        *this           = other;
         other.m_isConst = true;   // taking ownership
     }
     
@@ -117,7 +122,7 @@ protected:
         return *this;
     }
     
-    /// Assignment operator for lvalues
+    /// Move assignment operator for lvalues
     ValueBase& operator=( ValueBase& other )
     {
         // checking self assignment
@@ -132,7 +137,7 @@ protected:
         return *this;
     }
     
-    /// Assignment operator for rvalues (temporary objects)
+    /// Move assignment operator for rvalues (temporary objects)
     ValueBase& operator=( ValueBase&& other )
     {
         // checking self assignment
@@ -157,10 +162,10 @@ protected:
  * this class has no destructor which automatically does.
  *
  * It's intended that this class allocates and tends memory space 
- * through other functions than mxCreate*() functions, since these are very 
+ * through other functions than mxCreate*() functions, since these are quite 
  * slow. (see \ref tagNativeArray)
  *
- * Since a dtor is declared, we have to fulfil the "rule of three"
+ * If a dtor is declared, we have to fulfil the "rule of three"
  * \sa <a href="http://en.wikipedia.org/wiki/Rule_of_three_%28C%2B%2B_programming%29">Wikipedia</a>
  */
 
@@ -179,6 +184,20 @@ public:
         TC_COMPLEX,         ///< structs, cells, complex data (SQLite typed ByteStream BLOB)
         TC_UNSUPP = -1      ///< all other (unsuppored types)
     } type_complexity_e;
+
+    enum {
+        LOGICAL_CLASS  = mxLOGICAL_CLASS,
+        INT8_CLASS     = mxINT8_CLASS,
+        UINT8_CLASS    = mxUINT8_CLASS,
+        INT16_CLASS    = mxINT16_CLASS,
+        INT32_CLASS    = mxINT32_CLASS,
+        UINT16_CLASS   = mxUINT16_CLASS,
+        UINT32_CLASS   = mxUINT32_CLASS,
+        INT64_CLASS    = mxINT64_CLASS,
+        DOUBLE_CLASS   = mxDOUBLE_CLASS,
+        SINGLE_CLASS   = mxSINGLE_CLASS,
+        CHAR_CLASS     = mxCHAR_CLASS,
+    };
     
     
     /// Standard ctor
@@ -191,13 +210,13 @@ public:
     {
     }
     
-    /// Copy ctor for lvalues
+    /// Move ctor for lvalues
     ValueMex( ValueMex& other ) : ValueBase( other )
     {
     }
     
-    /// Copy ctor for rvalues (temporary objects)
-    ValueMex( ValueMex&& other ) : ValueBase( std::move(other) )
+    /// Move ctor for rvalues (temporary objects)
+    ValueMex( ValueMex&& other ) : ValueBase( other )
     {
     }
     
@@ -208,17 +227,17 @@ public:
         return *this;
     }
     
-    /// Assignment operator for lvalues
+    /// Move assignment operator for lvalues
     ValueMex& operator=( ValueMex& other )
     {
         ValueBase::operator=( other );
         return *this;
     }
     
-    /// Assignment operator for rvalues (temporary objects)
+    /// Move assignment operator for rvalues (temporary objects)
     ValueMex& operator=( ValueMex&& other )
     {
-        ValueBase::operator=( std::move(other) );
+        ValueBase::operator=( other );
         return *this;
     }
     
@@ -231,7 +250,7 @@ public:
     ValueMex( const mxArray* pcItem )
     {
         m_isConst = true;
-        m_pcItem  = pcItem;
+        m_pcItem  = const_cast<mxArray*>(pcItem);
     }
     
    
@@ -242,25 +261,66 @@ public:
      * \param[in] n Number of columns
      * \param[in] clsid Class ID of value type (refer MATLAB manual)
      */
-    ValueMex( mwIndex m, mwIndex n, int clsid )
+    ValueMex( mwIndex m, mwIndex n, int clsid = mxDOUBLE_CLASS )
     {
         m_pcItem  = mxCreateNumericMatrix( m, n, (mxClassID)clsid, mxREAL );
         m_isConst = false;
     }
-    
-/*
-    // \hide
-    void adopt()
+
+
+    /**
+     * @brief Take ownership (custody) of a MEX array
+     * 
+     * @param doAdopt true to adopt, false to make it const
+     */
+    ValueMex& Adopt( bool doAdopt = true )
     {
-        m_isConst = false;
+        m_isConst = !doAdopt;
+        return *this;
     }
-    
-    void release()
+
+
+    /**
+     * @brief Create a cell array
+     * 
+     * @param m Number of rows
+     * @param n Number of cols
+     * 
+     * @return Cell array
+     */
+    static
+    ValueMex CreateCellMatrix( int m, int n )
     {
-        m_isConst = true;
+        return ValueMex( mxCreateCellMatrix( m, n ) ).Adopt();
     }
-    // \endhide
-*/ 
+
+
+    /**
+     * @brief Create a double scalar
+     * 
+     * @param value Scalar value
+     * @return Scalar value matrix
+     */
+    static
+    ValueMex CreateDoubleScalar( double value )
+    {
+        return ValueMex( mxCreateDoubleScalar( value ) ).Adopt();
+    }
+
+
+    /**
+     * @brief Create a string
+     * 
+     * @param str String value
+     * @return String as char array
+     */
+    static
+    ValueMex CreateString( const char* str )
+    {
+        return ValueMex( mxCreateString( str ) ).Adopt();
+    }
+
+    
     /**
      * \brief Dtor
      *
@@ -270,10 +330,11 @@ public:
     {
         if( !m_isConst && m_pcItem )
         {
-            mxDestroyArray( const_cast<mxArray*>(m_pcItem) );
+            mxDestroyArray( m_pcItem );
             m_pcItem = NULL;
         }
     }
+
     
     /**
      * \brief Returns hosted MATLAB array
@@ -281,7 +342,40 @@ public:
     inline
     const mxArray* Item() const
     {
+        return const_cast<const mxArray*>( m_pcItem );
+    }
+
+
+    /**
+     * \brief Returns hosted MATLAB array
+     */
+    inline
+    mxArray* Item()
+    {
         return m_pcItem;
+    }
+
+
+    /**
+     * \brief Returns a duplictae of the hosted MATLAB array
+     */
+    inline
+    ValueMex Duplicate() const
+    {
+        return ValueMex( m_pcItem ? mxDuplicateArray( m_pcItem ) : NULL ).Adopt();
+    }
+
+
+    /**
+     * \brief Detach hosted MATLAB array
+     */
+    inline
+    mxArray* Detach()
+    {
+        assert( !m_isConst );
+        mxArray* pcItem = m_pcItem;
+        m_largest_field = 0;
+        return pcItem;
     }
 
 
@@ -364,6 +458,15 @@ public:
     bool IsDoubleClass() const
     {
         return mxDOUBLE_CLASS == ClassID();
+    }
+
+    /**
+     * \brief Returns true if m_pcItem is of type mxFUNCTION_CLASS
+     */
+    inline
+    bool IsFunctionHandle() const
+    {
+        return mxFUNCTION_CLASS == ClassID();
     }
 
     /**
@@ -475,7 +578,7 @@ public:
         size_t      count;
         char*       result          = NULL;
         mxArray*    new_string      = NULL;
-        mxArray*    org_string      = const_cast<mxArray*>(m_pcItem);
+        mxArray*    org_string      = m_pcItem;
         
         // reformat original string with MATLAB function "sprintf" into new string
         if( format )
@@ -623,6 +726,89 @@ public:
     {
         return mxGetField( m_pcItem, n, name );
     }
+
+
+    /**
+     * @brief Sets a cell of a MATLAB cell array
+     * 
+     * @param i Index
+     * @param cell Cell content
+     */
+    void SetCell( int i, const mxArray* cell )
+    {
+        if( m_pcItem )
+        {
+            mxSetCell( m_pcItem, i, const_cast<mxArray*>(cell) );
+        }
+    }
+
+
+    /**
+     * @brief Make the MATLAB array persistent
+     */
+    void MakePersistent()
+    {
+        if( m_pcItem )
+        {
+            mexMakeArrayPersistent( m_pcItem );
+        }
+    }
+
+
+    /**
+     * @brief Throws an exception if any occured
+     */
+    void Throw()
+    {
+        if( !IsEmpty() && mxIsClass( m_pcItem, "MException" ) )
+        {
+            mxArray* exception = Detach();
+            mexCallMATLAB( 0, NULL, 1, &exception, "throw" );
+        }
+
+    }
+
+
+    /**
+     * @brief Calling a MATLAB function (handle) with arguemnts
+     * 
+     * @param lhs Return value (only one)
+     * @param exception Exception container
+     */
+    void Call( ValueMex* lhs, ValueMex* exception )
+    {
+        assert( IsCell() && !IsEmpty() );
+
+        mxArray* _lhs       = NULL;  // Function return value
+        mxArray** prhs      = (mxArray**)Data();  // Function handle and arguments
+        mxArray* _exception = mexCallMATLABWithTrap( 1, &_lhs, (int)NumElements(), prhs, "feval" );
+
+        // Function returned results?
+        if( lhs )
+        {
+            *lhs = ValueMex( _lhs ).Adopt();
+            _lhs = NULL;
+        }
+
+        // An exception occured?
+        if( exception )
+        {
+            *exception = ValueMex( _exception ).Adopt();
+            _exception = NULL;
+        }
+
+        // Cleanup
+        
+        if( _lhs )
+        {
+            mxDestroyArray( _lhs );
+        }
+
+        if( _exception )
+        {
+            mxDestroyArray( _exception );
+        }
+    }
 };
 
 
@@ -643,7 +829,8 @@ class ValueSQL : public ValueBase
 {
 public:
     /// Type of SQL value as integer ID
-    int m_typeID;
+    int    m_typeID;
+    size_t m_blobsize;
   
     /// Dtor
     ~ValueSQL()
@@ -654,49 +841,55 @@ public:
     /// Standard ctor
     ValueSQL()
     {
-        m_isConst = true;
-        m_typeID  = SQLITE_NULL;
+        m_blobsize = 0;
+        m_typeID   = SQLITE_NULL;
     }
     
     /// Copy ctor for constant objects
     ValueSQL( const ValueSQL& other ) : ValueBase( other )
     {
-        m_typeID = other.m_typeID;
+        m_typeID   = other.m_typeID;
+        m_blobsize = other.m_blobsize;
     }
     
-    /// Copy ctor for lvalues
+    /// Move ctor for lvalues
     ValueSQL( ValueSQL& other ) : ValueBase( other )
     {
-        m_typeID = other.m_typeID;
+        m_typeID   = other.m_typeID;
+        m_blobsize = other.m_blobsize;
     }
     
-    /// Copy ctor for rvalues (temporary objects)
-    ValueSQL( ValueSQL&& other ) : ValueBase( std::move(other) )
+    /// Move ctor for rvalues (temporary objects)
+    ValueSQL( ValueSQL&& other ) : ValueBase( other )
     {
-        m_typeID = other.m_typeID;
+        m_typeID   = other.m_typeID;
+        m_blobsize = other.m_blobsize;
     }
     
     /// Assignment operator for constant objects
     ValueSQL& operator=( const ValueSQL& other )
     {
         ValueBase::operator=(other);
-        m_typeID = other.m_typeID;
+        m_typeID      = other.m_typeID;
+        m_blobsize    = other.m_blobsize;
         return *this;
     }
 
-    /// Assignment operator for lvalues
+    /// Move assignment operator for lvalues
     ValueSQL& operator=( ValueSQL& other )
     {
         ValueBase::operator=(other);
-        m_typeID = other.m_typeID;
+        m_typeID      = other.m_typeID;
+        m_blobsize    = other.m_blobsize;
         return *this;
     }
 
-    /// Assignment operator for rvalues (temporary objects)
+    /// Move assignment operator for rvalues (temporary objects)
     ValueSQL& operator=( ValueSQL&& other )
     {
-        ValueBase::operator=(std::move(other));
-        m_typeID = other.m_typeID;
+        ValueBase::operator=(other);
+        m_typeID      = other.m_typeID;
+        m_blobsize    = other.m_blobsize;
         return *this;
     }
 
@@ -704,7 +897,6 @@ public:
     explicit
     ValueSQL( double dValue )
     {
-        m_isConst = true;
         m_float   = dValue;
         m_typeID  = SQLITE_FLOAT;
     }
@@ -713,7 +905,6 @@ public:
     explicit
     ValueSQL( sqlite3_int64 iValue )
     {
-        m_isConst = true;
         m_integer = iValue;
         m_typeID  = SQLITE_INTEGER;
     }
@@ -722,8 +913,7 @@ public:
     explicit
     ValueSQL( const char* txtValue )
     {
-        m_isConst = true;
-        m_text    = txtValue;
+        m_text    = const_cast<char*>(txtValue);
         m_typeID  = SQLITE_TEXT;
     }
     
@@ -731,17 +921,25 @@ public:
     explicit
     ValueSQL( char* txtValue )
     {
-        m_isConst = false;
         m_text    = txtValue;
         m_typeID  = SQLITE_TEXT;
+    }
+    
+    /// Ctor for char* type initializer
+    explicit
+    ValueSQL( char* blobValue, size_t size )
+    {
+        m_isConst     = false;
+        m_text        = blobValue;
+        m_blobsize    = size;
+        m_typeID      = SQLITE_BLOBX;
     }
     
     /// Ctor for MATLAB const mxArray* type initializer
     explicit
     ValueSQL( const mxArray* blobValue )
     {
-        m_isConst = true;
-        m_blob    = blobValue;
+        m_blob    = const_cast<mxArray*>(blobValue);
         m_typeID  = SQLITE_BLOB;
     }
 
@@ -754,21 +952,6 @@ public:
         m_typeID  = SQLITE_BLOB;
     }
 
-/* 
-    // \hide
-    void adopt()
-    {
-        m_isConst = false;
-    }
-    
-    void release()
-    {
-        m_isConst = true;
-    }
- 
-    // \endhide
-*/
-    
     /**
      * \brief Freeing memory space if having ownership
      *
@@ -776,17 +959,24 @@ public:
      */
     void Destroy()
     {
+        extern void blob_free( void** pBlob );  /* sql_user_functions.hpp */
+        
         if( !m_isConst )
         {
             if( m_typeID == SQLITE_TEXT && m_text )
             {
-                MEM_FREE( const_cast<char*>(m_text) );
+                ::utils_free_ptr( m_text );
                 m_text = NULL;
+            }
+            
+            if( m_typeID == SQLITE_BLOBX && m_text )
+            {
+                blob_free( (void**)&m_text );
             }
             
             if( m_typeID == SQLITE_BLOB && m_blob )
             {
-                mxDestroyArray( const_cast<mxArray*>(m_blob) );
+                mxDestroyArray( m_blob );
                 m_blob = NULL;
             }
         }

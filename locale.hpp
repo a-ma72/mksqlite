@@ -7,7 +7,7 @@
  *             for the case of further translations.
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -99,6 +99,8 @@ int           getLocale     ();
 #define MSG_STREAMINGNOTSUPPORTED       44
 #define MSG_RESULTTYPE                  45
 #define MSG_DBID_SUPFLOUS               46
+#define MSG_FCNHARGEXPCT                47
+#define MSG_LITERALARGEXPCT             48
 /** @}  */
 
 
@@ -326,6 +328,8 @@ static const char* messages_0[] =
 /* 44*/    "streaming not supported in this MATLAB version",
 /* 45*/    "Result type is ",
 /* 46*/    "Database ID is given, but superflous! ",
+/* 47*/    "Function handle expected! ",
+/* 48*/    "String argument expected! ",
 };
 
 
@@ -390,6 +394,8 @@ static const char* messages_1[] =
 /* 44*/    "Streaming wird von dieser MATLAB Version nicht unterstuetzt",
 /* 45*/    "Rueckgabetyp ist ",
 /* 46*/    "Datenbank ID wurde angegeben, ist fuer diesen Befehl jedoch ueberfluessig! ", 
+/* 47*/    "Funktionshandle erwartet! ",
+/* 48*/    "String Argument erwartet! ",
 };
 
 /**
@@ -428,7 +434,20 @@ static const char **messages[] =
  */
 const char* getLocaleMsg( int iMsgNr )
 {
-    return (iMsgNr < 0) ? NULL : messages[Language][iMsgNr];
+    if(iMsgNr < 0)
+    {
+        switch( getLocale() )
+        {
+            case 1:
+                return "Unbekanner Fehler!";
+            default:
+                return "Unspecified error!"; 
+        }
+    }
+    else
+    {
+        return messages[Language][iMsgNr];
+    } 
 }
 
 

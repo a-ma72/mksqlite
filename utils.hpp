@@ -8,7 +8,7 @@
  *  @see       http://note.sonots.com/Mex/Matrix.html
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -24,13 +24,14 @@
 
 /* helper functions, formard declarations */
 #if defined( MATLAB_MEX_FILE)
+                  char*   utils_getString         ( const mxArray* str );
                   size_t  utils_elbytes           ( mxClassID classID );
+                  void    utils_destroy_array     ( mxArray *&pmxarr );
+template<class T> void    utils_free_ptr          ( T *&pmxarr );
 #endif
                   int     utils_utf2latin         ( const unsigned char *s, unsigned char *buffer );
                   int     utils_latin2utf         ( const unsigned char *s, unsigned char *buffer );
                   char*   utils_strnewdup         ( const char* s, int flagConvertUTF8 );
-                  void    utils_destroy_array     ( mxArray *&pmxarr );
-template<class T> void    utils_free_ptr          ( T *&pmxarr );
                   double  utils_get_wall_time     ();
                   double  utils_get_cpu_time      ();
 
@@ -39,6 +40,30 @@ template<class T> void    utils_free_ptr          ( T *&pmxarr );
 
 #if defined( MATLAB_MEX_FILE)
 /* Implementations */
+
+/**
+ * @brief Copy string characters into allocated memory
+ * @details Not to use with multibyte strings!
+ * 
+ * @param str MATLAB char array
+ * @return Pointer to allocated string
+ */
+char* utils_getString( const mxArray* str )
+{
+    char* result = NULL;
+
+    if( str && mxCHAR_CLASS == mxGetClassID( str ) )
+    {
+        size_t size = mxGetNumberOfElements( str ) + 1;
+        result = (char*)MEM_ALLOC( size, 1 );
+        if( result )
+        {
+            mxGetString( str, result, (int)size );
+        }
+    }
+
+    return result;
+}
 
 /**
  * @brief Get the size of one element in bytes

@@ -7,7 +7,7 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -24,6 +24,7 @@
 //#include "utils.hpp"
 //#include "value.hpp"
 //#include "locale.hpp"
+#include <map>
 
 
 // For SETERR usage:
@@ -33,6 +34,9 @@
 /// type for column container
 typedef vector<ValueSQLCol> ValueSQLCols;
 
+extern ValueMex createItemFromValueSQL( const ValueSQL& value, int& err_id );  /* mksqlite.cpp */
+extern ValueSQL createValueSQLFromItem( const ValueMex& item, bool bStreamable, int& iTypeComplexity, int& err_id );  /* mksqlite.cpp */
+
 /**
  * \brief SQLite interface
  *
@@ -40,10 +44,146 @@ typedef vector<ValueSQLCol> ValueSQLCols;
  */
 class SQLiface
 {
+    /// Functors for SQL user defined (aggregation) functions
+    struct MexFunctors
+    {
+        private:
+        SQLiface* m_piface;        ///< Pointer to SQL Interface
+        ValueMex  m_functors[3];   ///< Function handles (function, step, final)
+
+        public:
+        enum {FCN, STEP, FINAL};
+
+        /// Ctor
+        MexFunctors() {}
+
+        
+        /// Ctor
+        MexFunctors( SQLiface* piface, const ValueMex& func, const ValueMex& step, const ValueMex& final )
+        {
+            assert( piface );
+            m_piface = piface;
+
+            m_functors[FCN]   = ValueMex(func).Duplicate();
+            m_functors[STEP]  = ValueMex(step).Duplicate();
+            m_functors[FINAL] = ValueMex(final).Duplicate();
+
+            for( int i = 0; i < 3; i++ )
+            {
+                // Prevent function handles to be deleted when mex function returns
+                // (MATLAB automatically deletes arrays, allocated in mex functions)
+                m_functors[i].MakePersistent();
+            }
+        }
+
+        /// Copy Ctor
+        MexFunctors( const MexFunctors& other )
+        {
+            *this = MexFunctors( other.m_piface, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
+        }
+
+        /// Move Ctor
+        MexFunctors( MexFunctors&& other )
+        {
+            for( int i = 0; i < 3; i++ )
+            {
+                m_functors[i] = other.m_functors[i];
+            }
+        }
+
+        /// Copy assignment
+        MexFunctors& operator=( const MexFunctors& other )
+        {
+            if( this != &other )
+            {
+                *this = MexFunctors( other );
+            }
+            return *this;
+        }
+
+        /// Move assignment
+        MexFunctors& operator=( MexFunctors&& other )
+        {
+            if( this != &other )
+            {
+                *this = MexFunctors( other );
+            }
+            return *this;
+        }
+
+        /// Dtor
+        ~MexFunctors() 
+        {
+            for( int i = 0; i < 3; i++ )
+            {
+                m_functors[i].Destroy();
+            }
+        }
+
+        /// Return one of the functors (function, init or final)
+        const ValueMex& getFunc(int nr) const 
+        { 
+            return m_functors[nr]; 
+        }
+        
+        /// Duplicate one of the functors (function, init or final)
+        ValueMex dupFunc(int nr)  const 
+        { 
+            return ValueMex( getFunc(nr) ).Duplicate(); 
+        }
+        
+        /// Check if function handle is valid (not empty and of functon handle class)
+        bool checkFunc(int nr)  const 
+        { 
+            return ValueMex( getFunc(nr) ).IsFunctionHandle(); 
+        }
+        
+        /// Exchange exception stack information
+        void setSwapException( ValueMex& exception ) 
+        { 
+            assert( m_piface );
+            std::swap( m_piface->m_exception, exception ); 
+        }
+
+        /// Check if one of the functors is empty
+        bool IsEmpty() const 
+        { 
+            return m_functors[FCN].IsEmpty() && m_functors[STEP].IsEmpty() && m_functors[FINAL].IsEmpty(); 
+        }
+
+        /// Check if all functors are valid
+        bool IsValid() const
+        {
+            for( int i = 0; i < 3; i++ )
+            {
+                if( m_functors[i].IsEmpty() )
+                {
+                    continue;
+                }
+
+                if( !m_functors[i].IsFunctionHandle() || m_functors[i].NumElements() != 1 )
+                {
+                    return false;
+                }
+            }
+
+            if( IsEmpty() )
+            {
+                return false;
+            }
+
+            return true;
+        }
+    };
+
+    typedef map<string, MexFunctors*> MexFunctorsMap;   ///< Dictionary: function name => function handles
+    
     sqlite3*        m_db;           ///< SQLite db object
     const char*     m_command;      ///< SQL query (no ownership, read-only!)
     sqlite3_stmt*   m_stmt;         ///< SQL statement (sqlite bridge)
     Err             m_lasterr;      ///< recent error message
+    MexFunctorsMap  m_fcnmap;       ///< MEX function map for user defined SQL functions
+    ValueMex        m_exception;    ///< Exception stack information
           
 public:
   /// Standard ctor
@@ -102,6 +242,13 @@ public:
   {
       return m_lasterr.isPending();
   }
+
+
+  /// (Re-)Throws an exception, if any occured
+  void throwOnException()
+  {
+      m_exception.Throw();
+  }
   
   
   /// Returns true, if database is open
@@ -111,7 +258,7 @@ public:
   }
   
   
-  /// Sets the busy tiemout in milliseconds
+  /// Sets the busy timemout in milliseconds
   bool setBusyTimeout( int iTimeoutValue )
   {
       if( !isOpen() )
@@ -185,14 +332,21 @@ public:
   {
       closeStmt();
       
-      // sqlite3_close with a NULL argument is a harmless no-op
+      // Deallocate functors
+      for( MexFunctorsMap::iterator it = m_fcnmap.begin(); it != m_fcnmap.end(); it++ )
+      {
+          delete it->second;
+      }
+      m_fcnmap.clear();
+
+      // m_db may be NULL, since sqlite3_close with a NULL argument is a harmless no-op
       if( SQLITE_OK == sqlite3_close( m_db ) )
       {
           m_db = NULL;
       }
       else
       {
-          mexPrintf( "%s\n", ::getLocaleMsg( MSG_ERRCANTCLOSE ) );
+          PRINTF( "%s\n", ::getLocaleMsg( MSG_ERRCANTCLOSE ) );
           m_lasterr.set( SQL_ERR ); /* not SQL_ERR_CLOSE */
       }
       
@@ -395,6 +549,226 @@ public:
           sqlite3_create_function( m_db, "md5", 1, SQLITE_UTF8, NULL, MD5_func, NULL, NULL );                       // Message-Digest (RSA)
       }
   }
+
+
+  /// Wrapper for SQL function
+  static 
+  void mexFcnWrapper_FCN( sqlite3_context *ctx, int argc, sqlite3_value **argv )
+  {
+      mexFcnWrapper( ctx, argc, argv, SQLiface::MexFunctors::FCN );
+  }
+  
+  /// Wrapper for SQL step function (aggregation)
+  static 
+  void mexFcnWrapper_STEP( sqlite3_context *ctx, int argc, sqlite3_value **argv )
+  {
+      mexFcnWrapper( ctx, argc, argv, SQLiface::MexFunctors::STEP );
+  }
+  
+  /// Wrapper for SQL final function (aggregation)
+  static 
+  void mexFcnWrapper_FINAL( sqlite3_context *ctx, int argc, sqlite3_value **argv )
+  {
+      mexFcnWrapper( ctx, argc, argv, SQLiface::MexFunctors::FINAL );
+  }
+  
+  /// Common wrapper for all user defined SQL functions
+  static
+  void mexFcnWrapper( sqlite3_context *ctx, int argc, sqlite3_value **argv, int func_nr )
+  {
+      MexFunctors* fcn = (MexFunctors*)sqlite3_user_data( ctx );
+      ValueMex arg( ValueMex::CreateCellMatrix( 1, argc + 1 ) );
+      bool failed = false;
+
+      assert( arg.Item() );
+      
+      // Transform SQL value arguments into a MATLAB cell array
+      for( int i = 0; i < argc && !failed; i++ )
+      {
+          int err_id = MSG_NOERROR;
+          ValueSQL value;
+          ValueMex item;
+          
+          switch( sqlite3_value_type( argv[i] ) )
+          {
+              case SQLITE_NULL:
+                  break;
+
+              case SQLITE_INTEGER:   
+                  value = ValueSQL( sqlite3_value_int64( argv[i] ) );
+                  break;
+
+              case SQLITE_FLOAT:
+                  value = ValueSQL( sqlite3_value_double( argv[i] ) );
+                  break;
+
+              case SQLITE_TEXT:
+              {
+                  char* str = (char*)utils_strnewdup( (const char*)sqlite3_value_text( argv[i] ), g_convertUTF8 );
+
+                  if( str )
+                  {
+                      value = ValueSQL( str );
+                      break;
+                  }
+              }
+
+              case SQLITE_BLOB:      
+              {
+                  size_t bytes = sqlite3_value_bytes( argv[i] );
+
+                  item = ValueMex( (int)bytes, bytes ? 1 : 0, ValueMex::UINT8_CLASS );
+
+                  if( item.Data() )
+                  {
+                      if( bytes )
+                      {
+                          memcpy( item.Data(), sqlite3_value_blob( argv[i] ), bytes );
+                      }
+
+                      value = ValueSQL( item.Detach() );
+                  }
+                  else
+                  {
+                      sqlite3_result_error( ctx, getLocaleMsg( MSG_ERRMEMORY ), -1 );
+                      failed = true;
+                  }
+
+                  break;
+              }
+
+              default:
+                  sqlite3_result_error( ctx, getLocaleMsg( MSG_UNKNWNDBTYPE ), -1 );
+                  failed = true;
+          }
+          
+          if( failed )
+          {
+              value.Destroy();
+          }
+          else
+          {
+              // Cumulate arguments into a cell array
+              arg.SetCell( i + 1, createItemFromValueSQL( value, err_id ).Detach() );
+              
+              if( MSG_NOERROR != err_id )
+              {
+                  sqlite3_result_error( ctx, ::getLocaleMsg( err_id ), -1 );
+                        failed = true;
+              }
+          }
+      }
+      
+      if( !fcn->checkFunc(func_nr) )
+      {
+          sqlite3_result_error( ctx, "Invalid function!", -1 );
+          failed = true;
+      }
+
+      if( !failed )
+      {
+          ValueMex exception, lhs;
+          arg.SetCell( 0, fcn->dupFunc(func_nr).Detach() );
+          arg.Call( &lhs, &exception );
+
+          if( !exception.IsEmpty() )
+          {
+              // Exception handling
+              fcn->setSwapException( exception );
+              sqlite3_result_error( ctx, "MATLAB Exception!", -1 );
+              failed = true;
+          }
+          else
+          {
+              if( !lhs.IsEmpty() )
+              {
+                  if( lhs.IsScalar() )
+                  {
+                      sqlite3_result_double( ctx, lhs.GetScalar() );
+                  }
+              }
+              else
+              {
+                  sqlite3_result_null( ctx );
+              }
+          }
+
+          lhs.Destroy();
+          exception.Destroy();
+      }
+
+      arg.Destroy();
+  }
+  
+  
+  /**
+   * \brief Attach user defined function to database object
+   */
+  bool attachMexFunction( const char* name, const ValueMex& func, const ValueMex& step, const ValueMex& final )
+  {
+      if( !isOpen() )
+      {
+          assert( false );
+      }
+      else
+      {
+          MexFunctors* fcn = new MexFunctors( this, func, step, final );
+          int rc = SQLITE_OK;
+          int action = -1;
+          bool failed = false;
+          
+          if( fcn->IsEmpty() )
+          {
+              // Remove function
+              rc = sqlite3_create_function( m_db, name, -1, SQLITE_UTF8, NULL, NULL, NULL, NULL );
+              action = 0;
+          }
+          else
+          {
+              if( !fcn->IsValid() )
+              {
+                  m_lasterr.set( MSG_FCNHARGEXPCT );
+                  failed = true;
+              }
+              else
+              {
+                  // Add function
+                  rc = sqlite3_create_function( m_db, name, -1, SQLITE_UTF8, (void*)fcn, mexFcnWrapper_FCN, NULL, NULL );  
+                  action = 1;
+              }
+          }
+                  
+          if( SQLITE_OK != rc )
+          {
+              m_lasterr.set( SQL_ERR );
+              failed = true;
+          }
+
+          if( !failed )
+          {
+              if( action >= 0 )
+              {
+                  if( m_fcnmap.count(name) )
+                  {
+                      delete m_fcnmap[name];
+                      m_fcnmap.erase(name);
+                  }
+              }
+
+              if( action > 0 )
+              {
+                  m_fcnmap[name] = fcn;
+                  fcn = NULL;
+              }
+          }
+
+          delete fcn;
+
+          return !errPending();
+      }
+      
+      return true;
+  }
   
   
   /**
@@ -468,148 +842,89 @@ public:
    * \param[in] pItem MATLAB array
    * \param[in] bStreamable true, if streaming is possible and desired
    */
-  bool bindParameter( int index, const mxArray* pItem, bool bStreamable )
+  bool bindParameter( int index, ValueMex& item, bool bStreamable )
   {
-      ValueMex value( pItem );  // MATLAB array wrapper
-      int iTypeComplexity = pItem ? value.Complexity( bStreamable ) : ValueMex::TC_EMPTY;
+      int err_id = MSG_NOERROR;
+      int iTypeComplexity;
 
-      switch( iTypeComplexity )
+      ValueSQL value = createValueSQLFromItem( item, bStreamable, iTypeComplexity, err_id );
+
+      if( MSG_NOERROR != err_id )
       {
-        case ValueMex::TC_COMPLEX:
-          // structs, cells and complex data 
-          // can only be stored as officially undocumented byte stream feature
-          // (SQLite typed ByteStream BLOB)
-          if( !bStreamable || !typed_blobs_mode_on() )
-          {
-              m_lasterr.set( MSG_INVALIDARG );
+          m_lasterr.set( err_id );
+          return false;
+      }
+
+      switch( value.m_typeID )
+      {
+          case SQLITE_NULL:
+              if( SQLITE_OK != sqlite3_bind_null( m_stmt, index ) )
+              {
+                  m_lasterr.set( SQL_ERR );
+              }
               break;
-          }
-          
-          /* fallthrough */
-        case ValueMex::TC_SIMPLE_ARRAY:
-          // multidimensional non-complex numeric or char arrays
-          // will be stored as vector(!).
-          // Caution: Array dimensions are lost, if you don't use typed blobs
-          // nor serialization
-            
-          /* fallthrough */
-        case ValueMex::TC_SIMPLE_VECTOR:
-          // non-complex numeric vectors (SQLite BLOB)
-          if( !typed_blobs_mode_on() )
-          {
-              // array data will be stored as anonymous byte stream blob.
-              // no automatically reconstruction of data dimensions or types 
-              // is available!
-              
+
+          case SQLITE_FLOAT:
+              // scalar floating point value
+              if( SQLITE_OK != sqlite3_bind_double( m_stmt, index, item.GetScalar() ) )
+              {
+                  m_lasterr.set( SQL_ERR );
+              }
+              break;
+
+          case SQLITE_INTEGER:
+              if( item.ClassID() == ValueMex::INT64_CLASS )
+              {
+                  // scalar integer value
+                  if( SQLITE_OK != sqlite3_bind_int64( m_stmt, index, item.GetInt64() ) )
+                  {
+                      m_lasterr.set( SQL_ERR );
+                  }
+              }
+              else
+              {
+                  // scalar integer value
+                  if( SQLITE_OK != sqlite3_bind_int( m_stmt, index, item.GetInt() ) )
+                  {
+                      m_lasterr.set( SQL_ERR );
+                  }
+              }
+              break;
+
+          case SQLITE_TEXT:
+              // string argument
+              // SQLite makes a local copy of the text (thru SQLITE_TRANSIENT)
+              if( SQLITE_OK != sqlite3_bind_text( m_stmt, index, value.m_text, -1, SQLITE_TRANSIENT ) )
+              {
+                  m_lasterr.set( SQL_ERR );
+              }
+              break;
+
+          case SQLITE_BLOB:
               // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
-              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, value.Data(), 
-                                                  (int)value.ByData(),
+              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, item.Data(), 
+                                                  (int)item.ByData(),
                                                   SQLITE_TRANSIENT ) )
               {
                   m_lasterr.set( SQL_ERR );
               }
-          } 
-          else 
-          {
-              // data will be stored in a typed blob. Data and structure types
-              // will be recovered, on data recall
-              void*  blob          = NULL;
-              size_t blob_size     = 0;
-              double process_time  = 0.0;
-              double ratio         = 0.0;
+              break;
 
-              /* blob_pack() modifies g_finalize_msg */
-              m_lasterr.set( blob_pack( pItem, bStreamable, &blob, &blob_size, &process_time, &ratio ) );
-              
-              if( !errPending() )
+          case SQLITE_BLOBX:
+              // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
+              // the sqlite allocator provided blob memory
+              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, value.m_text, 
+                                                  (int)value.m_blobsize, 
+                                                  sqlite3_free ) )
               {
-                  // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
-                  // the sqlite allocator provided blob memory
-                  if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, blob, (int)blob_size, sqlite3_free ) )
-                  {
-                      m_lasterr.set( SQL_ERR );
-                  }  
-              }
-          }
-          break;
-          
-        case ValueMex::TC_SIMPLE:
-          // 1-value non-complex scalar, char or simple string (SQLite simple types)
-          switch( value.ClassID() )
-          {
-              case mxLOGICAL_CLASS:
-              case mxINT8_CLASS:
-              case mxUINT8_CLASS:
-              case mxINT16_CLASS:
-              case mxINT32_CLASS:
-              case mxUINT16_CLASS:
-              case mxUINT32_CLASS:
-                  // scalar integer value
-                  if( SQLITE_OK != sqlite3_bind_int( m_stmt, index, value.GetInt() ) )
-                  {
-                      m_lasterr.set( SQL_ERR );
-                  }
-                  break;
-                  
-              case mxINT64_CLASS:
-                  // scalar integer value
-                  if( SQLITE_OK != sqlite3_bind_int64( m_stmt, index, value.GetInt64() ) )
-                  {
-                      m_lasterr.set( SQL_ERR );
-                  }
-                  break;
+                  m_lasterr.set( SQL_ERR );
+              }  
+              break;
 
-              case mxDOUBLE_CLASS:
-              case mxSINGLE_CLASS:
-                  // scalar floating point value
-                  if( SQLITE_OK != sqlite3_bind_double( m_stmt, index, value.GetScalar() ) )
-                  {
-                      m_lasterr.set( SQL_ERR );
-                  }
-                  break;
-                  
-              case mxCHAR_CLASS:
-              {
-                  // string argument
-                  char* str_value = value.GetEncString();
-                  
-                  if( !str_value )
-                  {
-                      m_lasterr.set( MSG_ERRMEMORY );
-                  }
-                  
-                  if( !errPending() )
-                  {
-                      // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
-                      if( SQLITE_OK != sqlite3_bind_text( m_stmt, index, str_value, -1, SQLITE_TRANSIENT ) )
-                      {
-                          m_lasterr.set( SQL_ERR );
-                      }
-                  }
-                  
-                  ::utils_free_ptr( str_value );
-                  break;
-              }
-
-              default:
-                  // all other (unsuppored types)
-                  m_lasterr.set( MSG_INVALIDARG );
-                  break;
-
-          } // end switch
-          break;
-          
-        case ValueMex::TC_EMPTY:
-            if( SQLITE_OK != sqlite3_bind_null( m_stmt, index ) )
-            {
-                m_lasterr.set( SQL_ERR );
-            }
-            break;
-          
-        default:
-            // all other (unsuppored types)
-            m_lasterr.set( MSG_INVALIDARG );
-            break;
+          default:
+              // all other (unsuppored types)
+              m_lasterr.set( MSG_INVALIDARG );
+              break;
       }
       
       return !errPending();
@@ -667,7 +982,6 @@ public:
   const void* colBlob( int index )
   {
       unsigned char* test = (unsigned char*)sqlite3_column_blob( m_stmt, index );
-      return test;
       return m_stmt ? sqlite3_column_blob( m_stmt, index ) : NULL;
   }
   
@@ -797,7 +1111,7 @@ public:
       sqlite3_finalize( m_stmt );
       m_stmt = NULL;
   }
-  
+
     
   /** 
    * \brief Proceed a table fetch
@@ -875,16 +1189,13 @@ public:
                   {
                       size_t bytes = colBytes( jCol );
 
-                      mxArray* item = mxCreateNumericMatrix( (int)bytes, bytes ? 1 : 0, mxUINT8_CLASS, mxREAL );
+                      ValueMex item = ValueMex( (int)bytes, bytes ? 1 : 0, ValueMex::UINT8_CLASS );
 
-                      if( item )
+                      if( item.Item() )
                       {
-                          value = ValueSQL( item );
-
                           if( bytes )
                           {
-                              ValueMex v(item);
-                              memcpy( v.Data(), colBlob( jCol ), bytes );
+                              memcpy( item.Data(), colBlob( jCol ), bytes );
                           }
                       }
                       else
@@ -893,6 +1204,7 @@ public:
                           continue;
                       }
 
+                      value = ValueSQL( item.Detach() );
                       break;
                   }
 

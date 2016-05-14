@@ -6,7 +6,7 @@
  *  @details   class implementations (SQLstack and Mksqlite)
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -123,7 +123,7 @@ static struct SQLstack
     {
         for( int i = 0; i < COUNT_DB; i++ )
         {
-            mexPrintf( "DB Handle %d: %s\n", i+1, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
+            PRINTF( "DB Handle %d: %s\n", i+1, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
         }
     }
     
@@ -205,12 +205,12 @@ void mex_module_init()
             mexAtExit( mex_module_deinit );
             typed_blobs_init();
 
-            mexPrintf( ::getLocaleMsg( MSG_HELLO ), 
-                       SQLITE_VERSION );
+            PRINTF( ::getLocaleMsg( MSG_HELLO ), 
+                    SQLITE_VERSION );
 
-            mexPrintf( "Platform: %s, %s\n\n", 
-                       TBH_platform, 
-                       TBH_endian[0] == 'L' ? "little endian" : "big endian" );
+            PRINTF( "Platform: %s, %s\n\n", 
+                    TBH_platform, 
+                    TBH_endian[0] == 'L' ? "little endian" : "big endian" );
 
             init_once = true;
         }
@@ -225,11 +225,226 @@ void mex_module_init()
         }
 
 #if CONFIG_USE_HEAP_CHECK
-        mexPrintf( "Heap checking is on, this may slow down execution time dramatically!\n" );
+        PRINTF( "Heap checking is on, this may slow down execution time dramatically!\n" );
 #endif
         
     }
 }
+
+
+/**
+ * \brief Transfer fetched SQL value into MATLAB array
+ *
+ * @param[in] value encapsulated SQL field value
+ * @returns a MATLAB array due to value type (string or numeric content)
+ *
+ * @see g_result_type
+ */
+ValueMex createItemFromValueSQL( const ValueSQL& value, int& err_id )
+{
+    mxArray* item = NULL;
+
+    switch( value.m_typeID )
+    {
+      case SQLITE_NULL:
+        if( g_NULLasNaN )
+        {
+            item = mxCreateDoubleScalar( DBL_NAN );
+        }
+        else
+        {
+            item = mxCreateDoubleMatrix( 0, 0, mxREAL );
+        }
+        break;
+
+      case SQLITE_INTEGER:
+        item = mxCreateNumericMatrix( 1, 1, mxINT64_CLASS, mxREAL );
+
+        if(item)
+        {
+            *(sqlite3_int64*)mxGetData( item ) = value.m_integer;
+        }
+        break;
+
+      case SQLITE_FLOAT:
+        item = mxCreateDoubleScalar( value.m_float );
+        break;
+
+      case SQLITE_TEXT:
+        item = mxCreateString( value.m_text );
+        break;
+
+      case SQLITE_BLOB:
+      {
+        ValueMex blob(value.m_blob);
+        size_t blob_size = blob.ByData();
+
+        if( blob_size > 0 )
+        {
+            // check for typed BLOBs
+            if( !typed_blobs_mode_on() )
+            {
+                // BLOB has no type info, it's just an array of bytes
+                item = mxCreateNumericMatrix( (mwSize)blob_size, 1, mxUINT8_CLASS, mxREAL );
+
+                if(item)
+                {
+                    memcpy( ValueMex(item).Data(), blob.Data(), blob_size );
+                }
+            } 
+            else 
+            {
+                // BLOB has type information and will be "unpacked"
+                const void* blob         = ValueMex( value.m_blob ).Data();
+                double      process_time = 0.0;
+                double      ratio = 0.0;
+                int         err_id;
+
+                /* blob_unpack() modifies g_finalize_msg */
+                err_id = blob_unpack( blob, blob_size, can_serialize(), &item, &process_time, &ratio );
+            }
+        } 
+        else 
+        {
+            // empty BLOB
+            item = mxCreateDoubleMatrix( 0, 0, mxREAL );
+        }
+
+        break;
+      } /* end case SQLITE_BLOB */
+
+      default:
+        assert(false);
+        break;
+
+    } /* end switch */
+    
+    return ValueMex( item ).Adopt();
+}
+
+
+/**
+ * \brief Transfer MATLAB array into a SQL value
+ *
+ * @param[in] item encapsulated MATLAB array
+ * @returns a SQL value type
+ *
+ * @see g_result_type
+ */
+ValueSQL createValueSQLFromItem( const ValueMex& item, bool bStreamable, int& iTypeComplexity, int& err_id )
+{
+    iTypeComplexity = item.Item() ? item.Complexity( bStreamable ) : ValueMex::TC_EMPTY;
+
+    ValueSQL value;
+
+    switch( iTypeComplexity )
+    {
+        case ValueMex::TC_COMPLEX:
+          // structs, cells and complex data 
+          // can only be stored as officially undocumented byte stream feature
+          // (SQLite typed ByteStream BLOB)
+          if( !bStreamable || !typed_blobs_mode_on() )
+          {
+              err_id = MSG_INVALIDARG;
+              break;
+          }
+          
+          /* fallthrough */
+        case ValueMex::TC_SIMPLE_ARRAY:
+          // multidimensional non-complex numeric or char arrays
+          // will be stored as vector(!).
+          // Caution: Array dimensions are lost, if you don't use neither typed blobs
+          // nor serialization
+            
+          /* fallthrough */
+        case ValueMex::TC_SIMPLE_VECTOR:
+          // non-complex numeric vectors (SQLite BLOB)
+          if( !typed_blobs_mode_on() )
+          {
+              // BLOB without type information
+              value = ValueSQL( item.Item() );
+          } 
+          else 
+          {
+              // BLOB with type information. Data and structure types
+              // will be recovered, when fetched again
+              void*  blob          = NULL;
+              size_t blob_size     = 0;
+              double process_time  = 0.0;
+              double ratio         = 0.0;
+
+              /* blob_pack() modifies g_finalize_msg */
+              err_id = blob_pack( item.Item(), bStreamable, &blob, &blob_size, &process_time, &ratio );
+              
+              if( MSG_NOERROR == err_id )
+              {
+                  value = ValueSQL( (char*)blob, blob_size );
+              }
+          }
+          break;
+          
+        case ValueMex::TC_SIMPLE:
+          // 1-value non-complex scalar, char or simple string (SQLite simple types)
+          switch( item.ClassID() )
+          {
+              case ValueMex::LOGICAL_CLASS:
+              case ValueMex::INT8_CLASS:
+              case ValueMex::UINT8_CLASS:
+              case ValueMex::INT16_CLASS:
+              case ValueMex::INT32_CLASS:
+              case ValueMex::UINT16_CLASS:
+              case ValueMex::UINT32_CLASS:
+                  // scalar integer value
+                  value = ValueSQL( (sqlite3_int64)item.GetInt() );
+                  break;
+                  
+              case ValueMex::INT64_CLASS:
+                  // scalar integer value
+                  value = ValueSQL( item.GetInt64() );
+                  break;
+
+              case ValueMex::DOUBLE_CLASS:
+              case ValueMex::SINGLE_CLASS:
+                  // scalar floating point value
+                  value = ValueSQL( item.GetScalar() );
+                  break;
+                  
+              case ValueMex::CHAR_CLASS:
+              {
+                  // string argument
+                  char* str_value = item.GetEncString();
+                  
+                  if( !str_value )
+                  {
+                      err_id = MSG_ERRMEMORY;
+                  }
+                  else
+                  {
+                      value = ValueSQL( str_value );
+                  }
+                  break;
+              }
+
+              default:
+                  // all other (unsuppored types)
+                  err_id = MSG_INVALIDARG;
+                  break;
+
+          } // end switch
+          break;
+          
+        case ValueMex::TC_EMPTY:
+            break;
+          
+        default:
+            // all other (unsuppored types)
+            err_id = MSG_INVALIDARG;
+            break;
+    }
+
+    return value;
+}
+
 
 
 
@@ -272,7 +487,7 @@ public:
          */
         if( nrhs < 1 )
         {
-            mexPrintf( "%s", ::getLocaleMsg( MSG_USAGE ) );
+            PRINTF( "%s", ::getLocaleMsg( MSG_USAGE ) );
             m_err.set( MSG_INVALIDARG );
         }
     }
@@ -400,6 +615,70 @@ public:
 
     
     /**
+     * \brief Get next value as function handle from argument list
+     *
+     * \param[out] refValue Result will be returned in
+     * 
+     * Read next parameter at current argument read position, and
+     * write to \p refValue
+     */
+    bool argGetNextFcnHandle( const mxArray*& refValue )
+    {
+        if( errPending() ) return false;
+
+        if( m_narg < 1 ) 
+        {
+            m_err.set( MSG_MISSINGARG );
+            return false;
+        }
+        else if( mxGetClassID( m_parg[0] ) != mxFUNCTION_CLASS )
+        {
+            m_err.set( MSG_FCNHARGEXPCT );
+            return false;
+        }
+        
+        refValue = m_parg[0];
+
+        m_parg++;
+        m_narg--;
+
+        return true;
+    }
+
+    
+    /**
+     * \brief Get next value as literal argument from argument list
+     *
+     * \param[out] refValue Result will be returned in
+     * 
+     * Read next parameter at current argument read position, and
+     * write to \p refValue
+     */
+    bool argGetNextLiteral( const mxArray*& refValue )
+    {
+        if( errPending() ) return false;
+
+        if( m_narg < 1 ) 
+        {
+            m_err.set( MSG_MISSINGARG );
+            return false;
+        }
+        else if( mxGetClassID( m_parg[0] ) != mxCHAR_CLASS )
+        {
+            m_err.set( MSG_LITERALARGEXPCT );
+            return false;
+        }
+        
+        refValue = m_parg[0];
+
+        m_parg++;
+        m_narg--;
+
+        return true;
+    }
+
+    
+    /**
      * \brief Get database ID from argument list
      * 
      * Reads the next argument if it is numeric and a valid dbid.
@@ -471,7 +750,7 @@ public:
          */
         if( !m_narg || !mxIsChar( m_parg[0] ) )
         {
-            mexPrintf( "%s", ::getLocaleMsg( MSG_USAGE ) );
+            PRINTF( "%s", ::getLocaleMsg( MSG_USAGE ) );
             m_err.set( MSG_INVALIDARG );
             return false;
         }
@@ -557,7 +836,7 @@ public:
             {
                 if( m_nlhs == 0 )
                 {
-                    mexPrintf( "mksqlite Version %s\n", CONFIG_MKSQLITE_VERSION_STRING );
+                    PRINTF( "mksqlite Version %s\n", CONFIG_MKSQLITE_VERSION_STRING );
                 } 
                 else
                 {
@@ -580,7 +859,7 @@ public:
             {
                 if( m_nlhs == 0 )
                 {
-                    mexPrintf( "SQLite Version %s\n", SQLITE_VERSION_STRING );
+                    PRINTF( "SQLite Version %s\n", SQLITE_VERSION_STRING );
                 } 
                 else 
                 {
@@ -712,7 +991,75 @@ public:
             return false;
         }
 
-        mexPrintf( "%s\n", ::getLocaleMsg( flagOnOff ? MSG_EXTENSION_EN : MSG_EXTENSION_DIS ) );
+        PRINTF( "%s\n", ::getLocaleMsg( flagOnOff ? MSG_EXTENSION_EN : MSG_EXTENSION_DIS ) );
+        
+        return true;
+    }
+    
+    
+    /**
+     * \brief Handle command to create or delete a SQL user function
+     *
+     * \param[in] strCmdMatchName Command name
+     * 
+     * Try to interpret current command as to create a SQL user function
+     * \p strCmdMatchName holds the mksqlite command name.
+     */
+    bool cmdTryHandleCreateFunction( const char* strCmdMatchName )
+    {
+        if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
+        {
+            return false;
+        }
+
+        // database must be open to change setting
+        if( !ensureDbIsOpen() )
+        {
+            // ensureDbIsOpen() sets m_err
+            return false;
+        }
+        
+        /*
+         * There should be a function name and a function handle
+         */
+        if( m_narg > 3 )
+        {
+            m_err.set( MSG_UNEXPECTEDARG );
+            return false;
+        }
+
+        string fcnName;
+        if(1)
+        {
+            const mxArray* arg = NULL;
+
+            if( !argGetNextLiteral( arg ) )
+            {
+                // argGetNextFcnHandle() sets m_err
+                return false;
+            }
+
+            char* buffer = ::utils_getString( arg );
+            if( buffer )
+            {
+                fcnName = buffer;
+                ::utils_free_ptr( buffer );
+            }
+        }
+        
+        const mxArray* fcnHandle;
+        if( !argGetNextFcnHandle( fcnHandle ) )
+        {
+            // argGetNextFcnHandle() sets m_err
+            return false;
+        }
+        
+        if( !SQLstack.current().attachMexFunction( fcnName.c_str(), ValueMex( fcnHandle ), ValueMex( NULL ), ValueMex( NULL ) ) )
+        {
+            const char* errid = NULL;
+            m_err.set( SQLstack.current().getErr(&errid), errid );
+            return false;
+        }
         
         return true;
     }
@@ -948,14 +1295,14 @@ public:
         // Report, if serialization is not possible (reset flag then)
         if( flagOnOff && !have_serialize() )
         {
-            mexPrintf( "%s\n", ::getLocaleMsg( MSG_STREAMINGNOTSUPPORTED ) );
+            PRINTF( "%s\n", ::getLocaleMsg( MSG_STREAMINGNOTSUPPORTED ) );
             flagOnOff = 0;
         }
         
         // Report, if user tries to use streaming with blobs turned off (reset flag then)
         if( flagOnOff && !typed_blobs_mode_on() )
         {
-            mexPrintf( "%s\n", ::getLocaleMsg( MSG_STREAMINGNEEDTYBLOBS ) );
+            PRINTF( "%s\n", ::getLocaleMsg( MSG_STREAMINGNEEDTYBLOBS ) );
             flagOnOff = 0;
         }
         
@@ -1008,7 +1355,7 @@ public:
             /*
              * Print current result type
              */
-            mexPrintf( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
+            PRINTF( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
             m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
@@ -1079,7 +1426,7 @@ public:
             /*
              * Anything wrong? free the database id and inform the user
              */
-            mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
+            PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
             m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
@@ -1100,7 +1447,7 @@ public:
             /*
              * Anything wrong? free the database id and inform the user
              */
-            mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
+            PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
             m_err.set( SQLstack.current().getErr(&errid), errid );
             return false;
         }
@@ -1147,7 +1494,8 @@ public:
             || cmdTryHandleResultType( "result_type" )
             || cmdTryHandleCompression( "compression" )
             || cmdTryHandleSetBusyTimeout( "setbusytimeout" )
-            || cmdTryHandleEnableExtension( "enable extension" ) )
+            || cmdTryHandleEnableExtension( "enable extension" )
+            || cmdTryHandleCreateFunction( "create function" ) )
         {
            return true;
         }
@@ -1308,7 +1656,7 @@ public:
             
             if( !SQLstack.current().setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
             {
-                mexPrintf( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
+                PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
                 m_err.set( SQLstack.current().getErr(&errid), errid );
             }
         }
@@ -1373,87 +1721,22 @@ public:
     
     
     /**
-     * \brief Transfer SQL value to MATLAB array
+     * \brief Transfer fetched SQL value into a MATLAB array
      *
      * @param[in] value encapsulated SQL field value
      * @returns a MATLAB array due to value type (string or numeric content)
      *
      * @see g_result_type
      */
-    mxArray* createItemFromValueSQL( const ValueSQL& value )
+    ValueMex createItemFromValueSQL( const ValueSQL& value )
     {
-        mxArray* item = NULL;
+        int err_id = MSG_NOERROR;
+        ValueMex item = ::createItemFromValueSQL( value, err_id );
 
-        switch( value.m_typeID )
+        if( MSG_NOERROR != err_id )
         {
-          case SQLITE_NULL:
-            item = mxCreateDoubleMatrix( 0, 0, mxREAL );
-            break;
-
-          case SQLITE_INTEGER:
-            item = mxCreateNumericMatrix( 1, 1, mxINT64_CLASS, mxREAL );
-
-            if(item)
-            {
-                *(sqlite3_int64*)mxGetData( item ) = value.m_integer;
-            }
-            break;
-
-          case SQLITE_FLOAT:
-            item = mxCreateDoubleScalar( value.m_float );
-            break;
-
-          case SQLITE_TEXT:
-            item = mxCreateString( value.m_text );
-            break;
-
-          case SQLITE_BLOB:
-          {
-            ValueMex blob(value.m_blob);
-            size_t blob_size = blob.ByData();
-
-            if( blob_size > 0 )
-            {
-                // check if typed BLOBs are disabled
-                if( !typed_blobs_mode_on() )
-                {
-                    item = mxCreateNumericMatrix( (mwSize)blob_size, 1, mxUINT8_CLASS, mxREAL );
-
-                    if(item)
-                    {
-                        memcpy( ValueMex(item).Data(), blob.Data(), blob_size );
-                    }
-                } 
-                else 
-                {
-                    const void* blob         = ValueMex( value.m_blob ).Data();
-                    double      process_time = 0.0;
-                    double      ratio = 0.0;
-                    int         err_id;
-
-                    /* blob_unpack() modifies g_finalize_msg */
-                    err_id = blob_unpack( blob, blob_size, can_serialize(), &item, &process_time, &ratio );
-
-                    if( MSG_NOERROR != err_id )
-                    {
-                        m_err.set( err_id );
-                    }
-                }
-            } 
-            else 
-            {
-                // empty BLOB
-                item = mxCreateDoubleMatrix( 0, 0, mxREAL );
-            }
-
-            break;
-          } /* end case SQLITE_BLOB */
-
-          default:
-            assert(false);
-            break;
-
-        } /* end switch */
+            m_err.set( err_id );
+        }
         
         return item;
     }
@@ -1535,7 +1818,7 @@ public:
             for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
             {
                 // get current table element at row and column
-                mxArray* item = createItemFromValueSQL( cols[i][row] );
+                mxArray* item = createItemFromValueSQL( cols[i][row] ).Detach();
 
                 if( !item )
                 {
@@ -1613,7 +1896,7 @@ public:
                 // build cell array, iterating rows
                 for( int row = 0; !errPending() && row < (int)cols[i].size(); row++ )
                 {
-                    mxArray* item = createItemFromValueSQL( cols[i][row] );
+                    mxArray* item = createItemFromValueSQL( cols[i][row] ).Detach();
 
                     if( !item )
                     {
@@ -1697,7 +1980,7 @@ public:
                 }
                 else
                 {
-                    mxArray* item = createItemFromValueSQL( cols[i][row] );
+                    mxArray* item = createItemFromValueSQL( cols[i][row] ).Detach();
 
                     if( !item )
                     {
@@ -1941,7 +2224,7 @@ public:
                     }
                 }
 
-                if( !SQLstack.current().bindParameter( iParam + 1, bindParam, can_serialize() ) )
+                if( !SQLstack.current().bindParameter( iParam + 1, ValueMex( bindParam ), can_serialize() ) )
                 {
                     const char* errid = NULL;
                     m_err.set( SQLstack.current().getErr(&errid), errid );
@@ -2157,14 +2440,15 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
         assert( false );
     }
     
-    
+    SQLstack.current().throwOnException();
+
     if( mksqlite.errPending() )
     {
         mksqlite.returnWithError();
     }
 
 #if CONFIG_USE_HEAP_CHECK
-    mksqlite.Release();    // antedate destructors work
+    mksqlite.Release();    // let destructors work, before heap is checked
     HeapCheck.Walk();      // Report, if any leaks exist
 #endif
     

@@ -6,7 +6,7 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.2
+ *  @version   2.3
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -221,9 +221,13 @@
 /** @} */
 
 /* early bind of serializing functions (earlier MATLAB versions only) */
-#if defined( MATLAB_MEX_FILE ) && (CONFIG_EARLY_BIND_SERIALIZE)
-extern "C" mxArray* mxSerialize(const mxArray*);
-extern "C" mxArray* mxDeserialize(const void*, size_t);
+#if defined( MATLAB_MEX_FILE )
+  #if defined( CONFIG_EARLY_BIND_SERIALIZE )
+    extern "C" mxArray* mxSerialize(const mxArray*);
+    extern "C" mxArray* mxDeserialize(const void*, size_t);
+  #endif
+  extern mxArray *mxCreateSharedDataCopy(const mxArray *pr);
+  #define PRINTF mexPrintf
 #endif
 
 typedef unsigned char byte;  ///< byte type
