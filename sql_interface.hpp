@@ -913,7 +913,7 @@ public:
           case SQLITE_BLOBX:
               // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
               // the sqlite allocator provided blob memory
-              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, value.m_text, 
+              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, value.Detach(), 
                                                   (int)value.m_blobsize, 
                                                   sqlite3_free ) )
               {

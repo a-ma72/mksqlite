@@ -365,7 +365,7 @@ static const char* messages_1[] =
 /* 15*/    "konnte keinen eindeutigen Bezeichner fuer Feld %s bilden",
 /* 16*/    "Argumentliste zu lang",
 /* 17*/    "keine Argumentliste angegeben",
-/* 18*/    "Fehler bei Speichermanagement", 
+/* 18*/    "Fehler im Speichermanagement", 
 /* 19*/    "Nicht unterstuetzter Variablentyp",
 /* 20*/    "Unbekannter oder nicht unterstuetzter typisierter BLOB Header",
 /* 21*/    "Fehler beim Identifizieren der Computerarchitektur",

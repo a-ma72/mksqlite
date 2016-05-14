@@ -33,7 +33,7 @@ function sqlite_test_result_types
     % 0: array of structs
     % 1: struct of arrays
     % 2: (cell) matrix
-    mksqlite('result_type', 0);  % needless, since default
+    mksqlite('result_type', 0);  % needless, since is default
 
     % create table
     % take a look at the boolean field (you would surely never

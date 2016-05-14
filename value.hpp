@@ -952,6 +952,15 @@ public:
         m_typeID  = SQLITE_BLOB;
     }
 
+
+    /// Release custody and return pointer type
+    void* Detach()
+    {
+        assert( m_text && ( m_typeID == SQLITE_TEXT || m_typeID == SQLITE_BLOB || m_typeID == SQLITE_BLOBX ) );
+        m_isConst = true;
+        return (void*)m_text;
+    }
+
     /**
      * \brief Freeing memory space if having ownership
      *
@@ -959,7 +968,7 @@ public:
      */
     void Destroy()
     {
-        extern void blob_free( void** pBlob );  /* sql_user_functions.hpp */
+        extern void blob_free( void** pBlob );  /* sql_builtin_functions.hpp */
         
         if( !m_isConst )
         {
