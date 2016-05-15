@@ -50,6 +50,7 @@ class SQLiface
         private:
         SQLiface* m_piface;        ///< Pointer to SQL Interface
         ValueMex  m_functors[3];   ///< Function handles (function, step, final)
+        ValueMex  m_data;          ///< Data container for "step" and "final" functions
 
         public:
         enum {FCN, STEP, FINAL};
@@ -74,12 +75,15 @@ class SQLiface
                 // (MATLAB automatically deletes arrays, allocated in mex functions)
                 m_functors[i].MakePersistent();
             }
+
+            initData();
         }
 
         /// Copy Ctor
         MexFunctors( const MexFunctors& other )
         {
             *this = MexFunctors( other.m_piface, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
+            m_data = other.m_data;
         }
 
         /// Move Ctor
@@ -89,6 +93,7 @@ class SQLiface
             {
                 m_functors[i] = other.m_functors[i];
             }
+            m_data = other.m_data;
         }
 
         /// Copy assignment
@@ -118,6 +123,21 @@ class SQLiface
             {
                 m_functors[i].Destroy();
             }
+            m_data.Destroy();
+        }
+
+        /// Initialize data for "step" and "final" function
+        void initData()
+        {
+            m_data.Destroy();
+            m_data = ValueMex::CreateCellMatrix( 0, 0 );
+            m_data.MakePersistent();
+        }
+
+        /// Return data array from "step" and "final" function
+        ValueMex& getData()
+        {
+            return m_data;
         }
 
         /// Return one of the functors (function, init or final)
@@ -218,7 +238,7 @@ public:
       {
           if( errid )
           {
-              *errid = trans_err_to_ident();
+              *errid = trans_err_to_ident( 0 ); // TODO
           }
           
           // return SQLite error message
@@ -416,11 +436,11 @@ public:
   /**
    * \brief Get least SQLite error code and return identifier as string
    */
-  const char* trans_err_to_ident()
+  const char* trans_err_to_ident( int errorcode )
   {
       static char dummy[32];
 
-      int errorcode = sqlite3_extended_errcode( m_db );
+      //int errorcode = sqlite3_extended_errcode( m_db );
 
       switch( errorcode )
       {    
@@ -567,9 +587,9 @@ public:
   
   /// Wrapper for SQL final function (aggregation)
   static 
-  void mexFcnWrapper_FINAL( sqlite3_context *ctx, int argc, sqlite3_value **argv )
+  void mexFcnWrapper_FINAL( sqlite3_context *ctx )
   {
-      mexFcnWrapper( ctx, argc, argv, SQLiface::MexFunctors::FINAL );
+      mexFcnWrapper( ctx, 0, NULL, SQLiface::MexFunctors::FINAL );
   }
   
   /// Common wrapper for all user defined SQL functions
@@ -577,18 +597,45 @@ public:
   void mexFcnWrapper( sqlite3_context *ctx, int argc, sqlite3_value **argv, int func_nr )
   {
       MexFunctors* fcn = (MexFunctors*)sqlite3_user_data( ctx );
-      ValueMex arg( ValueMex::CreateCellMatrix( 1, argc + 1 ) );
+      int nArgs = argc + 1 + (func_nr > MexFunctors::FCN);  // Number of arguments for "feval"
+      ValueMex arg( ValueMex::CreateCellMatrix( 1, nArgs ) );
       bool failed = false;
 
-      assert( arg.Item() );
+      assert( fcn && arg.Item() );
       
+      if( !fcn->checkFunc(func_nr) )
+      {
+          arg.Destroy();
+          sqlite3_result_error( ctx, "Invalid function!", -1 );
+          failed = true;
+      }
+
       // Transform SQL value arguments into a MATLAB cell array
-      for( int i = 0; i < argc && !failed; i++ )
+      for( int j = 0; j < nArgs && !failed; j++ )
       {
           int err_id = MSG_NOERROR;
+          int i = j;
           ValueSQL value;
           ValueMex item;
           
+          if( j == 0 )
+          {
+              arg.SetCell( j, fcn->dupFunc(func_nr).Detach() );
+              continue;
+          }
+          i--;
+
+          if( func_nr > MexFunctors::FCN )
+          {
+              if( j == 1 )
+              {
+                  assert( fcn->getData().Item() );
+                  arg.SetCell( j, fcn->getData().Duplicate().Detach() );
+                  continue;
+              }
+              i--;
+          }
+
           switch( sqlite3_value_type( argv[i] ) )
           {
               case SQLITE_NULL:
@@ -649,26 +696,19 @@ public:
           else
           {
               // Cumulate arguments into a cell array
-              arg.SetCell( i + 1, createItemFromValueSQL( value, err_id ).Detach() );
+              arg.SetCell( j, createItemFromValueSQL( value, err_id ).Detach() );
               
               if( MSG_NOERROR != err_id )
               {
                   sqlite3_result_error( ctx, ::getLocaleMsg( err_id ), -1 );
-                        failed = true;
+                  failed = true;
               }
           }
       }
       
-      if( !fcn->checkFunc(func_nr) )
-      {
-          sqlite3_result_error( ctx, "Invalid function!", -1 );
-          failed = true;
-      }
-
       if( !failed )
       {
           ValueMex exception, lhs;
-          arg.SetCell( 0, fcn->dupFunc(func_nr).Detach() );
           arg.Call( &lhs, &exception );
 
           if( !exception.IsEmpty() )
@@ -680,16 +720,29 @@ public:
           }
           else
           {
-              if( !lhs.IsEmpty() )
+              if( func_nr == MexFunctors::STEP )
               {
-                  if( lhs.IsScalar() )
+                  if( !lhs.IsEmpty() )
                   {
-                      sqlite3_result_double( ctx, lhs.GetScalar() );
+                      lhs.MakePersistent();
+                      std::swap( fcn->getData(), lhs );
+                      lhs.Destroy();
                   }
+                  sqlite3_result_null( ctx );
               }
               else
               {
-                  sqlite3_result_null( ctx );
+                  if( !lhs.IsEmpty() )
+                  {
+                      if( lhs.IsScalar() )
+                      {
+                          sqlite3_result_double( ctx, lhs.GetScalar() );
+                      }
+                  }
+                  else
+                  {
+                      sqlite3_result_null( ctx );
+                  }
               }
           }
 
@@ -698,6 +751,11 @@ public:
       }
 
       arg.Destroy();
+
+      if( func_nr == MexFunctors::FINAL )
+      {
+          fcn->initData();
+      }
   }
   
   
@@ -733,14 +791,22 @@ public:
               else
               {
                   // Add function
-                  rc = sqlite3_create_function( m_db, name, -1, SQLITE_UTF8, (void*)fcn, mexFcnWrapper_FCN, NULL, NULL );  
+                  void (*xFunc)(sqlite3_context*,int,sqlite3_value**) = mexFcnWrapper_FCN;
+                  void (*xStep)(sqlite3_context*,int,sqlite3_value**) = mexFcnWrapper_STEP;
+                  void (*xFinal)(sqlite3_context*)                    = mexFcnWrapper_FINAL;
+
+                  if( fcn->getFunc(MexFunctors::FCN).IsEmpty() )   xFunc  = NULL;
+                  if( fcn->getFunc(MexFunctors::STEP).IsEmpty() )  xStep  = NULL;
+                  if( fcn->getFunc(MexFunctors::FINAL).IsEmpty() ) xFinal = NULL;
+
+                  rc = sqlite3_create_function( m_db, name, -1, SQLITE_UTF8, (void*)fcn, xFunc, xStep, xFinal );
                   action = 1;
               }
           }
                   
           if( SQLITE_OK != rc )
           {
-              m_lasterr.set( SQL_ERR );
+              m_lasterr.set( SQL_ERR, sqlite3_errstr( rc ) );
               failed = true;
           }
 

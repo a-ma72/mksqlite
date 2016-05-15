@@ -91,13 +91,14 @@ protected:
     /// Copy ctor for constant objects
     ValueBase( const ValueBase& other )
     {
-        *this       = other;
         m_isConst   = true;
+        *this       = other;
     }
     
     /// Move ctor for lvalues
     ValueBase( ValueBase& other )
     {
+        m_isConst       = true;
         *this           = other;
         other.m_isConst = true;   // taking ownership
     }
@@ -105,6 +106,7 @@ protected:
     /// Move ctor for rvalues (temporary objects)
     ValueBase( ValueBase&& other )
     {
+        m_isConst       = true;
         *this           = other;
         other.m_isConst = true;   // taking ownership
     }
@@ -115,6 +117,7 @@ protected:
         // checking self assignment
         if( this != &other )
         {
+            assert( m_isConst || !m_largest_field );
             m_isConst       = true;
             m_largest_field = other.m_largest_field;
         }
@@ -128,6 +131,7 @@ protected:
         // checking self assignment
         if( this != &other )
         {
+            assert( m_isConst || !m_largest_field );
             m_isConst       = other.m_isConst;
             m_largest_field = other.m_largest_field;
 
@@ -143,6 +147,7 @@ protected:
         // checking self assignment
         if( this != &other )
         {
+            assert( m_isConst || !m_largest_field );
             m_isConst       = other.m_isConst;
             m_largest_field = other.m_largest_field;
 
@@ -751,6 +756,7 @@ public:
         if( m_pcItem )
         {
             mexMakeArrayPersistent( m_pcItem );
+            m_isConst = false;
         }
     }
 

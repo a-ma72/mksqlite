@@ -1054,7 +1054,86 @@ public:
             return false;
         }
         
-        if( !SQLstack.current().attachMexFunction( fcnName.c_str(), ValueMex( fcnHandle ), ValueMex( NULL ), ValueMex( NULL ) ) )
+        if( !SQLstack.current().attachMexFunction( fcnName.c_str(), 
+                                                   ValueMex( fcnHandle ), 
+                                                   ValueMex( NULL ), ValueMex( NULL ) ) )
+        {
+            const char* errid = NULL;
+            m_err.set( SQLstack.current().getErr(&errid), errid );
+            return false;
+        }
+        
+        return true;
+    }
+    
+    
+    /**
+     * \brief Handle command to create or delete a SQL user aggregate function
+     *
+     * \param[in] strCmdMatchName Command name
+     * 
+     * Try to interpret current command as to create a SQL user aggregate function
+     * \p strCmdMatchName holds the mksqlite command name.
+     */
+    bool cmdTryHandleCreateAggregation( const char* strCmdMatchName )
+    {
+        if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
+        {
+            return false;
+        }
+
+        // database must be open to change setting
+        if( !ensureDbIsOpen() )
+        {
+            // ensureDbIsOpen() sets m_err
+            return false;
+        }
+        
+        /*
+         * There should be a function name and a function handle
+         */
+        if( m_narg > 4 )
+        {
+            m_err.set( MSG_UNEXPECTEDARG );
+            return false;
+        }
+
+        string fcnName;
+        if(1)
+        {
+            const mxArray* arg = NULL;
+
+            if( !argGetNextLiteral( arg ) )
+            {
+                // argGetNextFcnHandle() sets m_err
+                return false;
+            }
+
+            char* buffer = ::utils_getString( arg );
+            if( buffer )
+            {
+                fcnName = buffer;
+                ::utils_free_ptr( buffer );
+            }
+        }
+        
+        const mxArray* fcnHandleStep;
+        if( !argGetNextFcnHandle( fcnHandleStep ) )
+        {
+            // argGetNextFcnHandle() sets m_err
+            return false;
+        }
+        
+        const mxArray* fcnHandleFinal;
+        if( !argGetNextFcnHandle( fcnHandleFinal ) )
+        {
+            // argGetNextFcnHandle() sets m_err
+            return false;
+        }
+        
+        if( !SQLstack.current().attachMexFunction( fcnName.c_str(), 
+                                                   ValueMex( NULL ), 
+                                                   ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ) ) )
         {
             const char* errid = NULL;
             m_err.set( SQLstack.current().getErr(&errid), errid );
@@ -1495,7 +1574,8 @@ public:
             || cmdTryHandleCompression( "compression" )
             || cmdTryHandleSetBusyTimeout( "setbusytimeout" )
             || cmdTryHandleEnableExtension( "enable extension" )
-            || cmdTryHandleCreateFunction( "create function" ) )
+            || cmdTryHandleCreateFunction( "create function" )
+            || cmdTryHandleCreateAggregation( "create aggregation" ) )
         {
            return true;
         }
