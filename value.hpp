@@ -790,14 +790,14 @@ public:
         mxArray* _exception = mexCallMATLABWithTrap( 1, &_lhs, (int)NumElements(), prhs, "feval" );
 
         // Function returned results?
-        if( lhs )
+        if( _lhs )
         {
             *lhs = ValueMex( _lhs ).Adopt();
             _lhs = NULL;
         }
 
         // An exception occured?
-        if( exception )
+        if( _exception )
         {
             *exception = ValueMex( _exception ).Adopt();
             _exception = NULL;

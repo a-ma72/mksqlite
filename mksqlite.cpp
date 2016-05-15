@@ -524,7 +524,7 @@ public:
     
     
     /**
-     * \brief Termine function 
+     * \brief Terminate function 
      * 
      * Aborts the running function with an error message. Allocated memory 
      * (by MATLAB allocation functions) is freed automatically
@@ -631,7 +631,7 @@ public:
             m_err.set( MSG_MISSINGARG );
             return false;
         }
-        else if( mxGetClassID( m_parg[0] ) != mxFUNCTION_CLASS )
+        else if( !mxIsEmpty( m_parg[0]) && mxGetClassID( m_parg[0] ) != mxFUNCTION_CLASS )
         {
             m_err.set( MSG_FCNHARGEXPCT );
             return false;
@@ -1042,6 +1042,7 @@ public:
             char* buffer = ::utils_getString( arg );
             if( buffer )
             {
+                strlwr( buffer );
                 fcnName = buffer;
                 ::utils_free_ptr( buffer );
             }
@@ -1112,6 +1113,7 @@ public:
             char* buffer = ::utils_getString( arg );
             if( buffer )
             {
+                strlwr( buffer );
                 fcnName = buffer;
                 ::utils_free_ptr( buffer );
             }

@@ -40,7 +40,7 @@ extern ValueSQL createValueSQLFromItem( const ValueMex& item, bool bStreamable, 
  */
 class SQLiface
 {
-    /// Functors for SQL user defined (aggregation) functions
+    /// Functors for SQL application-defined (aggregation) functions
     struct MexFunctors
     {
         private:
@@ -122,6 +122,9 @@ class SQLiface
                 m_functors[i].Destroy();
             }
             m_group_data.Destroy();
+#ifndef NDEBUG
+            PRINTF( "%s\n", "Functors destroyed" );
+#endif
         }
 
         /// Initialize data for "step" and "final" function
@@ -200,7 +203,7 @@ class SQLiface
     const char*     m_command;      ///< SQL query (no ownership, read-only!)
     sqlite3_stmt*   m_stmt;         ///< SQL statement (sqlite bridge)
     Err             m_lasterr;      ///< recent error message
-    MexFunctorsMap  m_fcnmap;       ///< MEX function map for user defined SQL functions
+    MexFunctorsMap  m_fcnmap;       ///< MEX function map for application-defined SQL functions
     ValueMex        m_exception;    ///< Exception stack information
           
 public:
@@ -746,7 +749,6 @@ public:
                   {
                       int iTypeComplexity;
                       int err_id = MSG_NOERROR;
-                      int rc;
 
                       ValueSQL value = createValueSQLFromItem( item, can_serialize(), iTypeComplexity, err_id );
 
@@ -831,7 +833,7 @@ public:
   
   
   /**
-   * \brief Attach user defined function to database object
+   * \brief Attach application-defined function to database object
    */
   bool attachMexFunction( const char* name, const ValueMex& func, const ValueMex& step, const ValueMex& final )
   {
@@ -887,6 +889,9 @@ public:
               {
                   if( m_fcnmap.count(name) )
                   {
+#ifndef NDEBUG
+                      PRINTF( "Deleting functors for %s\n", name );
+#endif
                       delete m_fcnmap[name];
                       m_fcnmap.erase(name);
                   }
