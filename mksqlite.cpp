@@ -287,7 +287,7 @@ ValueMex createItemFromValueSQL( const ValueSQL& value, int& err_id )
                 // BLOB has no type info, it's just an array of bytes
                 item = mxCreateNumericMatrix( (mwSize)blob_size, 1, mxUINT8_CLASS, mxREAL );
 
-                if(item)
+                if( item )
                 {
                     memcpy( ValueMex(item).Data(), blob.Data(), blob_size );
                 }

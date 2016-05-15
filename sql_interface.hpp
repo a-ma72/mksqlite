@@ -27,10 +27,6 @@
 #include <map>
 
 
-// For SETERR usage:
-#define SQL_ERR        "SQL_ERR"          ///< if attached to g_finalize_msg, function returns with least SQL error message
-#define SQL_ERR_CLOSE  "SQL_ERR_CLOSE"    ///< same as SQL_ERR, additionally the responsible db will be closed
-
 /// type for column container
 typedef vector<ValueSQLCol> ValueSQLCols;
 
@@ -50,10 +46,12 @@ class SQLiface
         private:
         SQLiface* m_piface;        ///< Pointer to SQL Interface
         ValueMex  m_functors[3];   ///< Function handles (function, step, final)
-        ValueMex  m_data;          ///< Data container for "step" and "final" functions
+        ValueMex  m_group_data;    ///< Data container for "step" and "final" functions
 
         public:
         enum {FCN, STEP, FINAL};
+
+        friend class SQLiface;
 
         /// Ctor
         MexFunctors() {}
@@ -76,14 +74,14 @@ class SQLiface
                 m_functors[i].MakePersistent();
             }
 
-            initData();
+            initGroupData();
         }
 
         /// Copy Ctor
         MexFunctors( const MexFunctors& other )
         {
             *this = MexFunctors( other.m_piface, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
-            m_data = other.m_data;
+            m_group_data = other.m_group_data;
         }
 
         /// Move Ctor
@@ -93,7 +91,7 @@ class SQLiface
             {
                 m_functors[i] = other.m_functors[i];
             }
-            m_data = other.m_data;
+            m_group_data = other.m_group_data;
         }
 
         /// Copy assignment
@@ -123,21 +121,21 @@ class SQLiface
             {
                 m_functors[i].Destroy();
             }
-            m_data.Destroy();
+            m_group_data.Destroy();
         }
 
         /// Initialize data for "step" and "final" function
-        void initData()
+        void initGroupData()
         {
-            m_data.Destroy();
-            m_data = ValueMex::CreateCellMatrix( 0, 0 );
-            m_data.MakePersistent();
+            m_group_data.Destroy();
+            m_group_data = ValueMex::CreateCellMatrix( 0, 0 );
+            m_group_data.MakePersistent();
         }
 
         /// Return data array from "step" and "final" function
         ValueMex& getData()
         {
-            return m_data;
+            return m_group_data;
         }
 
         /// Return one of the functors (function, init or final)
@@ -233,30 +231,36 @@ public:
 
   /// Get recent error message
   const char* getErr( const char** errid = NULL )
+  {   
+      return m_lasterr.get( errid );
+  }
+
+
+  void setErr( int err_id )
   {
-      if( m_lasterr.get() == SQL_ERR || m_lasterr.get() == SQL_ERR_CLOSE )
-      {
-          if( errid )
-          {
-              *errid = trans_err_to_ident( 0 ); // TODO
-          }
-          
-          // return SQLite error message
-          return sqlite3_errmsg( m_db );
-      }
-      else
-      {
-          if( errid )
-          {
-              *errid = NULL;
-          }
-          
-          // return mksqlite error message
-          return m_lasterr.get();
-      }
+      m_lasterr.set( err_id );
   }
   
   
+  /// Set error by its result code
+  void setSqlError( int rc )
+  {
+      if( SQLITE_OK == rc )
+      {
+          m_lasterr.clear();
+      }
+      else
+      {
+          //m_lasterr.set_printf( sqlite3_errstr( rc ), trans_err_to_ident( rc ) );
+          if( rc < 0 )
+          {
+              rc = sqlite3_extended_errcode( m_db );
+          }
+          m_lasterr.set_printf( sqlite3_errmsg( m_db ), trans_err_to_ident( rc ) );
+      }
+  }
+
+
   /// Returns true, if an unhandled error is pending
   bool errPending()
   {
@@ -276,8 +280,8 @@ public:
   {
       return NULL != m_db;
   }
-  
-  
+
+
   /// Sets the busy timemout in milliseconds
   bool setBusyTimeout( int iTimeoutValue )
   {
@@ -287,9 +291,10 @@ public:
           return false;
       }
       
-      if( SQLITE_OK != sqlite3_busy_timeout( m_db, iTimeoutValue ) )
+      int rc = sqlite3_busy_timeout( m_db, iTimeoutValue );
+      if( SQLITE_OK != rc )
       {
-          m_lasterr.set( SQL_ERR );
+          setSqlError( rc );
           return false;
       }
       return true;
@@ -305,9 +310,10 @@ public:
           return false;
       }
       
-      if( SQLITE_OK != sqlite3_busy_timeout( m_db, iTimeoutValue ) )
+      int rc = sqlite3_busy_timeout( m_db, iTimeoutValue );
+      if( SQLITE_OK != rc )
       {
-          m_lasterr.set( SQL_ERR );
+          setSqlError( rc );
           return false;
       }
       return true;
@@ -323,9 +329,10 @@ public:
           return false;
       }
       
-      if( SQLITE_OK != sqlite3_enable_load_extension( m_db, flagOnOff != 0 ) )
+      int rc = sqlite3_enable_load_extension( m_db, flagOnOff != 0 );
+      if( SQLITE_OK != rc )
       {
-          m_lasterr.set( SQL_ERR );
+          setSqlError( rc );
           return false;
       }
       return true;
@@ -360,14 +367,15 @@ public:
       m_fcnmap.clear();
 
       // m_db may be NULL, since sqlite3_close with a NULL argument is a harmless no-op
-      if( SQLITE_OK == sqlite3_close( m_db ) )
+      int rc = sqlite3_close( m_db );
+      if( SQLITE_OK == rc )
       {
           m_db = NULL;
       }
       else
       {
           PRINTF( "%s\n", ::getLocaleMsg( MSG_ERRCANTCLOSE ) );
-          m_lasterr.set( SQL_ERR ); /* not SQL_ERR_CLOSE */
+          setSqlError( -1 ); /* not SQL_ERR_CLOSE */
       }
       
       return !isOpen();
@@ -405,7 +413,7 @@ public:
 
           if( !filename_utf8 )
           {
-              m_lasterr.set( MSG_ERRMEMORY );
+              setErr( MSG_ERRMEMORY );
           }
       }
 
@@ -415,8 +423,10 @@ public:
 
           if( SQLITE_OK != rc )
           {
-              m_lasterr.set( SQL_ERR );
+              setSqlError( -1 );
           }
+
+          sqlite3_extended_result_codes( m_db, true );
       }
 
       MEM_FREE( filename_utf8 );
@@ -708,8 +718,8 @@ public:
       
       if( !failed )
       {
-          ValueMex exception, lhs;
-          arg.Call( &lhs, &exception );
+          ValueMex exception, item;
+          arg.Call( &item, &exception );
 
           if( !exception.IsEmpty() )
           {
@@ -722,21 +732,82 @@ public:
           {
               if( func_nr == MexFunctors::STEP )
               {
-                  if( !lhs.IsEmpty() )
+                  if( !item.IsEmpty() )
                   {
-                      lhs.MakePersistent();
-                      std::swap( fcn->getData(), lhs );
-                      lhs.Destroy();
+                      item.MakePersistent();
+                      std::swap( fcn->getData(), item );
+                      item.Destroy();
                   }
                   sqlite3_result_null( ctx );
               }
               else
               {
-                  if( !lhs.IsEmpty() )
+                  if( !item.IsEmpty() )
                   {
-                      if( lhs.IsScalar() )
+                      int iTypeComplexity;
+                      int err_id = MSG_NOERROR;
+                      int rc;
+
+                      ValueSQL value = createValueSQLFromItem( item, can_serialize(), iTypeComplexity, err_id );
+
+                      if( MSG_NOERROR != err_id )
                       {
-                          sqlite3_result_double( ctx, lhs.GetScalar() );
+                          fcn->m_piface->setErr( err_id );
+                          sqlite3_result_error( ctx, fcn->m_piface->getErr(), -1 );
+                      }
+                      else
+                      {
+                          switch( value.m_typeID )
+                          {
+                              case SQLITE_NULL:
+                                  sqlite3_result_null( ctx );
+                                  break;
+
+                              case SQLITE_FLOAT:
+                                  // scalar floating point value
+                                  sqlite3_result_double( ctx, item.GetScalar() );
+                                  break;
+
+                              case SQLITE_INTEGER:
+                                  if( item.ClassID() == ValueMex::INT64_CLASS )
+                                  {
+                                      // scalar integer value
+                                      sqlite3_result_int64( ctx, item.GetInt64() );
+                                  }
+                                  else
+                                  {
+                                      // scalar integer value
+                                      sqlite3_result_int( ctx, item.GetInt() );
+                                  }
+                                  break;
+
+                              case SQLITE_TEXT:
+                                  // string argument
+                                  // SQLite makes a local copy of the text (thru SQLITE_TRANSIENT)
+                                  sqlite3_result_text( ctx, value.m_text, -1, SQLITE_TRANSIENT );
+                                  break;
+
+                              case SQLITE_BLOB:
+                                  // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
+                                  sqlite3_result_blob( ctx, item.Data(), 
+                                                       (int)item.ByData(),
+                                                       SQLITE_TRANSIENT );
+                                  break;
+
+                              case SQLITE_BLOBX:
+                                  // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
+                                  // the sqlite allocator provided blob memory
+                                  sqlite3_result_blob( ctx, value.Detach(), 
+                                                       (int)value.m_blobsize, 
+                                                       sqlite3_free );
+                                  break;
+
+                              default:
+                                  // all other (unsuppored types)
+                                  fcn->m_piface->setErr( MSG_INVALIDARG );
+                                  sqlite3_result_error( ctx, fcn->m_piface->getErr(), - 1 );
+                                  break;
+                          }
                       }
                   }
                   else
@@ -746,7 +817,7 @@ public:
               }
           }
 
-          lhs.Destroy();
+          item.Destroy();
           exception.Destroy();
       }
 
@@ -754,7 +825,7 @@ public:
 
       if( func_nr == MexFunctors::FINAL )
       {
-          fcn->initData();
+          fcn->initGroupData();
       }
   }
   
@@ -785,7 +856,7 @@ public:
           {
               if( !fcn->IsValid() )
               {
-                  m_lasterr.set( MSG_FCNHARGEXPCT );
+                  setErr( MSG_FCNHARGEXPCT );
                   failed = true;
               }
               else
@@ -806,7 +877,7 @@ public:
                   
           if( SQLITE_OK != rc )
           {
-              m_lasterr.set( SQL_ERR, sqlite3_errstr( rc ) );
+              setSqlError( rc );
               failed = true;
           }
 
@@ -850,7 +921,7 @@ public:
       // sqlite3_complete() returns 1 if the string is complete and valid...
       if( !sqlite3_complete( query ) )
       {
-          m_lasterr.set( MSG_INVQUERY );
+          setErr( MSG_INVQUERY );
           return false;
       }
 
@@ -861,9 +932,10 @@ public:
        * and prepare it
        * if anything is wrong with the query, than complain about it.
        */
-      if( SQLITE_OK != sqlite3_prepare_v2( m_db, query, -1, &m_stmt, 0 ) )
+      int rc = sqlite3_prepare_v2( m_db, query, -1, &m_stmt, 0 );
+      if( SQLITE_OK != rc )
       {
-          m_lasterr.set( SQL_ERR );
+          setSqlError( rc );
           return false;
       }
       
@@ -912,29 +984,32 @@ public:
   {
       int err_id = MSG_NOERROR;
       int iTypeComplexity;
+      int rc;
 
       ValueSQL value = createValueSQLFromItem( item, bStreamable, iTypeComplexity, err_id );
 
       if( MSG_NOERROR != err_id )
       {
-          m_lasterr.set( err_id );
+          setErr( err_id );
           return false;
       }
 
       switch( value.m_typeID )
       {
           case SQLITE_NULL:
-              if( SQLITE_OK != sqlite3_bind_null( m_stmt, index ) )
+              rc = sqlite3_bind_null( m_stmt, index );
+              if( SQLITE_OK != rc )
               {
-                  m_lasterr.set( SQL_ERR );
+                  setSqlError( rc );
               }
               break;
 
           case SQLITE_FLOAT:
               // scalar floating point value
-              if( SQLITE_OK != sqlite3_bind_double( m_stmt, index, item.GetScalar() ) )
+              rc = sqlite3_bind_double( m_stmt, index, item.GetScalar() );
+              if( SQLITE_OK != rc )
               {
-                  m_lasterr.set( SQL_ERR );
+                  setSqlError( rc );
               }
               break;
 
@@ -942,17 +1017,19 @@ public:
               if( item.ClassID() == ValueMex::INT64_CLASS )
               {
                   // scalar integer value
-                  if( SQLITE_OK != sqlite3_bind_int64( m_stmt, index, item.GetInt64() ) )
+                  rc = sqlite3_bind_int64( m_stmt, index, item.GetInt64() );
+                  if( SQLITE_OK != rc )
                   {
-                      m_lasterr.set( SQL_ERR );
+                      setSqlError( rc );
                   }
               }
               else
               {
                   // scalar integer value
-                  if( SQLITE_OK != sqlite3_bind_int( m_stmt, index, item.GetInt() ) )
+                  rc = sqlite3_bind_int( m_stmt, index, item.GetInt() );
+                  if( SQLITE_OK != rc )
                   {
-                      m_lasterr.set( SQL_ERR );
+                      setSqlError( rc );
                   }
               }
               break;
@@ -960,36 +1037,39 @@ public:
           case SQLITE_TEXT:
               // string argument
               // SQLite makes a local copy of the text (thru SQLITE_TRANSIENT)
-              if( SQLITE_OK != sqlite3_bind_text( m_stmt, index, value.m_text, -1, SQLITE_TRANSIENT ) )
+              rc = sqlite3_bind_text( m_stmt, index, value.m_text, -1, SQLITE_TRANSIENT );
+              if( SQLITE_OK != rc )
               {
-                  m_lasterr.set( SQL_ERR );
+                  setSqlError( rc );
               }
               break;
 
           case SQLITE_BLOB:
               // SQLite makes a local copy of the blob (thru SQLITE_TRANSIENT)
-              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, item.Data(), 
-                                                  (int)item.ByData(),
-                                                  SQLITE_TRANSIENT ) )
+              rc = sqlite3_bind_blob( m_stmt, index, item.Data(), 
+                                      (int)item.ByData(),
+                                      SQLITE_TRANSIENT );
+              if( SQLITE_OK != rc )
               {
-                  m_lasterr.set( SQL_ERR );
+                  setSqlError( rc );
               }
               break;
 
           case SQLITE_BLOBX:
               // sqlite takes custody of the blob, even if sqlite3_bind_blob() fails
               // the sqlite allocator provided blob memory
-              if( SQLITE_OK != sqlite3_bind_blob( m_stmt, index, value.Detach(), 
-                                                  (int)value.m_blobsize, 
-                                                  sqlite3_free ) )
+              rc = sqlite3_bind_blob( m_stmt, index, value.Detach(), 
+                                      (int)value.m_blobsize, 
+                                      sqlite3_free );
+              if( SQLITE_OK != rc )
               {
-                  m_lasterr.set( SQL_ERR );
+                  setSqlError( rc );
               }  
               break;
 
           default:
               // all other (unsuppored types)
-              m_lasterr.set( MSG_INVALIDARG );
+              setErr( MSG_INVALIDARG );
               break;
       }
       
@@ -1146,7 +1226,7 @@ public:
               if( loop < i )
               {
                   names.clear();
-                  m_lasterr.set( MSG_ERRVARNAME );
+                  setErr( MSG_ERRVARNAME );
                   break;
               }
               
@@ -1222,7 +1302,7 @@ public:
 
           if (step_res != SQLITE_ROW) // kv69 no other row ? this must be an error
           {
-              m_lasterr.set( SQL_ERR );
+              setSqlError( step_res );
               break;
           }
 
@@ -1266,7 +1346,7 @@ public:
                       }
                       else
                       {
-                          m_lasterr.set( MSG_ERRMEMORY );
+                          setErr( MSG_ERRMEMORY );
                           continue;
                       }
 
@@ -1275,7 +1355,7 @@ public:
                   }
 
                   default:
-                      m_lasterr.set( MSG_UNKNWNDBTYPE );
+                      setErr( MSG_UNKNWNDBTYPE );
                       continue;
               }
               

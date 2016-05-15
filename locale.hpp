@@ -46,7 +46,7 @@ int           getLocale     ();
  * has a representation in english and in german.
  * 
  * Other messages, which have no translation have the identifier MSG_PURESTRING and
- * its text is taken in a buffer \ref Err::m_err_msg.
+ * its text is taken in a buffer \ref Err::m_static_msg.
  *
  * @{
  */
@@ -111,9 +111,9 @@ int           getLocale     ();
 class Err
 {
     int         m_msgId;              ///< Message ID (see \ref MSG_IDS "Message Identifiers")
-    const char* m_err_msg;            ///< Holds pointer to message text
+    char        m_shared_msg[1024];   ///< (Shared) text buffer for non-const (generated) messages
+    const char* m_static_msg;         ///< Holds pointer to static message text
     const char* m_err_id;             ///< Holds the error id (for MATLAB exception handling f.e.)
-    char        m_err_string[1024];   ///< (Shared) text buffer for non-const (generated) messages
     bool        m_isPending;          ///< Message has still to be handled if this flag is set
     
 public:
@@ -132,11 +132,18 @@ public:
      */
     void set( const char* strMsg, const char* strId = NULL )
     {
-         m_msgId      = MSG_PURESTRING;
-         m_err_msg    = strMsg;
-         m_err_id     = strId;
-         m_isPending  = true;
-        *m_err_string = 0;     // not used and thus emptied
+        if( !strMsg ) 
+        {
+            clear();
+        }
+        else
+        {
+            m_msgId       = MSG_PURESTRING;
+            m_static_msg  = strMsg;
+            m_err_id      = strId;
+            *m_shared_msg = 0;     // not used and thus emptied
+            m_isPending   = true;
+        }
     }
     
     
@@ -151,18 +158,15 @@ public:
         
         if( !strMsg ) 
         { 
-            m_msgId       = MSG_NOERROR;
-            m_err_msg     = "";
-            m_isPending   = false;
-            *m_err_string = 0;
+            clear();
         }
         else
         {
             m_msgId       = MSG_PURESTRING;
-            m_err_msg     = m_err_string;
+            m_static_msg  = m_shared_msg;
             m_isPending   = true;
             
-            _snprintf( m_err_string, sizeof(m_err_string), "%s", strMsg );
+            _snprintf( m_shared_msg, sizeof(m_shared_msg), "%s", strMsg );
         }
     }
     
@@ -175,14 +179,13 @@ public:
      */
     void set( int iMessageNr, const char* strId = NULL )
     {
+         m_msgId = iMessageNr;
          set( ::getLocaleMsg( iMessageNr ), strId );
          
          if( iMessageNr == MSG_NOERROR )
          {
             m_isPending = false;
          }
-         
-         m_msgId = iMessageNr;
     }
     
     
@@ -198,20 +201,39 @@ public:
          va_start( va, strId );
          const char* message = ::getLocaleMsg( iMessageNr );
 
-         *m_err_string = 0;
+         m_msgId = iMessageNr;
+         *m_shared_msg = 0;
 
          if( message )
          {
-            vsnprintf( m_err_string, sizeof( m_err_string ), message, va );
+            vsnprintf( m_shared_msg, sizeof( m_shared_msg ), message, va );
          }
-         set( m_err_string, strId );
+         set( m_shared_msg, strId );
          
-         if( iMessageNr == MSG_NOERROR )
+         va_end( va );
+    }
+    
+    
+    /** 
+     * \brief Set error message by format string with arguments
+     *
+     * \param[in] fmt  Pointer to constant format string
+     * \param[in] strId  Pointer to constant error identifier
+     */
+    void set_printf( const char* fmt, const char* strId, ... )
+    {
+         va_list va;
+         va_start( va, strId );
+
+         m_msgId = MSG_PURESTRING;
+         *m_shared_msg = 0;
+
+         if( fmt )
          {
-            m_isPending = false;
+            vsnprintf( m_shared_msg, sizeof( m_shared_msg ), fmt, va );
          }
+         set( m_shared_msg, strId );
          
-         m_msgId = iMessageNr;
          va_end( va );
     }
     
@@ -235,7 +257,7 @@ public:
             *errId = m_err_id;
         }
         
-        return m_err_msg;
+        return m_static_msg;
     }
     
     
