@@ -166,32 +166,31 @@ public:
 /// Functors for SQL application-defined (aggregation) functions
 class MexFunctors
 {
-    SQLiface* m_piface;        ///< Pointer to SQL Interface
-    ValueMex  m_functors[3];   ///< Function handles (function, step, final)
-    ValueMex  m_group_data;    ///< Data container for "step" and "final" functions
-    ValueMex  m_exception;     ///< Exception stack information
+    ValueMex   m_functors[3];   ///< Function handles (function, step, final)
+    ValueMex   m_group_data;    ///< Data container for "step" and "final" functions
+    ValueMex*  m_pexception;    ///< Exception stack information
+
+    /// inhibit standard Ctor
+    MexFunctors() {}
+
+    /// Copy Ctor
+    MexFunctors( const MexFunctors& other )
+    {
+        ValueMex exception = other.m_pexception->Duplicate();
+        *this = MexFunctors( exception, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
+        m_group_data = other.m_group_data;
+    }
+
 
 public:
 
     bool m_busy;
     enum {FCN, STEP, FINAL};
 
-
-    SQLiface* interface()
-    {
-        return m_piface;
-    }
-
-
-    /// Ctor
-    MexFunctors() {}
-
     
     /// Ctor
-    MexFunctors( SQLiface* piface, const ValueMex& func, const ValueMex& step, const ValueMex& final )
+    MexFunctors( ValueMex& exception, const ValueMex& func, const ValueMex& step, const ValueMex& final )
     {
-        assert( piface );
-        m_piface = piface;
         m_busy = false;
 
         m_functors[FCN]   = ValueMex(func).Duplicate();
@@ -206,13 +205,14 @@ public:
         }
 
         initGroupData();
+        m_pexception = &exception;
     }
 
 
     /// Copy Ctor
-    MexFunctors( const MexFunctors& other )
+    MexFunctors( MexFunctors& other )
     {
-        *this = MexFunctors( other.m_piface, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
+        *this = MexFunctors( *other.m_pexception, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
         m_group_data = other.m_group_data;
     }
 
@@ -225,6 +225,7 @@ public:
             m_functors[i] = other.m_functors[i];
         }
         m_group_data = other.m_group_data;
+        m_pexception = other.m_pexception;
     }
 
 
@@ -259,7 +260,6 @@ public:
         }
 
         m_group_data.Destroy();
-        m_exception.Destroy();
 
 #ifndef NDEBUG
         PRINTF( "%s\n", "Functors destroyed" );
@@ -270,7 +270,7 @@ public:
     /// Exchange exception stack information
     void swapException( ValueMex& exception ) 
     { 
-        std::swap( m_exception, exception ); 
+        std::swap( *m_pexception, exception ); 
     }
 
 
@@ -341,14 +341,6 @@ public:
 
         return true;
     }
-
-
-    /// (Re-)Throws an exception, if any occured
-    void throwOnException()
-    {
-        m_exception.Throw();
-    }
-  
 };
 
 
@@ -358,6 +350,7 @@ class SQLstackitem
 
     sqlite3*        m_db;           ///< SQLite db object
     MexFunctorsMap  m_fcnmap;       ///< MEX function map with MATLAB functions for application-defined SQL functions
+    ValueMex        m_exception;
 
 public:
 
@@ -378,6 +371,19 @@ public:
     }
 
 
+    ValueMex& getException()
+    {
+        return m_exception;
+    }
+
+
+    /// (Re-)Throws an exception, if any occured
+    void throwOnException()
+    {
+        m_exception.Throw();
+    }
+
+  
     MexFunctorsMap& fcnmap()
     {
         return m_fcnmap;
@@ -568,7 +574,7 @@ public:
       m_lasterr.set( err_id );
   }
 
-  
+
   void setSqlError( int rc )
   {
       m_lasterr.setSqlError( m_db, rc );
@@ -689,14 +695,14 @@ public:
       if( !fcn->checkFunc(func_nr) )
       {
           arg.Destroy();
-          sqlite3_result_error( ctx, "Invalid function!", -1 );
+          sqlite3_result_error( ctx, ::getLocaleMsg( MSG_INVALIDFUNCTION ), -1 );
           failed = true;
       }
 
       if( fcn->m_busy )
       {
           arg.Destroy();
-          sqlite3_result_error( ctx, "Invalid recursive function call!", -1 );
+          sqlite3_result_error( ctx, ::getLocaleMsg( MSG_RECURSIVECALL ), -1 );
           failed = true;
       }
 
@@ -833,8 +839,9 @@ public:
 
                       if( MSG_NOERROR != err_id )
                       {
-                          fcn->interface()->setErr( err_id );
-                          sqlite3_result_error( ctx, fcn->interface()->getErr(), -1 );
+                          Err err;
+                          err.set( err_id );
+                          sqlite3_result_error( ctx, err.get(), -1 );
                       }
                       else
                       {
@@ -884,10 +891,13 @@ public:
                                   break;
 
                               default:
+                              {
                                   // all other (unsuppored types)
-                                  fcn->interface()->setErr( MSG_INVALIDARG );
-                                  sqlite3_result_error( ctx, fcn->interface()->getErr(), - 1 );
+                                  Err err;
+                                  err.set( MSG_INVALIDARG );
+                                  sqlite3_result_error( ctx, err.get(), - 1 );
                                   break;
+                              }
                           }
                       }
                   }
@@ -914,7 +924,7 @@ public:
   /**
    * \brief Attach application-defined function to database object
    */
-  bool attachMexFunction( const char* name, const ValueMex& func, const ValueMex& step, const ValueMex& final )
+  bool attachMexFunction( const char* name, const ValueMex& func, const ValueMex& step, const ValueMex& final, ValueMex& exception )
   {
       if( !isOpen() )
       {
@@ -922,7 +932,7 @@ public:
       }
       else
       {
-          MexFunctors* fcn = new MexFunctors( this, func, step, final );
+          MexFunctors* fcn = new MexFunctors( exception, func, step, final );
           int rc = SQLITE_OK;
           int action = -1;
           bool failed = false;

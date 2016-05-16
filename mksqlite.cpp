@@ -1069,7 +1069,8 @@ public:
         
         if( !m_current->attachMexFunction( fcnName.c_str(), 
                                            ValueMex( fcnHandle ), 
-                                           ValueMex( NULL ), ValueMex( NULL ) ) )
+                                           ValueMex( NULL ), ValueMex( NULL ),
+                                           SQLstack.current().getException() ) )
         {
             const char* errid = NULL;
             m_err.set( m_current->getErr(&errid), errid );
@@ -1147,7 +1148,8 @@ public:
         
         if( !m_current->attachMexFunction( fcnName.c_str(), 
                                            ValueMex( NULL ), 
-                                           ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ) ) )
+                                           ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ),
+                                           SQLstack.current().getException() ) )
         {
             const char* errid = NULL;
             m_err.set( m_current->getErr(&errid), errid );
@@ -2527,7 +2529,7 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
         assert( false );
     }
 
-    //m_current->throwOnException();  // TODO
+    SQLstack.current().throwOnException();
 
     if( mksqlite.errPending() )
     {

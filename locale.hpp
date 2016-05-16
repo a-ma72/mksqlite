@@ -101,6 +101,8 @@ int           getLocale     ();
 #define MSG_DBID_SUPFLOUS               46
 #define MSG_FCNHARGEXPCT                47
 #define MSG_LITERALARGEXPCT             48
+#define MSG_RECURSIVECALL               49
+#define MSG_INVALIDFUNCTION             50
 /** @}  */
 
 
@@ -123,6 +125,18 @@ public:
     { 
         clear(); 
     }
+    
+    
+    /// Reset error message
+    void clear()
+    {
+        m_msgId        = MSG_NOERROR;
+        m_static_msg   = m_shared_msg;
+        m_err_id       = "";
+        *m_shared_msg  = 0;     // not used and thus emptied
+        m_isPending    = false;
+    }
+
     
     /**
      * \brief Set error message to a constant string (without translation)
@@ -180,11 +194,14 @@ public:
     void set( int iMessageNr, const char* strId = NULL )
     {
          m_msgId = iMessageNr;
-         set( ::getLocaleMsg( iMessageNr ), strId );
          
          if( iMessageNr == MSG_NOERROR )
          {
-            m_isPending = false;
+            clear();
+         }
+         else
+         {
+            set( ::getLocaleMsg( iMessageNr ), strId );
          }
     }
     
@@ -235,13 +252,6 @@ public:
          set( m_shared_msg, strId );
          
          va_end( va );
-    }
-    
-    
-    /// Reset error message
-    void clear()
-    {
-        set( MSG_NOERROR, NULL );
     }
     
     
@@ -348,10 +358,12 @@ static const char* messages_0[] =
 /* 42*/    "unable to create fieldname from column name",
 /* 43*/    "streaming of variables needs typed BLOBs! Streaming is off",
 /* 44*/    "streaming not supported in this MATLAB version",
-/* 45*/    "Result type is ",
-/* 46*/    "Database ID is given, but superflous! ",
-/* 47*/    "Function handle expected! ",
-/* 48*/    "String argument expected! ",
+/* 45*/    "result type is ",
+/* 46*/    "database ID is given, but superflous!",
+/* 47*/    "function handle expected!",
+/* 48*/    "string argument expected!",
+/* 49*/    "recursive application-defined functions not allowed!",
+/* 50*/    "invalid function!",
 };
 
 
@@ -377,19 +389,19 @@ static const char* messages_1[] =
 /*  5*/    "mksqlite: Die noch geoeffneten Datenbanken wurden geschlossen",
 /*  6*/    "getstring() kann keine neue Zeichenkette erstellen",
 /*  7*/    "Open Befehl ohne Datenbanknamen",
-/*  8*/    "Kein freier Datenbankhandle verfuegbar",
+/*  8*/    "kein freier Datenbankhandle verfuegbar",
 /*  9*/    "Datenbank konnte nicht geoeffnet werden (ggf. Zugriffsrechte oder Existenz der Datenbank pruefen)",
 /* 10*/    "Datenbank nicht geoeffnet",
 /* 11*/    "ungueltiger query String (Semikolon?)",
-/* 12*/    "Kann Ausgabematrix nicht erstellen",
+/* 12*/    "kann Ausgabematrix nicht erstellen",
 /* 13*/    "unbekannter SQLITE Datentyp",
 /* 14*/    "busytimeout konnte nicht gesetzt werden",
 /* 15*/    "konnte keinen eindeutigen Bezeichner fuer Feld %s bilden",
 /* 16*/    "Argumentliste zu lang",
 /* 17*/    "keine Argumentliste angegeben",
 /* 18*/    "Fehler im Speichermanagement", 
-/* 19*/    "Nicht unterstuetzter Variablentyp",
-/* 20*/    "Unbekannter oder nicht unterstuetzter typisierter BLOB Header",
+/* 19*/    "nicht unterstuetzter Variablentyp",
+/* 20*/    "unbekannter oder nicht unterstuetzter typisierter BLOB Header",
 /* 21*/    "Fehler beim Identifizieren der Computerarchitektur",
 /* 22*/    "BLOB wurde mit abweichender Computerarchitektur erstellt",
 /* 23*/    "BLOB ist zu gross",
@@ -418,6 +430,8 @@ static const char* messages_1[] =
 /* 46*/    "Datenbank ID wurde angegeben, ist fuer diesen Befehl jedoch ueberfluessig! ", 
 /* 47*/    "Funktionshandle erwartet! ",
 /* 48*/    "String Argument erwartet! ",
+/* 49*/    "unzulaessiger rekursiver Funktionsaufruf! ",
+/* 50*/    "ungueltige Funktion! ",
 };
 
 /**
