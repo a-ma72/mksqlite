@@ -33,6 +33,480 @@ typedef vector<ValueSQLCol> ValueSQLCols;
 extern ValueMex createItemFromValueSQL( const ValueSQL& value, int& err_id );  /* mksqlite.cpp */
 extern ValueSQL createValueSQLFromItem( const ValueMex& item, bool bStreamable, int& iTypeComplexity, int& err_id );  /* mksqlite.cpp */
 
+class SQLstack;
+class SQLiface;
+class MexFunctors;
+
+
+class SQLerror : public Err
+{
+public:
+    /// Set error by its result code
+    void setSqlError( sqlite3* dbid, int rc )
+    {
+        if( SQLITE_OK == rc )
+        {
+            clear();
+        }
+        else
+        {
+            if( rc < 0 )
+            {
+                rc = sqlite3_extended_errcode( dbid );
+            }
+            set_printf( sqlite3_errmsg( dbid ), trans_err_to_ident( rc ) );
+        }
+    }
+
+    /**
+     * \brief Get least SQLite error code and return identifier as string
+     */
+    const char* trans_err_to_ident( int errorcode )
+    {
+        static char dummy[32];
+
+        //int errorcode = sqlite3_extended_errcode( m_db );
+
+        switch( errorcode )
+        {    
+            case SQLITE_OK:                         return( "SQLITE:OK" );
+            case SQLITE_ERROR:                      return( "SQLITE:ERROR" );
+            case SQLITE_INTERNAL:                   return( "SQLITE:INTERNAL" );
+            case SQLITE_PERM:                       return( "SQLITE:PERM" );
+            case SQLITE_ABORT:                      return( "SQLITE:ABORT" );
+            case SQLITE_BUSY:                       return( "SQLITE:BUSY" );
+            case SQLITE_LOCKED:                     return( "SQLITE:LOCKED" );
+            case SQLITE_NOMEM:                      return( "SQLITE:NOMEM" );
+            case SQLITE_READONLY:                   return( "SQLITE:READONLY" );
+            case SQLITE_INTERRUPT:                  return( "SQLITE:INTERRUPT" );
+            case SQLITE_IOERR:                      return( "SQLITE:IOERR" );
+            case SQLITE_CORRUPT:                    return( "SQLITE:CORRUPT" );
+            case SQLITE_NOTFOUND:                   return( "SQLITE:NOTFOUND" );
+            case SQLITE_FULL:                       return( "SQLITE:FULL" );
+            case SQLITE_CANTOPEN:                   return( "SQLITE:CANTOPEN" );
+            case SQLITE_PROTOCOL:                   return( "SQLITE:PROTOCOL" );
+            case SQLITE_EMPTY:                      return( "SQLITE:EMPTY" );
+            case SQLITE_SCHEMA:                     return( "SQLITE:SCHEMA" );
+            case SQLITE_TOOBIG:                     return( "SQLITE:TOOBIG" );
+            case SQLITE_CONSTRAINT:                 return( "SQLITE:CONSTRAINT" );
+            case SQLITE_MISMATCH:                   return( "SQLITE:MISMATCH" );
+            case SQLITE_MISUSE:                     return( "SQLITE:MISUSE" );
+            case SQLITE_NOLFS:                      return( "SQLITE:NOLFS" );
+            case SQLITE_AUTH:                       return( "SQLITE:AUTH" );
+            case SQLITE_FORMAT:                     return( "SQLITE:FORMAT" );
+            case SQLITE_RANGE:                      return( "SQLITE:RANGE" );
+            case SQLITE_NOTADB:                     return( "SQLITE:NOTADB" );
+            case SQLITE_NOTICE:                     return( "SQLITE:NOTICE" );
+            case SQLITE_WARNING:                    return( "SQLITE:WARNING" );
+            case SQLITE_ROW:                        return( "SQLITE:ROW" );
+            case SQLITE_DONE:                       return( "SQLITE:DONE" );
+            /* extended codes */
+            case SQLITE_IOERR_READ:                 return( "SQLITE:IOERR_READ" );
+            case SQLITE_IOERR_SHORT_READ:           return( "SQLITE:IOERR_SHORT_READ" );
+            case SQLITE_IOERR_WRITE:                return( "SQLITE:IOERR_WRITE" );
+            case SQLITE_IOERR_FSYNC:                return( "SQLITE:IOERR_FSYNC" );
+            case SQLITE_IOERR_DIR_FSYNC:            return( "SQLITE:IOERR_DIR_FSYNC" );
+            case SQLITE_IOERR_TRUNCATE:             return( "SQLITE:IOERR_TRUNCATE" );
+            case SQLITE_IOERR_FSTAT:                return( "SQLITE:IOERR_FSTAT" );
+            case SQLITE_IOERR_UNLOCK:               return( "SQLITE:IOERR_UNLOCK" );
+            case SQLITE_IOERR_RDLOCK:               return( "SQLITE:IOERR_RDLOCK" );
+            case SQLITE_IOERR_DELETE:               return( "SQLITE:IOERR_DELETE" );
+            case SQLITE_IOERR_BLOCKED:              return( "SQLITE:IOERR_BLOCKED" );
+            case SQLITE_IOERR_NOMEM:                return( "SQLITE:IOERR_NOMEM" );
+            case SQLITE_IOERR_ACCESS:               return( "SQLITE:IOERR_ACCESS" );
+            case SQLITE_IOERR_CHECKRESERVEDLOCK:    return( "SQLITE:IOERR_CHECKRESERVEDLOCK" );
+            case SQLITE_IOERR_LOCK:                 return( "SQLITE:IOERR_LOCK" );
+            case SQLITE_IOERR_CLOSE:                return( "SQLITE:IOERR_CLOSE" );
+            case SQLITE_IOERR_DIR_CLOSE:            return( "SQLITE:IOERR_DIR_CLOSE" );
+            case SQLITE_IOERR_SHMOPEN:              return( "SQLITE:IOERR_SHMOPEN" );
+            case SQLITE_IOERR_SHMSIZE:              return( "SQLITE:IOERR_SHMSIZE" );
+            case SQLITE_IOERR_SHMLOCK:              return( "SQLITE:IOERR_SHMLOCK" );
+            case SQLITE_IOERR_SHMMAP:               return( "SQLITE:IOERR_SHMMAP" );
+            case SQLITE_IOERR_SEEK:                 return( "SQLITE:IOERR_SEEK" );
+            case SQLITE_IOERR_DELETE_NOENT:         return( "SQLITE:IOERR_DELETE_NOENT" );
+            case SQLITE_IOERR_MMAP:                 return( "SQLITE:IOERR_MMAP" );
+            case SQLITE_IOERR_GETTEMPPATH:          return( "SQLITE:IOERR_GETTEMPPATH" );
+            case SQLITE_IOERR_CONVPATH:             return( "SQLITE:IOERR_CONVPATH" );
+            case SQLITE_LOCKED_SHAREDCACHE:         return( "SQLITE:LOCKED_SHAREDCACHE" );
+            case SQLITE_BUSY_RECOVERY:              return( "SQLITE:BUSY_RECOVERY" );
+            case SQLITE_BUSY_SNAPSHOT:              return( "SQLITE:BUSY_SNAPSHOT" );
+            case SQLITE_CANTOPEN_NOTEMPDIR:         return( "SQLITE:CANTOPEN_NOTEMPDIR" );
+            case SQLITE_CANTOPEN_ISDIR:             return( "SQLITE:CANTOPEN_ISDIR" );
+            case SQLITE_CANTOPEN_FULLPATH:          return( "SQLITE:CANTOPEN_FULLPATH" );
+            case SQLITE_CANTOPEN_CONVPATH:          return( "SQLITE:CANTOPEN_CONVPATH" );
+            case SQLITE_CORRUPT_VTAB:               return( "SQLITE:CORRUPT_VTAB" );
+            case SQLITE_READONLY_RECOVERY:          return( "SQLITE:READONLY_RECOVERY" );
+            case SQLITE_READONLY_CANTLOCK:          return( "SQLITE:READONLY_CANTLOCK" );
+            case SQLITE_READONLY_ROLLBACK:          return( "SQLITE:READONLY_ROLLBACK" );
+            case SQLITE_READONLY_DBMOVED:           return( "SQLITE:READONLY_DBMOVED" );
+            case SQLITE_ABORT_ROLLBACK:             return( "SQLITE:ABORT_ROLLBACK" );
+            case SQLITE_CONSTRAINT_CHECK:           return( "SQLITE:CONSTRAINT_CHECK" );
+            case SQLITE_CONSTRAINT_COMMITHOOK:      return( "SQLITE:CONSTRAINT_COMMITHOOK" );
+            case SQLITE_CONSTRAINT_FOREIGNKEY:      return( "SQLITE:CONSTRAINT_FOREIGNKEY" );
+            case SQLITE_CONSTRAINT_FUNCTION:        return( "SQLITE:CONSTRAINT_FUNCTION" );
+            case SQLITE_CONSTRAINT_NOTNULL:         return( "SQLITE:CONSTRAINT_NOTNULL" );
+            case SQLITE_CONSTRAINT_PRIMARYKEY:      return( "SQLITE:CONSTRAINT_PRIMARYKEY" );
+            case SQLITE_CONSTRAINT_TRIGGER:         return( "SQLITE:CONSTRAINT_TRIGGER" );
+            case SQLITE_CONSTRAINT_UNIQUE:          return( "SQLITE:CONSTRAINT_UNIQUE" );
+            case SQLITE_CONSTRAINT_VTAB:            return( "SQLITE:CONSTRAINT_VTAB" );
+            case SQLITE_CONSTRAINT_ROWID:           return( "SQLITE:CONSTRAINT_ROWID" );
+            case SQLITE_NOTICE_RECOVER_WAL:         return( "SQLITE:NOTICE_RECOVER_WAL" );
+            case SQLITE_NOTICE_RECOVER_ROLLBACK:    return( "SQLITE:NOTICE_RECOVER_ROLLBACK" );
+            case SQLITE_WARNING_AUTOINDEX:          return( "SQLITE:WARNING_AUTOINDEX" );
+            case SQLITE_AUTH_USER:                  return( "SQLITE:AUTH_USER" );
+            
+            default:
+                _snprintf( dummy, sizeof( dummy ), "SQLITE:ERRNO%d", errorcode );
+                return dummy;
+         }
+    }
+};
+
+
+/// Functors for SQL application-defined (aggregation) functions
+class MexFunctors
+{
+    SQLiface* m_piface;        ///< Pointer to SQL Interface
+    ValueMex  m_functors[3];   ///< Function handles (function, step, final)
+    ValueMex  m_group_data;    ///< Data container for "step" and "final" functions
+    ValueMex  m_exception;     ///< Exception stack information
+
+public:
+
+    bool m_busy;
+    enum {FCN, STEP, FINAL};
+
+
+    SQLiface* interface()
+    {
+        return m_piface;
+    }
+
+
+    /// Ctor
+    MexFunctors() {}
+
+    
+    /// Ctor
+    MexFunctors( SQLiface* piface, const ValueMex& func, const ValueMex& step, const ValueMex& final )
+    {
+        assert( piface );
+        m_piface = piface;
+        m_busy = false;
+
+        m_functors[FCN]   = ValueMex(func).Duplicate();
+        m_functors[STEP]  = ValueMex(step).Duplicate();
+        m_functors[FINAL] = ValueMex(final).Duplicate();
+
+        for( int i = 0; i < 3; i++ )
+        {
+            // Prevent function handles to be deleted when mex function returns
+            // (MATLAB automatically deletes arrays, allocated in mex functions)
+            m_functors[i].MakePersistent();
+        }
+
+        initGroupData();
+    }
+
+
+    /// Copy Ctor
+    MexFunctors( const MexFunctors& other )
+    {
+        *this = MexFunctors( other.m_piface, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
+        m_group_data = other.m_group_data;
+    }
+
+
+    /// Move Ctor
+    MexFunctors( MexFunctors&& other )
+    {
+        for( int i = 0; i < 3; i++ )
+        {
+            m_functors[i] = other.m_functors[i];
+        }
+        m_group_data = other.m_group_data;
+    }
+
+
+    /// Copy assignment
+    MexFunctors& operator=( const MexFunctors& other )
+    {
+        if( this != &other )
+        {
+            *this = MexFunctors( other );
+        }
+        return *this;
+    }
+
+
+    /// Move assignment
+    MexFunctors& operator=( MexFunctors&& other )
+    {
+        if( this != &other )
+        {
+            *this = MexFunctors( other );
+        }
+        return *this;
+    }
+
+
+    /// Dtor
+    ~MexFunctors() 
+    {
+        for( int i = 0; i < 3; i++ )
+        {
+            m_functors[i].Destroy();
+        }
+
+        m_group_data.Destroy();
+        m_exception.Destroy();
+
+#ifndef NDEBUG
+        PRINTF( "%s\n", "Functors destroyed" );
+#endif
+    }
+
+
+    /// Exchange exception stack information
+    void swapException( ValueMex& exception ) 
+    { 
+        std::swap( m_exception, exception ); 
+    }
+
+
+    /// Initialize data for "step" and "final" function
+    void initGroupData()
+    {
+        m_group_data.Destroy();
+        m_group_data = ValueMex::CreateCellMatrix( 0, 0 );
+        m_group_data.MakePersistent();
+    }
+
+
+    /// Return data array from "step" and "final" function
+    ValueMex& getData()
+    {
+        return m_group_data;
+    }
+
+
+    /// Return one of the functors (function, init or final)
+    const ValueMex& getFunc(int nr) const 
+    { 
+        return m_functors[nr]; 
+    }
+
+    
+    /// Duplicate one of the functors (function, init or final)
+    ValueMex dupFunc(int nr)  const 
+    { 
+        return ValueMex( getFunc(nr) ).Duplicate(); 
+    }
+
+    
+    /// Check if function handle is valid (not empty and of functon handle class)
+    bool checkFunc(int nr)  const 
+    { 
+        return ValueMex( getFunc(nr) ).IsFunctionHandle(); 
+    }
+
+    
+    /// Check if one of the functors is empty
+    bool IsEmpty() const 
+    { 
+        return m_functors[FCN].IsEmpty() && m_functors[STEP].IsEmpty() && m_functors[FINAL].IsEmpty(); 
+    }
+
+
+    /// Check if all functors are valid
+    bool IsValid() const
+    {
+        for( int i = 0; i < 3; i++ )
+        {
+            if( m_functors[i].IsEmpty() )
+            {
+                continue;
+            }
+
+            if( !m_functors[i].IsFunctionHandle() || m_functors[i].NumElements() != 1 )
+            {
+                return false;
+            }
+        }
+
+        if( IsEmpty() )
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /// (Re-)Throws an exception, if any occured
+    void throwOnException()
+    {
+        m_exception.Throw();
+    }
+  
+};
+
+
+class SQLstackitem
+{
+    typedef map<string, MexFunctors*> MexFunctorsMap;   ///< Dictionary: function name => function handles
+
+    sqlite3*        m_db;           ///< SQLite db object
+    MexFunctorsMap  m_fcnmap;       ///< MEX function map with MATLAB functions for application-defined SQL functions
+
+public:
+
+    SQLstackitem() : m_db( NULL )
+    {}
+
+
+    ~SQLstackitem()
+    {
+        SQLerror err;
+        closeDb( err );
+    }
+
+
+    sqlite3* dbid()
+    {
+        return m_db;
+    }
+
+
+    MexFunctorsMap& fcnmap()
+    {
+        return m_fcnmap;
+    }
+
+
+    /**
+     * \brief Opens (or create) database
+     *
+     * \param[in] filename Name of database file
+     * \param[in] openFlags Flags for access rights (see SQLite documentation for sqlite3_open_v2())
+     * \returns true if succeeded
+     */
+    bool openDb( const char* filename, int openFlags, SQLerror& err )
+    {
+        if( !closeDb( err ) )
+        {
+            return false;
+        }
+        
+        /*
+         * Open the database
+         * m_db is assigned by sqlite3_open_v2(), even if an error
+         * occures
+         */
+        unsigned char* filename_utf8 = NULL;
+        int filename_utf8_bytes = utils_latin2utf( (const unsigned char*)filename, NULL );
+
+        if( filename_utf8_bytes )
+        {
+            filename_utf8 = (unsigned char*)MEM_ALLOC( filename_utf8_bytes, sizeof(char) );
+            utils_latin2utf( (const unsigned char*)filename, filename_utf8 );
+
+            if( !filename_utf8 )
+            {
+                err.set( MSG_ERRMEMORY );
+            }
+        }
+
+        if( filename_utf8 && !err.isPending() )
+        {
+            int rc = sqlite3_open_v2( (char*)filename_utf8, &m_db, openFlags, NULL );
+
+            if( SQLITE_OK != rc )
+            {
+                err.setSqlError( m_db, -1 );
+            }
+
+            sqlite3_extended_result_codes( m_db, true );
+            attachBuiltinFunctions();
+        }
+
+        MEM_FREE( filename_utf8 );
+
+        return !err.isPending();
+    }
+
+
+    /// Close database
+    bool closeDb( SQLerror& err )
+    {
+        // Deallocate functors
+        for( MexFunctorsMap::iterator it = m_fcnmap.begin(); it != m_fcnmap.end(); it++ )
+        {
+            delete it->second;
+        }
+        m_fcnmap.clear();
+
+        // m_db may be NULL, since sqlite3_close with a NULL argument is a harmless no-op
+        int rc = sqlite3_close( m_db );
+        if( SQLITE_OK == rc )
+        {
+            m_db = NULL;
+        }
+        else
+        {
+            PRINTF( "%s\n", ::getLocaleMsg( MSG_ERRCANTCLOSE ) );
+            err.setSqlError( m_db, -1 ); /* not SQL_ERR_CLOSE */
+        }
+        
+        return !isOpen();
+    }
+
+
+    bool isOpen()
+    {
+        return NULL != m_db;
+    }
+    
+
+    /**
+     * \brief Attach builtin functions to database object
+     *
+     * Following builtin functions are involved:
+     * - pow
+     * - regex
+     * - bcdratio
+     * - bdcpacktime
+     * - bdcunpacktime
+     * - md5
+     */
+    void attachBuiltinFunctions()
+    {
+        if( !isOpen() )
+        {
+            assert( false );
+        }
+        else
+        {
+            // attach new SQL commands to opened database
+            sqlite3_create_function( m_db, "pow", 2, SQLITE_UTF8, NULL, pow_func, NULL, NULL );                       // power function (math)
+            sqlite3_create_function( m_db, "lg", 1, SQLITE_UTF8, NULL, lg_func, NULL, NULL );                         // power function (math)
+            sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                         // power function (math)
+            sqlite3_create_function( m_db, "exp", 1, SQLITE_UTF8, NULL, exp_func, NULL, NULL );                       // power function (math)
+            sqlite3_create_function( m_db, "regex", 2, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (MATCH mode)
+            sqlite3_create_function( m_db, "regex", 3, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (REPLACE mode)
+            sqlite3_create_function( m_db, "bdcratio", 1, SQLITE_UTF8, NULL, BDC_ratio_func, NULL, NULL );            // compression ratio (blob data compression)
+            sqlite3_create_function( m_db, "bdcpacktime", 1, SQLITE_UTF8, NULL, BDC_pack_time_func, NULL, NULL );     // compression time (blob data compression)
+            sqlite3_create_function( m_db, "bdcunpacktime", 1, SQLITE_UTF8, NULL, BDC_unpack_time_func, NULL, NULL ); // decompression time (blob data compression)
+            sqlite3_create_function( m_db, "md5", 1, SQLITE_UTF8, NULL, MD5_func, NULL, NULL );                       // Message-Digest (RSA)
+        }
+    }
+};
+
+
+
+
+
+
 /**
  * \brief SQLite interface
  *
@@ -40,176 +514,19 @@ extern ValueSQL createValueSQLFromItem( const ValueMex& item, bool bStreamable, 
  */
 class SQLiface
 {
-    /// Functors for SQL application-defined (aggregation) functions
-    struct MexFunctors
-    {
-        private:
-        SQLiface* m_piface;        ///< Pointer to SQL Interface
-        ValueMex  m_functors[3];   ///< Function handles (function, step, final)
-        ValueMex  m_group_data;    ///< Data container for "step" and "final" functions
-
-        public:
-        enum {FCN, STEP, FINAL};
-
-        friend class SQLiface;
-
-        /// Ctor
-        MexFunctors() {}
-
-        
-        /// Ctor
-        MexFunctors( SQLiface* piface, const ValueMex& func, const ValueMex& step, const ValueMex& final )
-        {
-            assert( piface );
-            m_piface = piface;
-
-            m_functors[FCN]   = ValueMex(func).Duplicate();
-            m_functors[STEP]  = ValueMex(step).Duplicate();
-            m_functors[FINAL] = ValueMex(final).Duplicate();
-
-            for( int i = 0; i < 3; i++ )
-            {
-                // Prevent function handles to be deleted when mex function returns
-                // (MATLAB automatically deletes arrays, allocated in mex functions)
-                m_functors[i].MakePersistent();
-            }
-
-            initGroupData();
-        }
-
-        /// Copy Ctor
-        MexFunctors( const MexFunctors& other )
-        {
-            *this = MexFunctors( other.m_piface, other.getFunc(FCN), other.getFunc(STEP), other.getFunc(FINAL) );
-            m_group_data = other.m_group_data;
-        }
-
-        /// Move Ctor
-        MexFunctors( MexFunctors&& other )
-        {
-            for( int i = 0; i < 3; i++ )
-            {
-                m_functors[i] = other.m_functors[i];
-            }
-            m_group_data = other.m_group_data;
-        }
-
-        /// Copy assignment
-        MexFunctors& operator=( const MexFunctors& other )
-        {
-            if( this != &other )
-            {
-                *this = MexFunctors( other );
-            }
-            return *this;
-        }
-
-        /// Move assignment
-        MexFunctors& operator=( MexFunctors&& other )
-        {
-            if( this != &other )
-            {
-                *this = MexFunctors( other );
-            }
-            return *this;
-        }
-
-        /// Dtor
-        ~MexFunctors() 
-        {
-            for( int i = 0; i < 3; i++ )
-            {
-                m_functors[i].Destroy();
-            }
-            m_group_data.Destroy();
-#ifndef NDEBUG
-            PRINTF( "%s\n", "Functors destroyed" );
-#endif
-        }
-
-        /// Initialize data for "step" and "final" function
-        void initGroupData()
-        {
-            m_group_data.Destroy();
-            m_group_data = ValueMex::CreateCellMatrix( 0, 0 );
-            m_group_data.MakePersistent();
-        }
-
-        /// Return data array from "step" and "final" function
-        ValueMex& getData()
-        {
-            return m_group_data;
-        }
-
-        /// Return one of the functors (function, init or final)
-        const ValueMex& getFunc(int nr) const 
-        { 
-            return m_functors[nr]; 
-        }
-        
-        /// Duplicate one of the functors (function, init or final)
-        ValueMex dupFunc(int nr)  const 
-        { 
-            return ValueMex( getFunc(nr) ).Duplicate(); 
-        }
-        
-        /// Check if function handle is valid (not empty and of functon handle class)
-        bool checkFunc(int nr)  const 
-        { 
-            return ValueMex( getFunc(nr) ).IsFunctionHandle(); 
-        }
-        
-        /// Exchange exception stack information
-        void setSwapException( ValueMex& exception ) 
-        { 
-            assert( m_piface );
-            std::swap( m_piface->m_exception, exception ); 
-        }
-
-        /// Check if one of the functors is empty
-        bool IsEmpty() const 
-        { 
-            return m_functors[FCN].IsEmpty() && m_functors[STEP].IsEmpty() && m_functors[FINAL].IsEmpty(); 
-        }
-
-        /// Check if all functors are valid
-        bool IsValid() const
-        {
-            for( int i = 0; i < 3; i++ )
-            {
-                if( m_functors[i].IsEmpty() )
-                {
-                    continue;
-                }
-
-                if( !m_functors[i].IsFunctionHandle() || m_functors[i].NumElements() != 1 )
-                {
-                    return false;
-                }
-            }
-
-            if( IsEmpty() )
-            {
-                return false;
-            }
-
-            return true;
-        }
-    };
-
-    typedef map<string, MexFunctors*> MexFunctorsMap;   ///< Dictionary: function name => function handles
-    
+    SQLstackitem*   m_pstackitem;
     sqlite3*        m_db;           ///< SQLite db object
     const char*     m_command;      ///< SQL query (no ownership, read-only!)
     sqlite3_stmt*   m_stmt;         ///< SQL statement (sqlite bridge)
-    Err             m_lasterr;      ///< recent error message
-    MexFunctorsMap  m_fcnmap;       ///< MEX function map for application-defined SQL functions
-    ValueMex        m_exception;    ///< Exception stack information
+    SQLerror        m_lasterr;      ///< recent error message
           
 public:
+  friend class SQLerror;
+
   /// Standard ctor
-  SQLiface() :
-    m_db( NULL ),
+  SQLiface( SQLstackitem& stackitem ) :
+    m_pstackitem( &stackitem ),
+    m_db( stackitem.dbid() ),
     m_command( NULL ),
     m_stmt( NULL )
   {
@@ -221,10 +538,17 @@ public:
   /// Dtor
   ~SQLiface()
   {
-      closeDb();
+      closeStmt();
   }
-  
-  
+
+
+  /// Returns true, if database is open
+  bool isOpen()
+  {
+      return NULL != m_db;
+  }
+
+
   /// Clear recent error message
   void clearErr()
   {
@@ -243,24 +567,11 @@ public:
   {
       m_lasterr.set( err_id );
   }
+
   
-  
-  /// Set error by its result code
   void setSqlError( int rc )
   {
-      if( SQLITE_OK == rc )
-      {
-          m_lasterr.clear();
-      }
-      else
-      {
-          //m_lasterr.set_printf( sqlite3_errstr( rc ), trans_err_to_ident( rc ) );
-          if( rc < 0 )
-          {
-              rc = sqlite3_extended_errcode( m_db );
-          }
-          m_lasterr.set_printf( sqlite3_errmsg( m_db ), trans_err_to_ident( rc ) );
-      }
+      m_lasterr.setSqlError( m_db, rc );
   }
 
 
@@ -268,20 +579,6 @@ public:
   bool errPending()
   {
       return m_lasterr.isPending();
-  }
-
-
-  /// (Re-)Throws an exception, if any occured
-  void throwOnException()
-  {
-      m_exception.Throw();
-  }
-  
-  
-  /// Returns true, if database is open
-  bool isOpen()
-  {
-      return NULL != m_db;
   }
 
 
@@ -357,252 +654,25 @@ public:
   }
   
   
-  /// Close database
-  bool closeDb()
-  {
-      closeStmt();
-      
-      // Deallocate functors
-      for( MexFunctorsMap::iterator it = m_fcnmap.begin(); it != m_fcnmap.end(); it++ )
-      {
-          delete it->second;
-      }
-      m_fcnmap.clear();
-
-      // m_db may be NULL, since sqlite3_close with a NULL argument is a harmless no-op
-      int rc = sqlite3_close( m_db );
-      if( SQLITE_OK == rc )
-      {
-          m_db = NULL;
-      }
-      else
-      {
-          PRINTF( "%s\n", ::getLocaleMsg( MSG_ERRCANTCLOSE ) );
-          setSqlError( -1 ); /* not SQL_ERR_CLOSE */
-      }
-      
-      return !isOpen();
-  }
-  
-  
-  /**
-   * \brief Opens (or create) database
-   *
-   * \param[in] filename Name of database file
-   * \param[in] openFlags Flags for access rights (see SQLite documentation for sqlite3_open_v2())
-   * \returns true if succeeded
-   */
-  bool openDb( const char* filename, int openFlags )
-  {
-      if( errPending() ) return false;
-      
-      if( !closeDb() )
-      {
-          return false;
-      }
-      
-      /*
-       * Open the database
-       * m_db is assigned by sqlite3_open_v2(), even if an error
-       * occures
-       */
-      unsigned char* filename_utf8 = NULL;
-      int filename_utf8_bytes = utils_latin2utf( (const unsigned char*)filename, NULL );
-
-      if( filename_utf8_bytes )
-      {
-          filename_utf8 = (unsigned char*)MEM_ALLOC( filename_utf8_bytes, sizeof(char) );
-          utils_latin2utf( (const unsigned char*)filename, filename_utf8 );
-
-          if( !filename_utf8 )
-          {
-              setErr( MSG_ERRMEMORY );
-          }
-      }
-
-      if( filename_utf8 && !errPending() )
-      {
-          int rc = sqlite3_open_v2( (char*)filename_utf8, &m_db, openFlags, NULL );
-
-          if( SQLITE_OK != rc )
-          {
-              setSqlError( -1 );
-          }
-
-          sqlite3_extended_result_codes( m_db, true );
-      }
-
-      MEM_FREE( filename_utf8 );
-
-      if( errPending() )
-      {
-          return false;
-      } 
-      else 
-      {
-          attachBuiltinFunctions();
-          return true;
-      }
-  }
-  
-  
-  /**
-   * \brief Get least SQLite error code and return identifier as string
-   */
-  const char* trans_err_to_ident( int errorcode )
-  {
-      static char dummy[32];
-
-      //int errorcode = sqlite3_extended_errcode( m_db );
-
-      switch( errorcode )
-      {    
-          case SQLITE_OK:                         return( "SQLITE:OK" );
-          case SQLITE_ERROR:                      return( "SQLITE:ERROR" );
-          case SQLITE_INTERNAL:                   return( "SQLITE:INTERNAL" );
-          case SQLITE_PERM:                       return( "SQLITE:PERM" );
-          case SQLITE_ABORT:                      return( "SQLITE:ABORT" );
-          case SQLITE_BUSY:                       return( "SQLITE:BUSY" );
-          case SQLITE_LOCKED:                     return( "SQLITE:LOCKED" );
-          case SQLITE_NOMEM:                      return( "SQLITE:NOMEM" );
-          case SQLITE_READONLY:                   return( "SQLITE:READONLY" );
-          case SQLITE_INTERRUPT:                  return( "SQLITE:INTERRUPT" );
-          case SQLITE_IOERR:                      return( "SQLITE:IOERR" );
-          case SQLITE_CORRUPT:                    return( "SQLITE:CORRUPT" );
-          case SQLITE_NOTFOUND:                   return( "SQLITE:NOTFOUND" );
-          case SQLITE_FULL:                       return( "SQLITE:FULL" );
-          case SQLITE_CANTOPEN:                   return( "SQLITE:CANTOPEN" );
-          case SQLITE_PROTOCOL:                   return( "SQLITE:PROTOCOL" );
-          case SQLITE_EMPTY:                      return( "SQLITE:EMPTY" );
-          case SQLITE_SCHEMA:                     return( "SQLITE:SCHEMA" );
-          case SQLITE_TOOBIG:                     return( "SQLITE:TOOBIG" );
-          case SQLITE_CONSTRAINT:                 return( "SQLITE:CONSTRAINT" );
-          case SQLITE_MISMATCH:                   return( "SQLITE:MISMATCH" );
-          case SQLITE_MISUSE:                     return( "SQLITE:MISUSE" );
-          case SQLITE_NOLFS:                      return( "SQLITE:NOLFS" );
-          case SQLITE_AUTH:                       return( "SQLITE:AUTH" );
-          case SQLITE_FORMAT:                     return( "SQLITE:FORMAT" );
-          case SQLITE_RANGE:                      return( "SQLITE:RANGE" );
-          case SQLITE_NOTADB:                     return( "SQLITE:NOTADB" );
-          case SQLITE_NOTICE:                     return( "SQLITE:NOTICE" );
-          case SQLITE_WARNING:                    return( "SQLITE:WARNING" );
-          case SQLITE_ROW:                        return( "SQLITE:ROW" );
-          case SQLITE_DONE:                       return( "SQLITE:DONE" );
-          /* extended codes */
-          case SQLITE_IOERR_READ:                 return( "SQLITE:IOERR_READ" );
-          case SQLITE_IOERR_SHORT_READ:           return( "SQLITE:IOERR_SHORT_READ" );
-          case SQLITE_IOERR_WRITE:                return( "SQLITE:IOERR_WRITE" );
-          case SQLITE_IOERR_FSYNC:                return( "SQLITE:IOERR_FSYNC" );
-          case SQLITE_IOERR_DIR_FSYNC:            return( "SQLITE:IOERR_DIR_FSYNC" );
-          case SQLITE_IOERR_TRUNCATE:             return( "SQLITE:IOERR_TRUNCATE" );
-          case SQLITE_IOERR_FSTAT:                return( "SQLITE:IOERR_FSTAT" );
-          case SQLITE_IOERR_UNLOCK:               return( "SQLITE:IOERR_UNLOCK" );
-          case SQLITE_IOERR_RDLOCK:               return( "SQLITE:IOERR_RDLOCK" );
-          case SQLITE_IOERR_DELETE:               return( "SQLITE:IOERR_DELETE" );
-          case SQLITE_IOERR_BLOCKED:              return( "SQLITE:IOERR_BLOCKED" );
-          case SQLITE_IOERR_NOMEM:                return( "SQLITE:IOERR_NOMEM" );
-          case SQLITE_IOERR_ACCESS:               return( "SQLITE:IOERR_ACCESS" );
-          case SQLITE_IOERR_CHECKRESERVEDLOCK:    return( "SQLITE:IOERR_CHECKRESERVEDLOCK" );
-          case SQLITE_IOERR_LOCK:                 return( "SQLITE:IOERR_LOCK" );
-          case SQLITE_IOERR_CLOSE:                return( "SQLITE:IOERR_CLOSE" );
-          case SQLITE_IOERR_DIR_CLOSE:            return( "SQLITE:IOERR_DIR_CLOSE" );
-          case SQLITE_IOERR_SHMOPEN:              return( "SQLITE:IOERR_SHMOPEN" );
-          case SQLITE_IOERR_SHMSIZE:              return( "SQLITE:IOERR_SHMSIZE" );
-          case SQLITE_IOERR_SHMLOCK:              return( "SQLITE:IOERR_SHMLOCK" );
-          case SQLITE_IOERR_SHMMAP:               return( "SQLITE:IOERR_SHMMAP" );
-          case SQLITE_IOERR_SEEK:                 return( "SQLITE:IOERR_SEEK" );
-          case SQLITE_IOERR_DELETE_NOENT:         return( "SQLITE:IOERR_DELETE_NOENT" );
-          case SQLITE_IOERR_MMAP:                 return( "SQLITE:IOERR_MMAP" );
-          case SQLITE_IOERR_GETTEMPPATH:          return( "SQLITE:IOERR_GETTEMPPATH" );
-          case SQLITE_IOERR_CONVPATH:             return( "SQLITE:IOERR_CONVPATH" );
-          case SQLITE_LOCKED_SHAREDCACHE:         return( "SQLITE:LOCKED_SHAREDCACHE" );
-          case SQLITE_BUSY_RECOVERY:              return( "SQLITE:BUSY_RECOVERY" );
-          case SQLITE_BUSY_SNAPSHOT:              return( "SQLITE:BUSY_SNAPSHOT" );
-          case SQLITE_CANTOPEN_NOTEMPDIR:         return( "SQLITE:CANTOPEN_NOTEMPDIR" );
-          case SQLITE_CANTOPEN_ISDIR:             return( "SQLITE:CANTOPEN_ISDIR" );
-          case SQLITE_CANTOPEN_FULLPATH:          return( "SQLITE:CANTOPEN_FULLPATH" );
-          case SQLITE_CANTOPEN_CONVPATH:          return( "SQLITE:CANTOPEN_CONVPATH" );
-          case SQLITE_CORRUPT_VTAB:               return( "SQLITE:CORRUPT_VTAB" );
-          case SQLITE_READONLY_RECOVERY:          return( "SQLITE:READONLY_RECOVERY" );
-          case SQLITE_READONLY_CANTLOCK:          return( "SQLITE:READONLY_CANTLOCK" );
-          case SQLITE_READONLY_ROLLBACK:          return( "SQLITE:READONLY_ROLLBACK" );
-          case SQLITE_READONLY_DBMOVED:           return( "SQLITE:READONLY_DBMOVED" );
-          case SQLITE_ABORT_ROLLBACK:             return( "SQLITE:ABORT_ROLLBACK" );
-          case SQLITE_CONSTRAINT_CHECK:           return( "SQLITE:CONSTRAINT_CHECK" );
-          case SQLITE_CONSTRAINT_COMMITHOOK:      return( "SQLITE:CONSTRAINT_COMMITHOOK" );
-          case SQLITE_CONSTRAINT_FOREIGNKEY:      return( "SQLITE:CONSTRAINT_FOREIGNKEY" );
-          case SQLITE_CONSTRAINT_FUNCTION:        return( "SQLITE:CONSTRAINT_FUNCTION" );
-          case SQLITE_CONSTRAINT_NOTNULL:         return( "SQLITE:CONSTRAINT_NOTNULL" );
-          case SQLITE_CONSTRAINT_PRIMARYKEY:      return( "SQLITE:CONSTRAINT_PRIMARYKEY" );
-          case SQLITE_CONSTRAINT_TRIGGER:         return( "SQLITE:CONSTRAINT_TRIGGER" );
-          case SQLITE_CONSTRAINT_UNIQUE:          return( "SQLITE:CONSTRAINT_UNIQUE" );
-          case SQLITE_CONSTRAINT_VTAB:            return( "SQLITE:CONSTRAINT_VTAB" );
-          case SQLITE_CONSTRAINT_ROWID:           return( "SQLITE:CONSTRAINT_ROWID" );
-          case SQLITE_NOTICE_RECOVER_WAL:         return( "SQLITE:NOTICE_RECOVER_WAL" );
-          case SQLITE_NOTICE_RECOVER_ROLLBACK:    return( "SQLITE:NOTICE_RECOVER_ROLLBACK" );
-          case SQLITE_WARNING_AUTOINDEX:          return( "SQLITE:WARNING_AUTOINDEX" );
-          case SQLITE_AUTH_USER:                  return( "SQLITE:AUTH_USER" );
-          
-          default:
-              _snprintf( dummy, sizeof( dummy ), "SQLITE:ERRNO%d", errorcode );
-              return dummy;
-       }
-  }
-  
-  
-  /**
-   * \brief Attach builtin functions to database object
-   *
-   * Following builtin functions are involved:
-   * - pow
-   * - regex
-   * - bcdratio
-   * - bdcpacktime
-   * - bdcunpacktime
-   * - md5
-   */
-  void attachBuiltinFunctions()
-  {
-      if( !isOpen() )
-      {
-          assert( false );
-      }
-      else
-      {
-          // attach new SQL commands to opened database
-          sqlite3_create_function( m_db, "pow", 2, SQLITE_UTF8, NULL, pow_func, NULL, NULL );                       // power function (math)
-          sqlite3_create_function( m_db, "lg", 1, SQLITE_UTF8, NULL, lg_func, NULL, NULL );                         // power function (math)
-          sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                         // power function (math)
-          sqlite3_create_function( m_db, "exp", 1, SQLITE_UTF8, NULL, exp_func, NULL, NULL );                       // power function (math)
-          sqlite3_create_function( m_db, "regex", 2, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (MATCH mode)
-          sqlite3_create_function( m_db, "regex", 3, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (REPLACE mode)
-          sqlite3_create_function( m_db, "bdcratio", 1, SQLITE_UTF8, NULL, BDC_ratio_func, NULL, NULL );            // compression ratio (blob data compression)
-          sqlite3_create_function( m_db, "bdcpacktime", 1, SQLITE_UTF8, NULL, BDC_pack_time_func, NULL, NULL );     // compression time (blob data compression)
-          sqlite3_create_function( m_db, "bdcunpacktime", 1, SQLITE_UTF8, NULL, BDC_unpack_time_func, NULL, NULL ); // decompression time (blob data compression)
-          sqlite3_create_function( m_db, "md5", 1, SQLITE_UTF8, NULL, MD5_func, NULL, NULL );                       // Message-Digest (RSA)
-      }
-  }
-
-
   /// Wrapper for SQL function
   static 
   void mexFcnWrapper_FCN( sqlite3_context *ctx, int argc, sqlite3_value **argv )
   {
-      mexFcnWrapper( ctx, argc, argv, SQLiface::MexFunctors::FCN );
+      mexFcnWrapper( ctx, argc, argv, MexFunctors::FCN );
   }
   
   /// Wrapper for SQL step function (aggregation)
   static 
   void mexFcnWrapper_STEP( sqlite3_context *ctx, int argc, sqlite3_value **argv )
   {
-      mexFcnWrapper( ctx, argc, argv, SQLiface::MexFunctors::STEP );
+      mexFcnWrapper( ctx, argc, argv, MexFunctors::STEP );
   }
   
   /// Wrapper for SQL final function (aggregation)
   static 
   void mexFcnWrapper_FINAL( sqlite3_context *ctx )
   {
-      mexFcnWrapper( ctx, 0, NULL, SQLiface::MexFunctors::FINAL );
+      mexFcnWrapper( ctx, 0, NULL, MexFunctors::FINAL );
   }
   
   /// Common wrapper for all user defined SQL functions
@@ -620,6 +690,13 @@ public:
       {
           arg.Destroy();
           sqlite3_result_error( ctx, "Invalid function!", -1 );
+          failed = true;
+      }
+
+      if( fcn->m_busy )
+      {
+          arg.Destroy();
+          sqlite3_result_error( ctx, "Invalid recursive function call!", -1 );
           failed = true;
       }
 
@@ -722,12 +799,14 @@ public:
       if( !failed )
       {
           ValueMex exception, item;
+          fcn->m_busy = true;
           arg.Call( &item, &exception );
+          fcn->m_busy = false;
 
           if( !exception.IsEmpty() )
           {
               // Exception handling
-              fcn->setSwapException( exception );
+              fcn->swapException( exception );
               sqlite3_result_error( ctx, "MATLAB Exception!", -1 );
               failed = true;
           }
@@ -754,8 +833,8 @@ public:
 
                       if( MSG_NOERROR != err_id )
                       {
-                          fcn->m_piface->setErr( err_id );
-                          sqlite3_result_error( ctx, fcn->m_piface->getErr(), -1 );
+                          fcn->interface()->setErr( err_id );
+                          sqlite3_result_error( ctx, fcn->interface()->getErr(), -1 );
                       }
                       else
                       {
@@ -806,8 +885,8 @@ public:
 
                               default:
                                   // all other (unsuppored types)
-                                  fcn->m_piface->setErr( MSG_INVALIDARG );
-                                  sqlite3_result_error( ctx, fcn->m_piface->getErr(), - 1 );
+                                  fcn->interface()->setErr( MSG_INVALIDARG );
+                                  sqlite3_result_error( ctx, fcn->interface()->getErr(), - 1 );
                                   break;
                           }
                       }
@@ -887,19 +966,19 @@ public:
           {
               if( action >= 0 )
               {
-                  if( m_fcnmap.count(name) )
+                  if( m_pstackitem->fcnmap().count(name) )
                   {
 #ifndef NDEBUG
                       PRINTF( "Deleting functors for %s\n", name );
 #endif
-                      delete m_fcnmap[name];
-                      m_fcnmap.erase(name);
+                      delete m_pstackitem->fcnmap()[name];
+                      m_pstackitem->fcnmap().erase(name);
                   }
               }
 
               if( action > 0 )
               {
-                  m_fcnmap[name] = fcn;
+                  m_pstackitem->fcnmap()[name] = fcn;
                   fcn = NULL;
               }
           }
@@ -920,6 +999,12 @@ public:
    */
   bool setQuery( const char* query )
   {
+      if( !isOpen() )
+      {
+          assert( false );
+          return false;
+      }
+
       /*
        * complete the query
        */
@@ -990,6 +1075,8 @@ public:
       int err_id = MSG_NOERROR;
       int iTypeComplexity;
       int rc;
+
+      assert( isOpen() );
 
       ValueSQL value = createValueSQLFromItem( item, bStreamable, iTypeComplexity, err_id );
 
@@ -1258,9 +1345,12 @@ public:
   /// Clear parameter bindings and finalize current statement
   void finalize()
   {
-      sqlite3_clear_bindings( m_stmt );
-      sqlite3_finalize( m_stmt );
-      m_stmt = NULL;
+      if( m_stmt )
+      {
+          sqlite3_clear_bindings( m_stmt );
+          sqlite3_finalize( m_stmt );
+          m_stmt = NULL;
+      }
   }
 
     
@@ -1275,6 +1365,8 @@ public:
    */
   bool fetch( ValueSQLCols& cols, bool initialize = false ) // kv69: enable for skipping initialization to accumulate query results
   {
+      assert( isOpen() );
+      
       if( initialize )
       {
           ValueSQLCol::StringPairList  names;

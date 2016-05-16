@@ -67,13 +67,14 @@ extern "C" void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*p
  * mksqlite( 0, 'close' );                        // closes all databases
  * \endcode
  */
-static struct SQLstack
+static class SQLstack
 {
+public:
     /// Stack size
     enum { COUNT_DB = CONFIG_MAX_NUM_OF_DBS };
     
-    SQLiface m_db[COUNT_DB];     ///< SQLite interface slots
-    int      m_dbid;             ///< selected current database id, base 0
+    SQLstackitem m_db[COUNT_DB];     ///< SQLite database slots
+    int          m_dbid;             ///< recent selected database id, base 0
     
     
     /// Standard Ctor (first database slot is default)
@@ -81,8 +82,8 @@ static struct SQLstack
     {
         sqlite3_initialize();
     };
-    
-    
+
+
     /**
      * \brief Dtor
      *
@@ -92,6 +93,12 @@ static struct SQLstack
     {
         (void)closeAllDbs();
         sqlite3_shutdown();
+    }
+
+
+    SQLstackitem& current()
+    {
+        return m_db[m_dbid];
     }
     
     
@@ -108,13 +115,11 @@ static struct SQLstack
         assert( isValidId( newId ) );
         m_dbid = newId;
     }
-    
-    
-    /// Returns the current SQL interface
-    SQLiface& current()
+
+
+    SQLiface* createInterface()
     {
-        assert( m_dbid >= 0 );
-        return m_db[m_dbid];
+        return new SQLiface( current() );
     }
     
     
@@ -149,13 +154,14 @@ static struct SQLstack
     /// Closes all open databases and returns the number of closed DBs, if any open
     int closeAllDbs()
     {
+        SQLerror err;
         int nClosed = 0;
 
         for( int i = 0; i < COUNT_DB; i++ )
         {
             if( m_db[i].isOpen() )
             {
-                m_db[i].closeDb();
+                m_db[i].closeDb( err );
                 nClosed++;
             }
         }
@@ -457,15 +463,16 @@ ValueSQL createValueSQLFromItem( const ValueMex& item, bool bStreamable, int& iT
  */
 class Mksqlite
 {
-    int               m_nlhs;       ///< count of left hand side arguments
-    int               m_narg;       ///< count of right hand side arguments
-    mxArray**         m_plhs;       ///< pointer to current left hand side argument
-    const mxArray**   m_parg;       ///< pointer to current right hand side argument
-    char*             m_command;    ///< SQL command. Allocated and freed by this class
-    const char*       m_query;      ///< \p m_command, or a translation from \p m_command
-    int               m_dbid_req;   ///< requested database id (user input) -1="arg missing", 0="next free slot" or 1..COUNT_DB
-    int               m_dbid;       ///< selected database slot (1..COUNT_DB)
-    Err               m_err;        ///< recent error
+    int               m_nlhs;             ///< count of left hand side arguments
+    int               m_narg;             ///< count of right hand side arguments
+    mxArray**         m_plhs;             ///< pointer to current left hand side argument
+    const mxArray**   m_parg;             ///< pointer to current right hand side argument
+    char*             m_command;          ///< SQL command. Allocated and freed by this class
+    const char*       m_query;            ///< \p m_command, or a translation from \p m_command
+    int               m_dbid_req;         ///< requested database id (user input) -1="arg missing", 0="next free slot" or 1..COUNT_DB
+    int               m_dbid;             ///< selected database slot (1..COUNT_DB)
+    SQLerror          m_err;              ///< recent error
+    SQLiface*         m_current;
     
     /**
      * \name Inhibit assignment, default and copy ctors
@@ -480,7 +487,7 @@ public:
     Mksqlite( int nlhs, mxArray** plhs, int nrhs, const mxArray** prhs )
     : m_nlhs( nlhs ), m_plhs( plhs ), 
       m_narg( nrhs ), m_parg( prhs ),
-      m_command(NULL), m_query(NULL), m_dbid_req(-1), m_dbid(1)
+      m_command(NULL), m_query(NULL), m_dbid_req(-1), m_dbid(1), m_current( NULL )
     {
         /*
          * no argument -> fail
@@ -499,6 +506,11 @@ public:
         if( m_command )
         {
             ::utils_free_ptr( m_command );
+        }
+
+        if( m_current )
+        {
+            delete m_current;
         }
     }
     
@@ -550,7 +562,7 @@ public:
     bool ensureDbIsOpen()
     {
         // database must be opened to set busy timeout
-        if( !SQLstack.current().isOpen() )
+        if( !m_current || !m_current->isOpen() )
         {
             m_err.set( MSG_DBNOTOPEN );
             return false;
@@ -726,7 +738,7 @@ public:
         }
 
         SQLstack.switchTo( m_dbid-1 );  // base 0
-        SQLstack.current().clearErr();
+        m_current = SQLstack.createInterface();
         m_err.clear();
         return true;
     }
@@ -984,10 +996,10 @@ public:
             return false;
         }
         
-        if( !SQLstack.current().setEnableLoadExtension( flagOnOff ) )
+        if( !m_current->setEnableLoadExtension( flagOnOff ) )
         {
             const char* errid = NULL;
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
 
@@ -1042,7 +1054,7 @@ public:
             char* buffer = ::utils_getString( arg );
             if( buffer )
             {
-                strlwr( buffer );
+                _strlwr( buffer );
                 fcnName = buffer;
                 ::utils_free_ptr( buffer );
             }
@@ -1055,12 +1067,12 @@ public:
             return false;
         }
         
-        if( !SQLstack.current().attachMexFunction( fcnName.c_str(), 
-                                                   ValueMex( fcnHandle ), 
-                                                   ValueMex( NULL ), ValueMex( NULL ) ) )
+        if( !m_current->attachMexFunction( fcnName.c_str(), 
+                                           ValueMex( fcnHandle ), 
+                                           ValueMex( NULL ), ValueMex( NULL ) ) )
         {
             const char* errid = NULL;
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
         
@@ -1113,7 +1125,7 @@ public:
             char* buffer = ::utils_getString( arg );
             if( buffer )
             {
-                strlwr( buffer );
+                _strlwr( buffer );
                 fcnName = buffer;
                 ::utils_free_ptr( buffer );
             }
@@ -1133,12 +1145,12 @@ public:
             return false;
         }
         
-        if( !SQLstack.current().attachMexFunction( fcnName.c_str(), 
-                                                   ValueMex( NULL ), 
-                                                   ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ) ) )
+        if( !m_current->attachMexFunction( fcnName.c_str(), 
+                                           ValueMex( NULL ), 
+                                           ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ) ) )
         {
             const char* errid = NULL;
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
         
@@ -1437,7 +1449,7 @@ public:
              * Print current result type
              */
             PRINTF( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
         
@@ -1501,14 +1513,14 @@ public:
             return false;
         }
         
-        if( !m_narg && !SQLstack.current().getBusyTimeout( iTimeout ) )
+        if( !m_narg && !m_current->getBusyTimeout( iTimeout ) )
         {
             const char* errid = NULL;
             /*
              * Anything wrong? free the database id and inform the user
              */
             PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
         
@@ -1522,14 +1534,14 @@ public:
         // "Calling this routine with an argument less than or equal 
         // to zero turns off all busy handlers."
         
-        if( !SQLstack.current().setBusyTimeout( iTimeout ) )
+        if( !m_current->setBusyTimeout( iTimeout ) )
         {
             const char* errid = NULL;
             /*
              * Anything wrong? free the database id and inform the user
              */
             PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
         
@@ -1648,10 +1660,10 @@ public:
         m_narg--;
 
         // close database if open
-        if( !SQLstack.current().closeDb() )
+        if( !SQLstack.current().closeDb( m_err ) )
         {
             const char* errid = NULL;
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
         }
         
         /*
@@ -1721,12 +1733,7 @@ public:
         
         if( !errPending() )
         {
-            if( !SQLstack.current().openDb( dbname, openFlags ) )
-            {
-                // adopt sql error message
-                const char* errid = NULL;
-                m_err.set( SQLstack.current().getErr(&errid), errid );
-            }
+            SQLstack.current().openDb( dbname, openFlags, m_err );
         }
         
         /*
@@ -1735,11 +1742,14 @@ public:
         if( !errPending() )
         {
             const char* errid = NULL;
-            
-            if( !SQLstack.current().setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
+
+            delete m_current;
+            m_current = SQLstack.createInterface();
+
+            if( !m_current->setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
             {
                 PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-                m_err.set( SQLstack.current().getErr(&errid), errid );
+                m_err.set( m_current->getErr(&errid), errid );
             }
         }
         
@@ -1790,12 +1800,7 @@ public:
              * inform the user
              */
             
-            if( !SQLstack.current().closeDb() )
-            {
-                // adopt sql error message
-                const char* errid = NULL;
-                m_err.set( SQLstack.current().getErr(&errid), errid );
-            }
+            SQLstack.current().closeDb( m_err );
         }
         
         return errPending();
@@ -2130,10 +2135,10 @@ public:
         
         /*** prepare statement ***/
 
-        if( !SQLstack.current().setQuery( m_query ) )
+        if( !m_current->setQuery( m_query ) )
         {
             const char* errid = NULL;
-            m_err.set( SQLstack.current().getErr(&errid), errid );
+            m_err.set( m_current->getErr(&errid), errid );
             return false;
         }
 
@@ -2142,7 +2147,7 @@ public:
         ValueSQLCols     cols;
         const mxArray**  nextBindParam       = m_parg;
         int              countBindParam      = m_narg;
-        int              argsNeeded          = SQLstack.current().getParameterCount();
+        int              argsNeeded          = m_current->getParameterCount();
         bool             haveParamCell       = false;
         bool             haveParamStruct     = false;
         long*            last_insert_row     = NULL;  // kv69: for storing last_insert_row_id after each statement reuse
@@ -2280,8 +2285,8 @@ public:
         for( int i = 0; i < count; i++ ) // kv69: fixed length loop because we know how often the stmt should be repeated
         {
             // reset SQL statement and clear bindings
-            SQLstack.current().reset();
-            SQLstack.current().clearBindings();
+            m_current->reset();
+            m_current->clearBindings();
 
             /*** Bind parameters ***/
         
@@ -2296,7 +2301,7 @@ public:
                 }
                 else
                 {
-                    const char* name = SQLstack.current().getParameterName( iParam + 1 );
+                    const char* name = m_current->getParameterName( iParam + 1 );
                     bindParam = name ? ValueMex( *nextBindParam ).GetField( i, ++name ) : NULL;  // adjusting name behind either '?', ':', '$' or '@'!
 
                     if( !bindParam )
@@ -2306,10 +2311,10 @@ public:
                     }
                 }
 
-                if( !SQLstack.current().bindParameter( iParam + 1, ValueMex( bindParam ), can_serialize() ) )
+                if( !m_current->bindParameter( iParam + 1, ValueMex( bindParam ), can_serialize() ) )
                 {
                     const char* errid = NULL;
-                    m_err.set( SQLstack.current().getErr(&errid), errid );
+                    m_err.set( m_current->getErr(&errid), errid );
                     goto finalize;
                 }
             }
@@ -2317,23 +2322,23 @@ public:
             /*** fetch results and store results for output ***/
 
             // cumulate in "cols"
-            if( !errPending() && !SQLstack.current().fetch( cols, initialize ) )
+            if( !errPending() && !m_current->fetch( cols, initialize ) )
             {
                 const char* errid = NULL;
-                m_err.set( SQLstack.current().getErr(&errid), errid );
+                m_err.set( m_current->getErr(&errid), errid );
                 goto finalize;
             }
             initialize = false; // kv69: for next statement use do not initialize query results again but accumulated it
 
             // kv69: collect last_insert_row_id
-            last_insert_row[i] = SQLstack.current().getLastRowID();
+            last_insert_row[i] = m_current->getLastRowID();
         }
 
 finalize:
         /*
          * finalize current sql statement
          */
-        SQLstack.current().finalize();
+        m_current->finalize();
 
         /*** Prepare results to return ***/
         
@@ -2496,7 +2501,7 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
     {
         mksqlite.returnWithError();
     }
-    
+
     // analyse command string (switch, command, or query)
     switch( mksqlite.cmdAnalyseCommand() )
     {
@@ -2521,8 +2526,8 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
       default:
         assert( false );
     }
-    
-    SQLstack.current().throwOnException();
+
+    //m_current->throwOnException();  // TODO
 
     if( mksqlite.errPending() )
     {
