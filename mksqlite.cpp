@@ -1034,7 +1034,7 @@ public:
         /*
          * There should be a function name and a function handle
          */
-        if( m_narg > 3 )
+        if( m_narg > 2 )
         {
             m_err.set( MSG_UNEXPECTEDARG );
             return false;
@@ -1106,7 +1106,7 @@ public:
         /*
          * There should be a function name and a function handle
          */
-        if( m_narg > 4 )
+        if( m_narg > 3 )
         {
             m_err.set( MSG_UNEXPECTEDARG );
             return false;
