@@ -115,7 +115,7 @@ class Err
     int         m_msgId;              ///< Message ID (see \ref MSG_IDS "Message Identifiers")
     char        m_shared_msg[1024];   ///< (Shared) text buffer for non-const (generated) messages
     const char* m_static_msg;         ///< Holds pointer to static message text
-    const char* m_err_id;             ///< Holds the error id (for MATLAB exception handling f.e.)
+    const char* m_err_id;             ///< Holds the error id (for MATLAB exception handling f.e., see \ref MSG_IDS)
     bool        m_isPending;          ///< Message has still to be handled if this flag is set
     
 public:

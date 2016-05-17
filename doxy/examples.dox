@@ -117,6 +117,16 @@ refetching such values, mksqlite will prefer double type, except when
 the value is such huge, that it can't be lossless represented by a double.\n
 This example shows these two conditions.
 
+\subpage example_17
+
+You can register your own MATLAB functions as SQL functions with one of
+the following calls:
+\code
+mksqlite( 'create function', <name>, function_handle );
+mksqlite( 'create aggregation', <name>, step_function_handle, final_function_handle );
+\endcode
+So you can access your MATLAB code from within SQL queries.
+
 */
 
 /**
@@ -167,4 +177,7 @@ This example shows these two conditions.
 
 \page example_15 Exception handling 64-bit integer types
 \htmlinclude sqlite_test_big_int.html
+
+\page example_17 Application-defined functions
+\htmlinclude sqlite_test_appdef_functions.html
 */

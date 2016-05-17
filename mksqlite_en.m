@@ -216,6 +216,17 @@
 %
 % (also see test_regex.m for further examples...)
 %
+% =======================================================================
+%
+% Application-defined functions:
+% You can register your own MATLAB functions as SQL functions with one of
+% the following calls:
+% 
+%   mksqlite( 'create function', <name>, function_handle );
+%   mksqlite( 'create aggregation', <name>, step_function_handle, final_function_handle );
+%
+% So you can access your MATLAB code from within SQL queries.
+%
 %
 % (c) 2008-2015 by Martin Kortmann <mail@kortmann.de>
 %                  Andreas Martin  <andimartin@users.sourceforge.net>

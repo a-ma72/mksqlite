@@ -182,7 +182,7 @@
 %
 % =======================================================================
 %
-% Extra SQL Funktionen:
+% Builtin SQL Funktionen:
 % mksqlite bietet zusätzliche SQL Funktionen neben der bekannten "core functions"
 % wie replace,trim,abs,round,...
 % In dieser Version werden 10 weitere Funktionen angeboten:
@@ -226,8 +226,18 @@
 %
 % (siehe auch test_regex.m für weitere Beispiele...)
 %
+% =======================================================================
 %
-% (c) 2008-2015 by Martin Kortmann <mail@kortmann.de>
+% Application-defined Funktionen:
+% Weitere Funktionen koennen mit eine der beiden Aufrufen installiert werden:
+% 
+%   mksqlite( 'create function', <name>, function_handle );
+%   mksqlite( 'create aggregation', <name>, step_function_handle, final_function_handle );
+%
+% So koennen MATLAB Funktionen ueber deren Handle in SQL zugaenglich gemacht werden.
+%
+%
+% (c) 2008-2016 by Martin Kortmann <mail@kortmann.de>
 %                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 

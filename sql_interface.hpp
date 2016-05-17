@@ -38,6 +38,7 @@ class SQLiface;
 class MexFunctors;
 
 
+/// Class holding an error
 class SQLerror : public Err
 {
 public:
@@ -184,8 +185,8 @@ class MexFunctors
 
 public:
 
-    bool m_busy;
-    enum {FCN, STEP, FINAL};
+    bool m_busy;              ///< true, if function is in progress to prevent recursive calls
+    enum {FCN, STEP, FINAL};  ///< Subfunction number
 
     
     /// Ctor
@@ -344,20 +345,23 @@ public:
 };
 
 
+/// Class holding an exception array, the function map and the handle for one database
 class SQLstackitem
 {
     typedef map<string, MexFunctors*> MexFunctorsMap;   ///< Dictionary: function name => function handles
 
     sqlite3*        m_db;           ///< SQLite db object
     MexFunctorsMap  m_fcnmap;       ///< MEX function map with MATLAB functions for application-defined SQL functions
-    ValueMex        m_exception;
+    ValueMex        m_exception;    ///< MATALAB exception array, will be thrown when mksqlite function leaves
 
 public:
 
+    /// Ctor
     SQLstackitem() : m_db( NULL )
     {}
 
 
+    /// Dtor
     ~SQLstackitem()
     {
         SQLerror err;
@@ -365,12 +369,13 @@ public:
     }
 
 
+    /// Return 
     sqlite3* dbid()
     {
         return m_db;
     }
 
-
+    /// Returns the exception array for this database
     ValueMex& getException()
     {
         return m_exception;
@@ -384,6 +389,7 @@ public:
     }
 
   
+    /// Returns the function map for this database
     MexFunctorsMap& fcnmap()
     {
         return m_fcnmap;
@@ -395,6 +401,7 @@ public:
      *
      * \param[in] filename Name of database file
      * \param[in] openFlags Flags for access rights (see SQLite documentation for sqlite3_open_v2())
+     * \param[out] err Error information
      * \returns true if succeeded
      */
     bool openDb( const char* filename, int openFlags, SQLerror& err )
@@ -468,6 +475,7 @@ public:
     }
 
 
+    /// Returns true, if database is opened
     bool isOpen()
     {
         return NULL != m_db;
@@ -520,8 +528,8 @@ public:
  */
 class SQLiface
 {
-    SQLstackitem*   m_pstackitem;
-    sqlite3*        m_db;           ///< SQLite db object
+    SQLstackitem*   m_pstackitem;   ///< pointer to current database
+    sqlite3*        m_db;           ///< SQLite db handle
     const char*     m_command;      ///< SQL query (no ownership, read-only!)
     sqlite3_stmt*   m_stmt;         ///< SQL statement (sqlite bridge)
     SQLerror        m_lasterr;      ///< recent error message
@@ -569,12 +577,14 @@ public:
   }
 
 
+  /// Sets an error by its ID (see \ref MSG_IDS)
   void setErr( int err_id )
   {
       m_lasterr.set( err_id );
   }
 
 
+  /// Sets an error by its SQL return code
   void setSqlError( int rc )
   {
       m_lasterr.setSqlError( m_db, rc );
@@ -1077,7 +1087,7 @@ public:
    * \brief Binds one parameter from current statement to a MATLAB array
    *
    * \param[in] index Parameter number (0 based)
-   * \param[in] pItem MATLAB array
+   * \param[in] item MATLAB array
    * \param[in] bStreamable true, if streaming is possible and desired
    */
   bool bindParameter( int index, ValueMex& item, bool bStreamable )

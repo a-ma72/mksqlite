@@ -224,10 +224,10 @@
 /* early bind of serializing functions (earlier MATLAB versions only) */
 #if defined( MATLAB_MEX_FILE )
   #if defined( CONFIG_EARLY_BIND_SERIALIZE )
-    extern "C" mxArray* mxSerialize(const mxArray*);
-    extern "C" mxArray* mxDeserialize(const void*, size_t);
+    extern "C" mxArray* mxSerialize(const mxArray*);          ///< Serialize a MATLAB array
+    extern "C" mxArray* mxDeserialize(const void*, size_t);   ///< Deserialize a MATLAB array
   #endif
-  extern mxArray *mxCreateSharedDataCopy(const mxArray *pr);
+  extern mxArray *mxCreateSharedDataCopy(const mxArray *pr);  ///< Create a "shadowed" MATLAB array
   #define PRINTF mexPrintf
 #endif
 

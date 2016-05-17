@@ -1,12 +1,13 @@
 function sqlite_test_appdef_functions
-  addpath( '..' );
+  %% Initialize
   mksqlite( 0, 'close' );
   mksqlite( 'result_type', 0 );
   mksqlite( 'param_wrapping', 1 );
   mksqlite( 'open', '' );
+  mksqlite( 'lang', 0 );
   clc
   
-  % Create a SQL function
+  %% Create SQL functions and table
   mksqlite( 'create function', 'norminv', @norminv );
   mksqlite( 'create function', 'anon', @(a,b)a*b );
   mksqlite( 'create function', 'func', @func );
@@ -17,31 +18,31 @@ function sqlite_test_appdef_functions
   
   mksqlite( 'CREATE TABLE tbl (id, number, text)' );
   
-  % Test norminv
+  %% Test norminv
   fprintf( 'SELECT norminv( 0.9, 0.0, 1.0 ) AS x\n' );
   q = mksqlite( 'SELECT norminv( 0.9, 0.0, 1.0 ) AS x' );
   assert( q.x == norminv(0.9, 0, 1) );
   fprintf( '...is %g\nOk\n\n', q.x );
   
-  % Test errorneous function
+  %% Test errorneous function
   fprintf( 'Test errorneous function\n' );
   try
     mksqlite( 'SELECT errorneous_func(1)' );
     assert( false );
   catch ME
-    fprintf( 'Successfully caught exception %s:\n%s\n\n', ME.identifier, ME.getReport );
+    fprintf( 'Successfully caught exception "%s":\n%s\n\n', ME.identifier, ME.getReport('basic') );
   end
   
-  % Test recursive function
+  %% Test recursive function
   fprintf( 'Test recursive function\n' );
   try
     mksqlite( 'SELECT recursive_func(1)' );
     assert( false );
   catch ME
-    fprintf( 'Successfully caught exception %s:\n%s\n\n', ME.identifier, ME.getReport );
+    fprintf( 'Successfully caught exception "%s":\n%s\n\n', ME.identifier, ME.getReport('basic') );
   end
   
-  % Test insert trigger
+  %% Test insert trigger
   mksqlite( 'CREATE TRIGGER mytrigger BEFORE INSERT ON tbl BEGIN SELECT trigger_func(NEW.text); END' );
   data = {1, randn(1), 'First value';
           1, randn(1), 'Second value';
@@ -51,12 +52,12 @@ function sqlite_test_appdef_functions
   mksqlite( 'INSERT INTO tbl (id,number,text) VALUES(?,?,?)', data' );
   fprintf( 'Done\n\n' );
   
-  % Test function
+  %% Test function
   fprintf( 'Test function func()\n' );
   q = mksqlite( 'SELECT id,func(text,number) FROM tbl' );
   fprintf( 'Ok\n\n' );
   
-  % Test remove function
+  %% Test remove function
   fprintf( 'Test removing application-defined function\n' );
   mksqlite( 'create function', 'norminv', [] );
   try
@@ -66,7 +67,7 @@ function sqlite_test_appdef_functions
     fprintf( 'Ok\n\n' );
   end
   
-  % Test aggregate function
+  %% Test aggregate function
   fprintf( 'Test aggregate function\n' );
   q = mksqlite( ['SELECT aggregate_func(number, 1.35) AS x, SUM(1.35*number)/COUNT(number) AS y ', ...
                  'FROM tbl GROUP BY ID'] );
@@ -74,11 +75,12 @@ function sqlite_test_appdef_functions
   assert( abs( q.x - q.y ) < 1e-5 );
   fprintf( 'Ok\n' );
   
+  %% Close database
   mksqlite( 0, 'close' );
   
 end
 
-
+%% Subfunctions
 function result = errorneous_func( value )
   notexistingfunc( value );
 end

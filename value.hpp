@@ -45,6 +45,8 @@ struct  tagNativeArray;
 
 #define SQLITE_BLOBX 20   ///< Identifier to flag another allocator as used for SQLITE_BLOB
 
+/// Asserting size of SQLite 64-bit integer type at least size of long long type
+HC_ASSERT( sizeof( sqlite3_int64 ) <= sizeof( long long ) );
 
 /**
  * \brief Base class for ValueMex and ValueSQL
@@ -53,7 +55,6 @@ struct  tagNativeArray;
  * Member \p m_largest_field is only used to copy the content of the union.
  * 
  */
-HC_ASSERT( sizeof( sqlite3_int64 ) <= sizeof( long long ) );
 class ValueBase
 {
 public:
@@ -834,9 +835,8 @@ public:
 class ValueSQL : public ValueBase
 {
 public:
-    /// Type of SQL value as integer ID
-    int    m_typeID;
-    size_t m_blobsize;
+    int    m_typeID;    ///< Type of SQL value as integer ID
+    size_t m_blobsize;  ///< Size of BLOB in bytes (only type SQLITE_BLOBX)
   
     /// Dtor
     ~ValueSQL()

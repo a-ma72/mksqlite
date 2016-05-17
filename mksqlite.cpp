@@ -96,6 +96,7 @@ public:
     }
 
 
+    /// Returns the handle of the current database
     SQLstackitem& current()
     {
         return m_db[m_dbid];
@@ -117,6 +118,7 @@ public:
     }
 
 
+    /// Returns a new interface to the current database
     SQLiface* createInterface()
     {
         return new SQLiface( current() );
@@ -242,6 +244,7 @@ void mex_module_init()
  * \brief Transfer fetched SQL value into MATLAB array
  *
  * @param[in] value encapsulated SQL field value
+ * @param[out] err_id Error ID (see \ref MSG_IDS)
  * @returns a MATLAB array due to value type (string or numeric content)
  *
  * @see g_result_type
@@ -333,6 +336,9 @@ ValueMex createItemFromValueSQL( const ValueSQL& value, int& err_id )
  * \brief Transfer MATLAB array into a SQL value
  *
  * @param[in] item encapsulated MATLAB array
+ * @param[in] bStreamable true, if serialization is active
+ * @param[out] iTypeComplexity see ValueMex::type_complexity_e
+ * @param[out] err_id Error ID (see \ref MSG_IDS)
  * @returns a SQL value type
  *
  * @see g_result_type
@@ -472,7 +478,7 @@ class Mksqlite
     int               m_dbid_req;         ///< requested database id (user input) -1="arg missing", 0="next free slot" or 1..COUNT_DB
     int               m_dbid;             ///< selected database slot (1..COUNT_DB)
     SQLerror          m_err;              ///< recent error
-    SQLiface*         m_current;
+    SQLiface*         m_interface;        ///< interface (holding current SQLite statement) to current database
     
     /**
      * \name Inhibit assignment, default and copy ctors
@@ -487,7 +493,7 @@ public:
     Mksqlite( int nlhs, mxArray** plhs, int nrhs, const mxArray** prhs )
     : m_nlhs( nlhs ), m_plhs( plhs ), 
       m_narg( nrhs ), m_parg( prhs ),
-      m_command(NULL), m_query(NULL), m_dbid_req(-1), m_dbid(1), m_current( NULL )
+      m_command(NULL), m_query(NULL), m_dbid_req(-1), m_dbid(1), m_interface( NULL )
     {
         /*
          * no argument -> fail
@@ -508,9 +514,9 @@ public:
             ::utils_free_ptr( m_command );
         }
 
-        if( m_current )
+        if( m_interface )
         {
-            delete m_current;
+            delete m_interface;
         }
     }
     
@@ -562,7 +568,7 @@ public:
     bool ensureDbIsOpen()
     {
         // database must be opened to set busy timeout
-        if( !m_current || !m_current->isOpen() )
+        if( !m_interface || !m_interface->isOpen() )
         {
             m_err.set( MSG_DBNOTOPEN );
             return false;
@@ -738,7 +744,7 @@ public:
         }
 
         SQLstack.switchTo( m_dbid-1 );  // base 0
-        m_current = SQLstack.createInterface();
+        m_interface = SQLstack.createInterface();
         m_err.clear();
         return true;
     }
@@ -996,10 +1002,10 @@ public:
             return false;
         }
         
-        if( !m_current->setEnableLoadExtension( flagOnOff ) )
+        if( !m_interface->setEnableLoadExtension( flagOnOff ) )
         {
             const char* errid = NULL;
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
 
@@ -1067,13 +1073,13 @@ public:
             return false;
         }
         
-        if( !m_current->attachMexFunction( fcnName.c_str(), 
+        if( !m_interface->attachMexFunction( fcnName.c_str(), 
                                            ValueMex( fcnHandle ), 
                                            ValueMex( NULL ), ValueMex( NULL ),
                                            SQLstack.current().getException() ) )
         {
             const char* errid = NULL;
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
         
@@ -1146,13 +1152,13 @@ public:
             return false;
         }
         
-        if( !m_current->attachMexFunction( fcnName.c_str(), 
+        if( !m_interface->attachMexFunction( fcnName.c_str(), 
                                            ValueMex( NULL ), 
                                            ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ),
                                            SQLstack.current().getException() ) )
         {
             const char* errid = NULL;
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
         
@@ -1451,7 +1457,7 @@ public:
              * Print current result type
              */
             PRINTF( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
         
@@ -1515,14 +1521,14 @@ public:
             return false;
         }
         
-        if( !m_narg && !m_current->getBusyTimeout( iTimeout ) )
+        if( !m_narg && !m_interface->getBusyTimeout( iTimeout ) )
         {
             const char* errid = NULL;
             /*
              * Anything wrong? free the database id and inform the user
              */
             PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
         
@@ -1536,14 +1542,14 @@ public:
         // "Calling this routine with an argument less than or equal 
         // to zero turns off all busy handlers."
         
-        if( !m_current->setBusyTimeout( iTimeout ) )
+        if( !m_interface->setBusyTimeout( iTimeout ) )
         {
             const char* errid = NULL;
             /*
              * Anything wrong? free the database id and inform the user
              */
             PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
         
@@ -1665,7 +1671,7 @@ public:
         if( !SQLstack.current().closeDb( m_err ) )
         {
             const char* errid = NULL;
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
         }
         
         /*
@@ -1745,13 +1751,13 @@ public:
         {
             const char* errid = NULL;
 
-            delete m_current;
-            m_current = SQLstack.createInterface();
+            delete m_interface;
+            m_interface = SQLstack.createInterface();
 
-            if( !m_current->setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
+            if( !m_interface->setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
             {
                 PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
-                m_err.set( m_current->getErr(&errid), errid );
+                m_err.set( m_interface->getErr(&errid), errid );
             }
         }
         
@@ -2137,10 +2143,10 @@ public:
         
         /*** prepare statement ***/
 
-        if( !m_current->setQuery( m_query ) )
+        if( !m_interface->setQuery( m_query ) )
         {
             const char* errid = NULL;
-            m_err.set( m_current->getErr(&errid), errid );
+            m_err.set( m_interface->getErr(&errid), errid );
             return false;
         }
 
@@ -2149,7 +2155,7 @@ public:
         ValueSQLCols     cols;
         const mxArray**  nextBindParam       = m_parg;
         int              countBindParam      = m_narg;
-        int              argsNeeded          = m_current->getParameterCount();
+        int              argsNeeded          = m_interface->getParameterCount();
         bool             haveParamCell       = false;
         bool             haveParamStruct     = false;
         long*            last_insert_row     = NULL;  // kv69: for storing last_insert_row_id after each statement reuse
@@ -2287,8 +2293,8 @@ public:
         for( int i = 0; i < count; i++ ) // kv69: fixed length loop because we know how often the stmt should be repeated
         {
             // reset SQL statement and clear bindings
-            m_current->reset();
-            m_current->clearBindings();
+            m_interface->reset();
+            m_interface->clearBindings();
 
             /*** Bind parameters ***/
         
@@ -2303,7 +2309,7 @@ public:
                 }
                 else
                 {
-                    const char* name = m_current->getParameterName( iParam + 1 );
+                    const char* name = m_interface->getParameterName( iParam + 1 );
                     bindParam = name ? ValueMex( *nextBindParam ).GetField( i, ++name ) : NULL;  // adjusting name behind either '?', ':', '$' or '@'!
 
                     if( !bindParam )
@@ -2313,10 +2319,10 @@ public:
                     }
                 }
 
-                if( !m_current->bindParameter( iParam + 1, ValueMex( bindParam ), can_serialize() ) )
+                if( !m_interface->bindParameter( iParam + 1, ValueMex( bindParam ), can_serialize() ) )
                 {
                     const char* errid = NULL;
-                    m_err.set( m_current->getErr(&errid), errid );
+                    m_err.set( m_interface->getErr(&errid), errid );
                     goto finalize;
                 }
             }
@@ -2324,23 +2330,23 @@ public:
             /*** fetch results and store results for output ***/
 
             // cumulate in "cols"
-            if( !errPending() && !m_current->fetch( cols, initialize ) )
+            if( !errPending() && !m_interface->fetch( cols, initialize ) )
             {
                 const char* errid = NULL;
-                m_err.set( m_current->getErr(&errid), errid );
+                m_err.set( m_interface->getErr(&errid), errid );
                 goto finalize;
             }
             initialize = false; // kv69: for next statement use do not initialize query results again but accumulated it
 
             // kv69: collect last_insert_row_id
-            last_insert_row[i] = m_current->getLastRowID();
+            last_insert_row[i] = m_interface->getLastRowID();
         }
 
 finalize:
         /*
          * finalize current sql statement
          */
-        m_current->finalize();
+        m_interface->finalize();
 
         /*** Prepare results to return ***/
         
