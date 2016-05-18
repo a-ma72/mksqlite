@@ -295,6 +295,8 @@
    mksqlite( [ 'SELECT REGEX(field1,"[FMA][XYZ]MR[VH][RL]") AS re_field FROM Table ', ...
                'WHERE REGEX(?,?,?) NOT NULL' ], 'field2', '(\\d{5})_(.*)', '$1' );
  \endcode
+ Note that in contrast to sqlite only one implementation per function name is allowed in mkslite. 
+ Defining a new implemention of one function discards the previous one.
  \n
  (also see \ref example_5 for further examples...)
   <HR>
