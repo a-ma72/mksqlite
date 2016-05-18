@@ -678,14 +678,15 @@ public:
     {
         switch( mxGetClassID( m_pcItem ) )
         {
-            case mxINT8_CLASS  : return (int) *( (int8_t*)   mxGetData( m_pcItem ) );
-            case mxUINT8_CLASS : return (int) *( (uint8_t*)  mxGetData( m_pcItem ) );
-            case mxINT16_CLASS : return (int) *( (int16_t*)  mxGetData( m_pcItem ) );
-            case mxUINT16_CLASS: return (int) *( (uint16_t*) mxGetData( m_pcItem ) );
-            case mxINT32_CLASS : return (int) *( (int32_t*)  mxGetData( m_pcItem ) );
-            case mxUINT32_CLASS: return (int) *( (uint32_t*) mxGetData( m_pcItem ) );
-            case mxSINGLE_CLASS: return (int) *( (float*)    mxGetData( m_pcItem ) );
-            case mxDOUBLE_CLASS: return (int) *( (double*)   mxGetData( m_pcItem ) );
+            case mxINT8_CLASS  :  return (int) *( (int8_t*)   mxGetData( m_pcItem ) );
+            case mxUINT8_CLASS :  return (int) *( (uint8_t*)  mxGetData( m_pcItem ) );
+            case mxINT16_CLASS :  return (int) *( (int16_t*)  mxGetData( m_pcItem ) );
+            case mxUINT16_CLASS:  return (int) *( (uint16_t*) mxGetData( m_pcItem ) );
+            case mxINT32_CLASS :  return (int) *( (int32_t*)  mxGetData( m_pcItem ) );
+            case mxUINT32_CLASS:  return (int) *( (uint32_t*) mxGetData( m_pcItem ) );
+            case mxSINGLE_CLASS:  return (int) *( (float*)    mxGetData( m_pcItem ) );
+            case mxDOUBLE_CLASS:  return (int) *( (double*)   mxGetData( m_pcItem ) );
+            case mxLOGICAL_CLASS: return (int) mxIsLogicalScalarTrue( m_pcItem );
 
             default: 
                 assert( false );
