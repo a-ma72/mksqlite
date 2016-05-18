@@ -92,7 +92,10 @@ end
 
 
 function result = func( text, value )
-  fprintf( '%s is %g\n', text, value );
+  % Subsequent calls to mksqlite are allowed (whilst not recursive!)
+  q = mksqlite( 'SELECT id FROM tbl WHERE text=?', text );
+  assert( q.id == 1 );
+  fprintf( '%s is %g having id %d\n', text, value, q.id );
   result = [];
 end
 
