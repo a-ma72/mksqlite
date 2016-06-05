@@ -276,7 +276,6 @@ copyfile('doxy/chm/mksqlite*.chm', [reldir '/docs']);
 % source
 copyfile('README.TXT',              srcdir);
 copyfile('Doxyfile',                srcdir);
-copyfile('mksqlite.dox',            srcdir);
 copyfile('Changelog.txt',           srcdir);
 copyfile('buildit.m',               srcdir);
 copyfile('mksqlite.m',              srcdir);
@@ -290,7 +289,7 @@ copyfile('locale.hpp',              srcdir);
 copyfile('number_compressor.hpp',   srcdir);
 copyfile('serialize.hpp',           srcdir);
 copyfile('sql_interface.hpp',       srcdir);
-copyfile('sql_user_functions.hpp',  srcdir);
+copyfile('sql_builtin_functions.hpp',  srcdir);
 copyfile('typed_blobs.hpp',         srcdir);
 copyfile('utils.hpp',               srcdir);
 copyfile('value.hpp',               srcdir);
