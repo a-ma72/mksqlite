@@ -1,3 +1,8 @@
+Version 2.3
+- Implementations of sqlites application-defined functions for MATLAB functions
+- Bugfix: Scalar MATLAB logical arrays were read flawy
+- SQLite update to 3.13.0
+
 Version 2.2  (build 110 - 18. Apr. 2016)
 - Bugfix: Database filename/path with umlauts could not be opened.
 - Bugfix in sql.m: [+#] key evaluation deleted 1 char too much.
