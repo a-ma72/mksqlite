@@ -1074,9 +1074,9 @@ public:
         }
         
         if( !m_interface->attachMexFunction( fcnName.c_str(), 
-                                           ValueMex( fcnHandle ), 
-                                           ValueMex( NULL ), ValueMex( NULL ),
-                                           SQLstack.current().getException() ) )
+                                             ValueMex( fcnHandle ), 
+                                             ValueMex( NULL ), ValueMex( NULL ),
+                                             SQLstack.current().getException() ) )
         {
             const char* errid = NULL;
             m_err.set( m_interface->getErr(&errid), errid );
@@ -1705,7 +1705,7 @@ public:
         } 
         else 
         {
-            openFlags |= SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+            openFlags |= SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;  // ="rwc"
         }
         
         

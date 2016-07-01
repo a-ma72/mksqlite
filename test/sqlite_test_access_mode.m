@@ -59,7 +59,7 @@ function sqlite_test_access_mode
     %% Now open database in multithreading mode (without further tests
     fprintf( 'Open database in multithreading modes...\n');
     mksqlite( 0, 'close' ); % Close all open databases
-    mksqlite( 'open', db_name, 'RW', 'Multi' ); % Open in multithread-mode
+    mksqlite( 'open', db_name, 'RW', 'Multi' ); % Open in multithread-mode (File must exist! 'RWC' otherwise)
     mksqlite( 0, 'close' ); % Close all open databases
     mksqlite( 'open', db_name, 'RW', 'Serial' ); % Open in multithread-mode (serialized)
     mksqlite( 0, 'close' ); % Close all open databases

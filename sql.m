@@ -55,18 +55,18 @@ function varargout = sql( first_arg, varargin )
 
       args = [ dbid, {query}, varargin ];
 
-      mex_ver = mksqlite( 'version mex' );
-      mex_ver_dot = strfind( mex_ver, '.' );
-      mex_ver_major = int16( str2double( mex_ver(1:mex_ver_dot-1) ) );
-      mex_ver_minor = int16( str2double( mex_ver(mex_ver_dot+1:end) ) );
-      % Since version 2.1 mksqlite handles named bindings with a struct
-      % argument. Versions prior have to build a cell argument.
-      if mex_ver_major < 2 || ( mex_ver_major == 2 && mex_ver_minor < 2 )
-        binds = regexp( query, ':(\w*)', 'tokens' ); % get bind names starting with ":" (but skipping)
-        binds = [binds{:}]; % resolve nested cells
-        if isempty( binds )
-            args(end) = [];
-        else
+      binds = regexp( query, ':(\w*)', 'tokens' ); % get bind names starting with ":" (but skipping)
+      binds = [binds{:}]; % resolve nested cells
+      if isempty( binds )
+          args(end) = [];
+      else
+        mex_ver = mksqlite( 'version mex' );
+        mex_ver_dot = strfind( mex_ver, '.' );
+        mex_ver_major = int16( str2double( mex_ver(1:mex_ver_dot-1) ) );
+        mex_ver_minor = int16( str2double( mex_ver(mex_ver_dot+1:end) ) );
+        % Since version 2.1 mksqlite handles named bindings with a struct
+        % argument. Versions prior have to build a cell argument.
+        if mex_ver_major < 2 || ( mex_ver_major == 2 && mex_ver_minor < 2 ) || mksqlite( 'typedBLOBs' ) == 2
             [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
             binds = binds( sort(idx) ); % get unique elements, preserving order
             dataset = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields

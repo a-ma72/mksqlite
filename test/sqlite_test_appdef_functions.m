@@ -30,7 +30,7 @@ function sqlite_test_appdef_functions
     mksqlite( 'SELECT errorneous_func(1)' );
     assert( false );
   catch ME
-    fprintf( 'Successfully caught exception "%s":\n%s\n\n', ME.identifier, ME.getReport('basic') );
+    fprintf( 'Successfully caught exception "%s":\n%sOk\n\n', ME.identifier, ME.getReport('basic') );
   end
   
   %% Test recursive function
@@ -39,7 +39,7 @@ function sqlite_test_appdef_functions
     mksqlite( 'SELECT recursive_func(1)' );
     assert( false );
   catch ME
-    fprintf( 'Successfully caught exception "%s":\n%s\n\n', ME.identifier, ME.getReport('basic') );
+    fprintf( 'Successfully caught exception "%s":\n%sOk\n\n', ME.identifier, ME.getReport('basic') );
   end
   
   %% Test insert trigger

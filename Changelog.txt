@@ -1,4 +1,4 @@
-Version 2.3
+Version 2.3 (build 118 - 3. Jun. 2016)
 - Implementations of sqlites application-defined functions for MATLAB functions
 - Bugfix: Scalar MATLAB logical arrays were read flawy
 - SQLite update to 3.13.0

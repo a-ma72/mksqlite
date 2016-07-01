@@ -21,16 +21,18 @@
  \section detail_desc_sec2 Function calls
  \anchor cmd_open
  \code
-  mksqlite('open', 'dataBaseName')
+  mksqlite('open', 'dataBaseName' [,iomode] [,threadmode])
  \endcode
  or
  \code
-  dbid = mksqlite(0, 'open', 'dataBaseName')
+  dbid = mksqlite(0, 'open', 'dataBaseName' [,iomode] [,threadmode])
  \endcode
  Opens the database with name "dataBaseName".  If the database does
  not exist, an empty one will be created.  If a \a dbid is given that is 
  already open, it will be closed before opening again.  Providing a \a dbid 
- of 0 will return the next free \a dbid.
+ of 0 will return the next free \a dbid.\n
+ - \a iomode may be "ro", "rw" or "rwc" (default)\n
+ - \a threadmode may by "single" (default), "multi", "serial"
 
  \anchor cmd_close
  \code
