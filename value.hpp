@@ -569,7 +569,7 @@ public:
     inline
     void* Data() const
     {
-        return mxGetData( m_pcItem );
+        return !IsEmpty() ? mxGetData( m_pcItem ) : NULL;
     }
     
     /**
@@ -676,21 +676,24 @@ public:
      */
     int GetInt( int errval = 0 ) const
     {
-        switch( mxGetClassID( m_pcItem ) )
+        if( !IsEmpty() )
         {
-            case mxINT8_CLASS  :  return (int) *( (int8_t*)   mxGetData( m_pcItem ) );
-            case mxUINT8_CLASS :  return (int) *( (uint8_t*)  mxGetData( m_pcItem ) );
-            case mxINT16_CLASS :  return (int) *( (int16_t*)  mxGetData( m_pcItem ) );
-            case mxUINT16_CLASS:  return (int) *( (uint16_t*) mxGetData( m_pcItem ) );
-            case mxINT32_CLASS :  return (int) *( (int32_t*)  mxGetData( m_pcItem ) );
-            case mxUINT32_CLASS:  return (int) *( (uint32_t*) mxGetData( m_pcItem ) );
-            case mxSINGLE_CLASS:  return (int) *( (float*)    mxGetData( m_pcItem ) );
-            case mxDOUBLE_CLASS:  return (int) *( (double*)   mxGetData( m_pcItem ) );
-            case mxLOGICAL_CLASS: return (int) mxIsLogicalScalarTrue( m_pcItem );
+            switch( ClassID() )
+            {
+                case mxINT8_CLASS  :  return (int) *( (int8_t*)   Data() );
+                case mxUINT8_CLASS :  return (int) *( (uint8_t*)  Data() );
+                case mxINT16_CLASS :  return (int) *( (int16_t*)  Data() );
+                case mxUINT16_CLASS:  return (int) *( (uint16_t*) Data() );
+                case mxINT32_CLASS :  return (int) *( (int32_t*)  Data() );
+                case mxUINT32_CLASS:  return (int) *( (uint32_t*) Data() );
+                case mxSINGLE_CLASS:  return (int) *( (float*)    Data() );
+                case mxDOUBLE_CLASS:  return (int) *( (double*)   Data() );
+                case mxLOGICAL_CLASS: return (int) mxIsLogicalScalarTrue( m_pcItem );
 
-            default: 
-                assert( false );
-                return errval;
+                default: 
+                    assert( false );
+                    return errval;
+            }
         }
 
         return errval;
@@ -704,13 +707,16 @@ public:
      */
     sqlite3_int64 GetInt64( int errval = 0 ) const
     {
-        switch( mxGetClassID( m_pcItem ) )
+        if( !IsEmpty() )
         {
-            case mxINT64_CLASS : return *( (sqlite3_int64*)  mxGetData( m_pcItem ) );
+            switch( ClassID() )
+            {
+                case mxINT64_CLASS : return *( (sqlite3_int64*)  Data() );
 
-            default: 
-                assert( false );
-                return (sqlite3_int64) errval;
+                default: 
+                    assert( false );
+                    return (sqlite3_int64) errval;
+            }
         }
 
         return errval;
@@ -731,7 +737,7 @@ public:
      */
     const mxArray* GetField( int n, const char* name ) const
     {
-        return mxGetField( m_pcItem, n, name );
+        return m_pcItem ? mxGetField( m_pcItem, n, name ) : NULL;
     }
 
 
