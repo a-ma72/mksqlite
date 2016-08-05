@@ -48,9 +48,8 @@
   #undef min
   #undef max
 #else  // linux
-  #include <cstring>
+  #include <string.h>
   #include <ctype.h>
-  #define _strlwr     strlwr
   #define _strcmpi    strcasecmp
   #define _strnicmp   strncasecmp
   #define _snprintf   snprintf

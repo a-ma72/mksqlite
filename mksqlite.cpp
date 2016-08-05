@@ -1060,7 +1060,7 @@ public:
             char* buffer = ::utils_getString( arg );
             if( buffer )
             {
-                _strlwr( buffer );
+                ::utils_strlwr( buffer );
                 fcnName = buffer;
                 ::utils_free_ptr( buffer );
             }
@@ -1132,7 +1132,7 @@ public:
             char* buffer = ::utils_getString( arg );
             if( buffer )
             {
-                _strlwr( buffer );
+                ::utils_strlwr( buffer );
                 fcnName = buffer;
                 ::utils_free_ptr( buffer );
             }

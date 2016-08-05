@@ -870,7 +870,7 @@ public:
                                   break;
 
                               case SQLITE_INTEGER:
-                                  if( item.ClassID() == ValueMex::INT64_CLASS )
+                                  if( (int)item.ClassID() == (int)ValueMex::INT64_CLASS )
                                   {
                                       // scalar integer value
                                       sqlite3_result_int64( ctx, item.GetInt64() );
@@ -1093,7 +1093,7 @@ public:
    * \param[in] item MATLAB array
    * \param[in] bStreamable true, if streaming is possible and desired
    */
-  bool bindParameter( int index, ValueMex& item, bool bStreamable )
+  bool bindParameter( int index, const ValueMex& item, bool bStreamable )
   {
       int err_id = MSG_NOERROR;
       int iTypeComplexity;
@@ -1129,7 +1129,7 @@ public:
               break;
 
           case SQLITE_INTEGER:
-              if( item.ClassID() == ValueMex::INT64_CLASS )
+              if( (int)item.ClassID() == (int)ValueMex::INT64_CLASS )
               {
                   // scalar integer value
                   rc = sqlite3_bind_int64( m_stmt, index, item.GetInt64() );
