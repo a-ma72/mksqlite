@@ -255,9 +255,12 @@ public:
     /// Dtor
     ~MexFunctors() 
     {
-        for( int i = 0; i < 3; i++ )
+        if( !g_dont_free_functors )
         {
-            m_functors[i].Destroy();
+            for( int i = 0; i < 3; i++ )
+            {
+                m_functors[i].Destroy();
+            }
         }
 
         m_group_data.Destroy();

@@ -274,6 +274,9 @@ const double    g_NaN                   = DBL_NAN;
 
     /// Wrap parameters
     int             g_param_wrapping        = CONFIG_PARAM_WRAPPING;
+
+    /// MATLAB bug: crash if used in objects derived from 'handle'
+    int             g_dont_free_functors    = 0;
 #endif  // defined( MATLAB_MEX_FILE )
 
 #endif  // defined( MAIN_MODULE )

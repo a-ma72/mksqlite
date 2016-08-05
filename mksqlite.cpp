@@ -1587,6 +1587,7 @@ public:
             || cmdTryHandleFlag( "NULLasNaN", g_NULLasNaN )
             || cmdTryHandleFlag( "compression_check", g_compression_check )
             || cmdTryHandleFlag( "param_wrapping", g_param_wrapping )
+            || cmdTryHandleFlag( "dont_free_functors", g_dont_free_functors )
             || cmdTryHandleStatus( "status" )
             || cmdTryHandleLanguage( "lang" )
             || cmdTryHandleVersion( "version mex", "version sql" )
