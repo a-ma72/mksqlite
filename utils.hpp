@@ -243,6 +243,26 @@ char* utils_strnewdup(const char* s, int flagConvertUTF8 )
 }
 
 
+/**
+ * @brief      Change string to lowercase (inplace)
+ *
+ * @param      str   String
+ *
+ * @return     String
+ */
+char* utils_strlwr( char* str )
+{
+    char *p = str;
+
+    while( p && *p = ::tolower(*p) )
+    {
+       p++;
+    }
+
+    return str;
+}
+
+
 
 /** 
  * @file
@@ -384,18 +404,6 @@ double utils_get_cpu_time()
     return (double)clock() / CLOCKS_PER_SEC;
 }
 #endif
-
-
-char* utils_strlwr( char* str )
-{
-    while( str )
-    {
-        *str = ::tolower( *str );
-        str++;
-    }
-}
-
-
 
 
 #endif  /* MAIN_MODULE */
