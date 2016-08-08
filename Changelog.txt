@@ -1,8 +1,11 @@
+<<<<<<< HEAD
 Version 2.x (build 121 - 29. Jul. 2016)
 - Removed some typos
 - sql.m checks for 'typedBLOBs' mode before testing tailing struct arguments.
 - Bugfix: Crash, if mksqlite is called to set flags (i.e. 'streaming') with an empty argument
 
+=======
+>>>>>>> user_functions
 Version 2.3 (build 118 - 3. Jun. 2016)
 - Implementations of sqlites application-defined functions for MATLAB functions
 - Bugfix: Scalar MATLAB logical arrays were read flawy
