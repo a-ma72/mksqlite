@@ -568,7 +568,7 @@ public:
     bool ensureDbIsOpen()
     {
         // database must be opened to set busy timeout
-        if( !m_interface || !m_interface->isOpen() )
+        if( !assureSQLinterface() || !m_interface->isOpen() )
         {
             m_err.set( MSG_DBNOTOPEN );
             return false;
@@ -592,6 +592,20 @@ public:
         }
         
         return true;
+    }
+
+
+    /**
+     * @brief Creates a SQL interface if not already happen
+     */
+    bool assureSQLinterface()
+    {
+        if( !m_interface && m_dbid > 0 )
+        {
+            m_interface = SQLstack.createInterface();
+        }
+
+        return m_interface != NULL;
     }
     
     
@@ -695,7 +709,6 @@ public:
         return true;
     }
 
-    
     /**
      * \brief Get database ID from argument list
      * 
@@ -711,7 +724,7 @@ public:
 
         /*
          * Check if the first argument is a number (base 1), then we have to use
-         * this number as the requested database id. A number of 0 is allowed an leads
+         * this number as the requested database id. A number of 0 is allowed and leads
          * to find the first free slot.
          */
         if( argGetNextInteger( m_dbid_req, /*asBoolInt*/ false ) )
@@ -722,30 +735,24 @@ public:
                 return false;
             }
         } else {
-            m_dbid_req = -1;  // argument is missing
+            m_err.clear();    // Discard errors
+            m_dbid_req = -1;  // Flag argument is missing
         }
         
         // find a free database slot, if user entered 0
         if( !m_dbid_req )
         {
-            int new_dbid = SQLstack.getNextFreeId();
+            m_dbid = SQLstack.getNextFreeId();
 
-            if( !SQLstack.isValidId( new_dbid ) )
+            if( !SQLstack.isValidId( m_dbid++ ) )
             {
-                // no free slot available
-                m_err.set( MSG_NOFREESLOT );
-                return false;
+              m_dbid = 0;  // No free slot
             }
-            
-            m_dbid = new_dbid + 1;  // Base 1
         } else {
             // select database id or default (1) if no one is given 
             m_dbid = ( m_dbid_req < 0 ) ? 1 : m_dbid_req;
         }
 
-        SQLstack.switchTo( m_dbid-1 );  // base 0
-        m_interface = SQLstack.createInterface();
-        m_err.clear();
         return true;
     }
     
@@ -979,7 +986,7 @@ public:
             return false;
         }
 
-        // database must be open to change setting
+        // database must be open to change settings
         if( !ensureDbIsOpen() )
         {
             // ensureDbIsOpen() sets m_err
@@ -1030,7 +1037,7 @@ public:
             return false;
         }
 
-        // database must be open to change setting
+        // database must be open to change settings
         if( !ensureDbIsOpen() )
         {
             // ensureDbIsOpen() sets m_err
@@ -1102,7 +1109,7 @@ public:
             return false;
         }
 
-        // database must be open to change setting
+        // database must be open to change settings
         if( !ensureDbIsOpen() )
         {
             // ensureDbIsOpen() sets m_err
@@ -1619,7 +1626,7 @@ public:
     
 
     /// Return values of cmdAnalyseCommand()
-    enum command_e { FAILED = -1, DONE, OPEN, CLOSE, QUERY };
+    enum command_e { OPEN, CLOSE, QUERY, DONE, FAILED };
     
     /**
      * \brief Analyse command string and process if its neither open, close nor a sql command. 
@@ -2452,6 +2459,85 @@ finalize:
         
     } /* end cmdHandleSQLStatement() */
 
+
+    /**
+     * @brief Selects the desired slot from SQLStack for the operation
+     * 
+     * @param command User operation (or query) on database
+     * @return true on success
+     */
+    bool switchDBSlot( command_e command )
+    {
+        if( command < DONE )  // OPEN, CLOSE, QUERY
+        {
+            // Check if user entered an id of 0
+            if( !m_dbid_req )
+            {
+                if( command == OPEN )
+                {
+                    if( !m_dbid )
+                    {
+                        m_err.set( MSG_NOFREESLOT );
+                        return false;
+                    }
+                }
+                else if( command == CLOSE )
+                {
+                    m_dbid = 1;
+                }
+                else 
+                {
+                    m_err.set( MSG_ERRNULLDBID );
+                    return false;
+                }
+            }
+
+            SQLstack.switchTo( m_dbid-1 );  // m_dbid is base 1
+        }
+
+        return true;
+    }
+
+
+    void cmdExecute()
+    {
+        // read first numeric argument if given and use it as dbid, then read command string
+        if( !argTryReadValidDbid() || !argReadCommand() )
+        {
+            returnWithError();
+        }
+
+        command_e command = cmdAnalyseCommand();
+
+        if( switchDBSlot( command ) )
+        {
+            // analyse command string (switch, command, or query)
+            switch( command )
+            {
+                case Mksqlite::OPEN:
+                    (void)cmdHandleOpen(); // "open" command
+                   break;
+                  
+                case Mksqlite::CLOSE:
+                    (void)cmdHandleClose(); // "close" command
+                    break;
+                  
+                case Mksqlite::QUERY:
+                    (void)cmdHandleSQLStatement();  // common sql query
+                    break;
+                  
+                case Mksqlite::DONE:
+                    break; // switches (flags) are already handled
+                  
+                case Mksqlite::FAILED:
+                   break;
+                  
+                default:
+                    assert( false );
+            }
+        }
+    }    
+
 };
 
 
@@ -2505,36 +2591,7 @@ void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
     
     Mksqlite mksqlite( nlhs, plhs, nrhs, prhs );
     
-    // read first numeric argument if given and use it as dbid, then read command string
-    if( !mksqlite.argTryReadValidDbid() || !mksqlite.argReadCommand() )
-    {
-        mksqlite.returnWithError();
-    }
-
-    // analyse command string (switch, command, or query)
-    switch( mksqlite.cmdAnalyseCommand() )
-    {
-      case Mksqlite::OPEN:
-        (void)mksqlite.cmdHandleOpen(); // "open" command
-        break;
-        
-      case Mksqlite::CLOSE:
-        (void)mksqlite.cmdHandleClose(); // "close" command
-        break;
-        
-      case Mksqlite::QUERY:
-        (void)mksqlite.cmdHandleSQLStatement();  // common sql query
-        break;
-        
-      case Mksqlite::FAILED:
-        break;
-        
-      case Mksqlite::DONE:
-        break; // switches (flags) are already handled
-        
-      default:
-        assert( false );
-    }
+    mksqlite.cmdExecute();
 
     SQLstack.current().throwOnException();
 

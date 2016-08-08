@@ -103,6 +103,8 @@ int           getLocale     ();
 #define MSG_LITERALARGEXPCT             48
 #define MSG_RECURSIVECALL               49
 #define MSG_INVALIDFUNCTION             50
+#define MSG_ERRNULLDBID                 51
+#define MSG_ERRINTERNAL                 52
 /** @}  */
 
 
@@ -364,6 +366,8 @@ static const char* messages_0[] =
 /* 48*/    "string argument expected!",
 /* 49*/    "recursive application-defined functions not allowed!",
 /* 50*/    "invalid function!",
+/* 51*/    "dbid of 0 only allowed for commands 'open' and 'close'!",
+/* 52*/    "Internal error!",
 };
 
 
@@ -432,6 +436,8 @@ static const char* messages_1[] =
 /* 48*/    "String Argument erwartet! ",
 /* 49*/    "unzulaessiger rekursiver Funktionsaufruf! ",
 /* 50*/    "ungueltige Funktion! ",
+/* 51*/    "0 als dbid ist nur fuer die Befehle 'open' und 'close' erlaubt! ",
+/* 52*/    "Interner Fehler! ",
 };
 
 /**
