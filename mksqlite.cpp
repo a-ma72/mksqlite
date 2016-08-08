@@ -1371,8 +1371,8 @@ public:
      */
     bool cmdTryHandleFilename( const char* strCmdMatchName )
     {
-        const char *db_filename = NULL;
-              char *db_name     = NULL;
+        char *db_filename = NULL;
+        char *db_name     = NULL;
 
         if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
         {
@@ -1406,7 +1406,7 @@ public:
             }
         }
 
-        db_filename = m_interface->getDbFilename( db_name );
+        db_filename = ::utils_strnewdup( m_interface->getDbFilename( db_name ), /*flagConvertUTF8*/ true );
 
         if( NULL == db_filename )
         {
@@ -1418,6 +1418,7 @@ public:
         }
 
         ::utils_free_ptr( db_name );
+        ::utils_free_ptr( db_filename );
 
         return true;
     }
