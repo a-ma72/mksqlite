@@ -254,7 +254,7 @@ char* utils_strlwr( char* str )
 {
     char *p = str;
 
-    while( p && *p = ::tolower(*p) )
+    while( p && ( *p = ::tolower(*p) ) )
     {
        p++;
     }

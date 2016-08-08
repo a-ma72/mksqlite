@@ -601,6 +601,19 @@ public:
   }
 
 
+  /// Get the filename of current database
+  const char* getDbFilename( const char* database )
+  {
+      if( !isOpen() )
+      {
+          assert( false );
+          return false;
+      }
+
+      return sqlite3_db_filename( m_db, database ? database : "MAIN" );
+  }
+
+
   /// Sets the busy timemout in milliseconds
   bool setBusyTimeout( int iTimeoutValue )
   {

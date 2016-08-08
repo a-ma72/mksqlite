@@ -1362,6 +1362,68 @@ public:
     
     
     /**
+     * @brief Get the filename of current database
+     * 
+     * @param strCmdMatchName Command name
+     * @return true on success
+     * 
+     * filename will be given in m_plhs[0]
+     */
+    bool cmdTryHandleFilename( const char* strCmdMatchName )
+    {
+        const char *db_filename = NULL;
+              char *db_name     = NULL;
+
+        if( errPending() || !STRMATCH( m_command, strCmdMatchName ) )
+        {
+            return false;
+        }
+
+        // database must be open to change settings
+        if( !ensureDbIsOpen() )
+        {
+            // ensureDbIsOpen() sets m_err
+            return false;
+        }
+        
+        /*
+         * There should be not more than 1 argument to get the db filename
+         */
+        if( m_narg > 1 )
+        {
+            m_err.set( MSG_UNEXPECTEDARG );
+            return false;
+        }
+
+        if( m_narg == 1 )
+        {
+            if( !mxIsChar( m_parg[0] ) )
+            {
+                m_err.set( MSG_LITERALARGEXPCT );
+                return false;
+            } else {
+                db_name = ValueMex( m_parg[0] ).GetEncString();
+            }
+        }
+
+        db_filename = m_interface->getDbFilename( db_name );
+
+        if( NULL == db_filename )
+        {
+            m_plhs[0] = mxCreateString( "" );  // Memory based database
+        }
+        else
+        {
+            m_plhs[0] = mxCreateString( db_filename );  // File based database
+        }
+
+        ::utils_free_ptr( db_name );
+
+        return true;
+    }
+
+
+    /**
      * \brief Handle streaming setting command
      *
      * \param[in] strCmdMatchName Command name
@@ -1597,6 +1659,7 @@ public:
             || cmdTryHandleFlag( "dont_free_functors", g_dont_free_functors )
             || cmdTryHandleStatus( "status" )
             || cmdTryHandleLanguage( "lang" )
+            || cmdTryHandleFilename( "filename" )
             || cmdTryHandleVersion( "version mex", "version sql" )
             || cmdTryHandleStreaming( "streaming" )
             || cmdTryHandleTypedBlob( "typedBLOBs" )

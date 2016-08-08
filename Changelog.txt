@@ -5,6 +5,8 @@ Version 2.x
 - Added option 'dont_free_functors'.
   Due to a MATLAB bug: MATLAB crashes under some circumstances when freeing a persistent handle 
   that was created in an object derived from 'handle'. (Issue reported)
+- Added new command mksqlite( dbid, 'filename', database ) to get the filename of a database.
+  If the database is temporary (memory based) or doesn't exist, an empty string will be returned.
   
 Version 2.3 (build 118 - 3. Jun. 2016)
 - Implementations of sqlites application-defined functions for MATLAB functions
