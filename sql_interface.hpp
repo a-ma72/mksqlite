@@ -255,7 +255,11 @@ public:
     /// Dtor
     ~MexFunctors() 
     {
+#if DONT_FREE_FUNCTORS
+        if( 0 )
+#else
         if( !g_dont_free_functors )
+#endif  // DONT_FREE_FUNCTORS
         {
             for( int i = 0; i < 3; i++ )
             {

@@ -22,6 +22,10 @@
 
 /* Common global definitions */
 
+// MATLAB bug: crash if used in objects derived from 'handle'
+// (solved: "Case 02098404", Lucas Lebert, MathWorks Technical Support Department)
+#define DONT_FREE_FUNCTORS 1
+
 #if defined( MATLAB_MEX_FILE ) /* MATLAB MEX file */
   /* solve the 'error C2371: 'char16_t' : redefinition; different basic types' problem */
   /* ref: http://www.mathworks.com/matlabcentral/newsreader/view_thread/281754 */
@@ -274,8 +278,11 @@ const double    g_NaN                   = DBL_NAN;
     /// Wrap parameters
     int             g_param_wrapping        = CONFIG_PARAM_WRAPPING;
 
+#if DONT_FREE_FUNCTORS
     /// MATLAB bug: crash if used in objects derived from 'handle'
     int             g_dont_free_functors    = 0;
+#endif  // DONT_FREE_FUNCTORS
+
 #endif  // defined( MATLAB_MEX_FILE )
 
 #endif  // defined( MAIN_MODULE )

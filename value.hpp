@@ -336,8 +336,10 @@ public:
     {
         if( !m_isConst && m_pcItem )
         {
-            mxDestroyArray( m_pcItem );
+            // Workaround to avoid MATLAB crash with persistent arrays ("Case 02098404", Lucas Lebert, MathWorks Technical Support Department 
+            mxArray* tmp = m_pcItem;
             m_pcItem = NULL;
+            mxDestroyArray( m_pcItem );
         }
     }
 
