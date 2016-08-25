@@ -70,11 +70,11 @@
  Returns the version of the SQLite Engine in the output (1), or as a
  string (2).
  \code
-  mksqlite('SQL-Command')
+  mksqlite( SQL-Command )
  \endcode
  or
  \code
-  mksqlite(dbid, 'SQL-Command')
+  mksqlite( dbid, SQL-Command )
  \endcode
  Carries out the given "SQL-Command"
  \n
@@ -321,9 +321,13 @@
  <tr><td>\ref cmd_version_sql "'version sql'"</td>              <td>Returns the version of SQLite</td>                          <td>-</td>                         <td>-</td></tr>
  <tr><td>\ref cmd_open "'open'"</td>                            <td>Opens a database</td>                                       <td>Database (file-)name</td>      <td>-</td></tr>
  <tr><td>\ref cmd_close "'close'"</td>                          <td>Closes one or all database(s)</td>                          <td>-</td>                         <td>-</td></tr>
- <tr><td>"'check4uniquefields'"</td>                            <td>Avoids duplicate field names in MATLAB structs, \n                        
+ <tr><td>'filename'</td>                                        <td>Returns the filename of the database</td>                   <td>0|1\n
+                                                                                                                                    The argument names the database the filename ist queried for.\n
+                                                                                                                                    If no argument is passed the filename for the main database is returned.
+                                                                                                                                </td>                              <td>-</td></tr>
+ <tr><td>'check4uniquefields'</td>                              <td>Avoids duplicate field names in MATLAB structs, \n                        
                                                                     when set to 1</td>                                          <td>0|1</td>                       <td>1</td></tr>
- <tr><td>"'convertUTF8'"</td>                                   <td>Enables UTF8 text encoding, when set to 1</td>              <td>0|1</td>                       <td>1</td></tr>
+ <tr><td>'convertUTF8'</td>                                     <td>Enables UTF8 text encoding, when set to 1</td>              <td>0|1</td>                       <td>1</td></tr>
  <tr><td>\ref cmd_typedblobs "'typedBLOBs'"</td>                <td>Enables typed BLOB packaging, when set >0\n 
                                                                     - 0: Disable typed BLOBs (store as native byte array)\n 
                                                                     - 1: Enable typed BLOBS (array and data format information 
@@ -332,11 +336,11 @@
                                                                          like cell arrays, structs, a.s.o. may be stored\n 
                                                                          
                                                                     \ref example_6 "Example"</td>                               <td>0|1|2</td>                     <td>0</td></tr>
- <tr><td>"'NULLasNaN'"</td>                                     <td>mksqlite returns NULL values as NaN,\n                                           
+ <tr><td>'NULLasNaN'</td>                                       <td>mksqlite returns NULL values as NaN,\n                                           
                                                                     when set to 1</td>                                          <td>0|1</td>                       <td>0</td></tr>
- <tr><td>"'param_wrapping'"                                     </td>        <td>Enables parameter wrapping, when set to 1\n 
+ <tr><td>'param_wrapping'                                       </td>        <td>Enables parameter wrapping, when set to 1\n 
                                                                     \ref example_12 "Example"</td>                              <td>0|1</td>                       <td>0</td></tr>
- <tr><td>"'streaming'"</td>                                     <td>Returns 1, when serializing is enabled</td>                 <td>-</td>                         <td>-</td></tr>
+ <tr><td>'streaming'</td>                                       <td>Returns 1, when serializing is enabled</td>                 <td>-</td>                         <td>-</td></tr>
  <tr><td>\ref cmd_result_type "'result_type'"</td>              <td>Chooses the result type of sql queries.\n 
                                                                     - 0: Array of structs\n 
                                                                     - 1: Struct of arrays\n 
@@ -344,19 +348,19 @@
                                                                     
                                                                     \ref example_4 "Example"</td>                               <td>0|1|2</td>                     <td>0</td></tr>                         
  <tr><td>\ref cmd_compression "'compression'"</td>              <td>Set compressor when using typedBLOBS=2\n 
-                                                                    \ref example_9 "Example"</td>                               <td>"blosc"|"blosclz"|"qlin16"|"qlog16","", 0-9</td>         <td>"",0</td></tr>          
+                                                                    \ref example_9 "Example"</td>                               <td>"blosc"|"blosclz"|"qlin16"|"qlog16", 0-9</td>         <td>"blosclz",0</td></tr>          
  <tr><td>\ref cmd_compr_check "'compression_check'"</td>        <td>Enables compressor check, when set to 1.\n 
                                                                     The default decompresses immediately prior 
                                                                     to packed data to ensure by comparing 
                                                                     the data accuracy</td>                                      <td>0|1</td>                       <td>0</td></tr>   
  <tr><td>\ref cmd_show_tables "'show tables'"</td>              <td>Display content of the sqlite_master. That is 
                                                                     the column definitions of tables, views and indexes</td>    <td>-</td>                         <td>-</td></tr>   
- <tr><td>"'enable extension'"</td>                              <td>Enable extension loading at runtime\n 
+ <tr><td>'enable extension'</td>                                <td>Enable extension loading at runtime\n 
                                                                     \ref example_11 "Example"</td>                              <td>0|1</td>                       <td>0</td></tr>   
- <tr><td>"'status'"</td>                                        <td>Show status of each mksqlite slot in command\n 
+ <tr><td>'status'</td>                                          <td>Show status of each mksqlite slot in command\n 
                                                                     window. Different slots are accessed trough its 
                                                                     dbids.</td>                                                 <td>-</td>                         <td>-</td></tr>   
- <tr><td>"'setbusytimeout'"</td>                                <td>Sets the SQLite busy timeout. A SQL statement
+ <tr><td>'setbusytimeout'</td>                                  <td>Sets the SQLite busy timeout. A SQL statement
                                                                     whose calculation exceeds this time limit
                                                                     leads into failure abort.</td>                              <td>time in ms</td>                <td>1000</td></tr>   
  </table>

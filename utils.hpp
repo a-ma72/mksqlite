@@ -303,8 +303,10 @@ void utils_destroy_array( mxArray *&pmxarr )
 {
     if( pmxarr )
     {
-        mxDestroyArray( pmxarr );
+        // Workaround to avoid MATLAB crash with persistent arrays ("Case 02098404", Lucas Lebert, MathWorks Technical Support Department 
+        mxArray* tmp = pmxarr;
         pmxarr = NULL;
+        mxDestroyArray( tmp );
     }
 }
 #endif
@@ -321,8 +323,9 @@ void utils_free_ptr( T *&pmxarr )
 {
     if( pmxarr )
     {
-        MEM_FREE( pmxarr );
+        T* tmp = pmxarr;
         pmxarr = NULL;
+        MEM_FREE( tmp );
     }
 }
 
