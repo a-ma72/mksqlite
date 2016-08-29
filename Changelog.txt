@@ -1,12 +1,13 @@
-Version 2.x
+Version 2.4 (build 123 - 29. Aug. 2016)
 - Removed some typos
-- sql.m checks for 'typedBLOBs' mode before testing tailing struct arguments now.
+- Bugfix: sql.m checks for 'typedBLOBs' mode before testing tailing struct arguments now.
 - Bugfix: Crash, if mksqlite is called to set flags (i.e. 'streaming') with an empty argument
-- Added option 'dont_free_functors'.
-  Due to a MATLAB bug: MATLAB crashes under some circumstances when freeing a persistent handle 
-  that was created in an object derived from 'handle'. (Issue reported)
+- Bugfix: MATLAB crashed under some circumstances when freeing a persistent handle 
+  that was created in an object derived from 'handle'.
+- Bugfix: mksqlite('lang', nr) accepted nr > 1, that later leads to a crash
 - Added new command mksqlite( dbid, 'filename', database ) to get the filename of a database.
   If the database is temporary (memory based) or doesn't exist, an empty string will be returned.
+- SQLite3 update (3.14.1)
   
 Version 2.3 (build 118 - 3. Jun. 2016)
 - Implementations of sqlites application-defined functions for MATLAB functions

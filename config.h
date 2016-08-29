@@ -6,7 +6,7 @@
  *  @details   Configuration file for settings and defaults
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.3
+ *  @version   2.4
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -51,7 +51,7 @@
         RESULT_TYPE_MAX_ID = RESULT_TYPE_MATRIX
     };
 
-    #define CONFIG_MKSQLITE_VERSION_STRING  "2.3"         ///< mksqlite version string
+    #define CONFIG_MKSQLITE_VERSION_STRING  "2.4"         ///< mksqlite version string
     
     #define CONFIG_MAX_NUM_OF_DBS           5             ///< maximum number of databases, simultaneous open
     #define CONFIG_CHECK_4_UNIQUE_FIELDS    BOOL_TRUE     ///< ensure unique fields in query return structure by default

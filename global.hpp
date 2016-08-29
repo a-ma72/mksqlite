@@ -6,7 +6,7 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.3
+ *  @version   2.4
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -227,7 +227,7 @@
     extern "C" mxArray* mxDeserialize(const void*, size_t);   ///< Deserialize a MATLAB array
   #endif
   extern mxArray *mxCreateSharedDataCopy(const mxArray *pr);  ///< Create a "shadowed" MATLAB array
-  #define PRINTF mexPrintf
+  #define PRINTF mexPrintf                                    ///< Global text output function
 #endif
 
 typedef unsigned char byte;  ///< byte type

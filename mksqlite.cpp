@@ -6,7 +6,7 @@
  *  @details   class implementations (SQLstack and Mksqlite)
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.3
+ *  @version   2.4
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -2565,6 +2565,9 @@ finalize:
     }
 
 
+    /**
+     * @brief Execute the command string passed to mksqlite
+     */
     void cmdExecute()
     {
         // read first numeric argument if given and use it as dbid, then read command string
@@ -2582,7 +2585,7 @@ finalize:
             {
                 case Mksqlite::OPEN:
                     (void)cmdHandleOpen(); // "open" command
-                   break;
+                    break;
                   
                 case Mksqlite::CLOSE:
                     (void)cmdHandleClose(); // "close" command
@@ -2596,7 +2599,7 @@ finalize:
                     break; // switches (flags) are already handled
                   
                 case Mksqlite::FAILED:
-                   break;
+                    break;
                   
                 default:
                     assert( false );

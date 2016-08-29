@@ -127,9 +127,33 @@ mksqlite( 'create aggregation', <name>, step_function_handle, final_function_han
 \endcode
 So you can access your MATLAB code from within SQL queries.
 
-*/
+\remark
+If you create application defined SQL functions with CreateFunction or CreateAggegation, 
+mksqlite holds persistent variables for this database. 
+Hence the behaviour of mksqlite (and sql_object) is conform to using 
+persistent variables in MATLAB: \n
+This object is not deleted (and this destructor not called) until these persistent
+variables are released. \n \n
+The functions from the following list do remove them: \n
+- mksqlite( dbid, 'close' )  % (Removal only for databases defined by dbid!)
+- clear functions
+- clear mksqlite
+- clear all
+- clear persistent
+- Exiting MATLAB
 
-/**
+\subpage example_18
+
+If mksqlite is encapsulated in a class, you may deal with databases by objects.
+\code
+db = sql_object( 'mydatabase.db' );
+y = db.Select( '* FROM myTable' );
+clear db
+\endcode
+
+
+
+
 \page example_1 Speed test
 \htmlinclude sqlite_test.html
 
@@ -180,4 +204,7 @@ So you can access your MATLAB code from within SQL queries.
 
 \page example_17 Application-defined functions
 \htmlinclude sqlite_test_appdef_functions.html
+
+\page example_18 Accessing databases via objects
+\htmlinclude sqlite_test_object.html
 */

@@ -7,7 +7,7 @@
  *             for the case of further translations.
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.3
+ *  @version   2.4
  *  @date      2008-2016
  *  @copyright Distributed under LGPL
  *  @pre       
@@ -500,7 +500,7 @@ const char* getLocaleMsg( int iMsgNr )
  */
 bool setLocale( int iLang )
 {
-    if( iLang >=0 && iLang < sizeof(messages) )
+    if( iLang >=0 && iLang < sizeof(messages) / sizeof(messages[0]) )
     {
         Language = iLang;
         return true;
