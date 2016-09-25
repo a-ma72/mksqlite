@@ -739,7 +739,27 @@ public:
      */
     const mxArray* GetField( int n, const char* name ) const
     {
-        return m_pcItem ? mxGetField( m_pcItem, n, name ) : NULL;
+        mxArray* result = NULL;
+        
+        if( m_pcItem )
+        {
+            result = mxGetField( m_pcItem, n, name );
+
+            if( !result )
+            {
+                // MATLAB bug? For implicit non-initialized structure members mxGetField()
+                // returns NULL.
+                // ( Thx Knut Voi for pointing that out )
+                // Workaround: Check if struct has requested field
+                if( mxGetFieldNumber( m_pcItem, name ) >= 0 )
+                {
+                    // Create and return an empty array in this case
+                    // (MATLAB destroys it automatically when exitting MEX function)
+                    result = mxCreateNumericMatrix( 0, 1, mxDOUBLE_CLASS, mxREAL );
+                }
+            }
+        }
+        return result;
     }
 
 
