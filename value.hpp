@@ -749,7 +749,7 @@ public:
             {
                 // MATLAB bug? For implicit non-initialized structure members mxGetField()
                 // returns NULL.
-                // ( Thx Knut Voi for pointing that out )
+                // ( Thx Knut Voigtlaender for pointing that out )
                 // Workaround: Check if struct has requested field
                 if( mxGetFieldNumber( m_pcItem, name ) >= 0 )
                 {

@@ -126,7 +126,7 @@ public:
     
     
     /// Outputs current status for each database slot
-    void printStati( int dbid_req, int dbid )
+    void printStatuses( int dbid_req, int dbid )
     {
         if( dbid_req == 0 )
         {
@@ -1316,7 +1316,7 @@ public:
 
         if( !m_nlhs )
         {
-            SQLstack.printStati( m_dbid_req, m_dbid );
+            SQLstack.printStatuses( m_dbid_req, m_dbid );
         }
         else 
         {

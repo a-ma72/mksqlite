@@ -1,3 +1,18 @@
+Version 2.5 (build ...)
+- Changes on non-SQL commands:
+  -- 'filename':
+     Bugfix, ignored the given database id (always returned the name of the first database)
+  -- 'status':
+     When called with no arguments (or 0 as dbid) mksqlite('status') writes the statuses for 
+     each database id to the command window, as before. If called as function (status = mksqlite(...)), 
+     a cell array with respective strings "OPEN" or "CLOSED" will be returned with 
+     no output to the command window.
+     When called with a database id other than 0, the status only for this id is written to command window. 
+     If called as function a respective string "OPEN" or "CLOSED" will be returned, with 
+     no output to the command window.
+- Raised the number of available database ids to 10.
+- Bugfix: Bind array with empty fields (GitHub issue #6, thx to Knut Voigtlaender)
+
 Version 2.4 (build 123 - 29. Aug. 2016)
 - Removed some typos
 - Bugfix: sql.m checks for 'typedBLOBs' mode before testing tailing struct arguments now.
