@@ -53,7 +53,7 @@
 
     #define CONFIG_MKSQLITE_VERSION_STRING  "2.4"         ///< mksqlite version string
     
-    #define CONFIG_MAX_NUM_OF_DBS           5             ///< maximum number of databases, simultaneous open
+    #define CONFIG_MAX_NUM_OF_DBS           10            ///< maximum number of databases, simultaneous open
     #define CONFIG_CHECK_4_UNIQUE_FIELDS    BOOL_TRUE     ///< ensure unique fields in query return structure by default
 
     /// Allow streaming to convert MATLAB variables into byte streams
