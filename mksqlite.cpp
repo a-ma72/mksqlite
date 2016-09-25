@@ -20,7 +20,7 @@
 /// @endcond
 
 //#include "config.h"                 // Defaults
-//#include "global.hpp"               // Global definitions and stati
+//#include "global.hpp"               // Global definitions and statuses
 //#include "serialize.hpp"            // Serialization of MATLAB variables (undocumented feature)
 //#include "number_compressor.hpp"    // Some compressing algorithms
 //#include "typed_blobs.hpp"          // Packing into typed blobs with variable type storage
@@ -126,11 +126,19 @@ public:
     
     
     /// Outputs current status for each database slot
-    void printStati()
+    void printStati( int dbid_req, int dbid )
     {
-        for( int i = 0; i < COUNT_DB; i++ )
+        if( dbid_req == 0 )
         {
-            PRINTF( "DB Handle %d: %s\n", i+1, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
+            for( int i = 0; i < COUNT_DB; i++ )
+            {
+                PRINTF( "DB Handle %d: %s\n", i+1, m_db[i].isOpen() ? "OPEN" : "CLOSED" );
+            }
+        }
+        else
+        {
+            dbid = (dbid_req > 0) ? dbid_req : dbid;
+            PRINTF( "DB Handle %d: %s\n", dbid, m_db[dbid-1].isOpen() ? "OPEN" : "CLOSED" );
         }
     }
     
@@ -1163,9 +1171,9 @@ public:
         }
         
         if( !m_interface->attachMexFunction( fcnName.c_str(), 
-                                           ValueMex( NULL ), 
-                                           ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ),
-                                           SQLstack.current().getException() ) )
+                                             ValueMex( NULL ), 
+                                             ValueMex( fcnHandleStep ), ValueMex( fcnHandleFinal ),
+                                             SQLstack.current().getException() ) )
         {
             const char* errid = NULL;
             m_err.set( m_interface->getErr(&errid), errid );
@@ -1296,7 +1304,6 @@ public:
         }
         
         // Global command, dbid useless
-        warnOnDefDbid();
         
         /*
          * There should be no argument to status
@@ -1306,8 +1313,33 @@ public:
             m_err.set( MSG_UNEXPECTEDARG );
             return false;
         }
-        
-        SQLstack.printStati();
+
+        if( !m_nlhs )
+        {
+            SQLstack.printStati( m_dbid_req, m_dbid );
+        }
+        else 
+        {
+            if( m_dbid_req == 0 )
+            {
+                mxArray* result = mxCreateCellMatrix( SQLstack.COUNT_DB, 1 );
+                for( int i = 0; result && i < SQLstack.COUNT_DB; i++ )
+                {
+                    mxArray* item = mxGetCell( result, i );
+                    mxSetCell( result, i, mxCreateString( SQLstack.m_db[i].isOpen() ? "OPEN" : "CLOSED" ) );
+                    mxDestroyArray( item );
+                }
+
+                if( result )
+                {
+                    m_plhs[0] = result;
+                }
+            }
+            else
+            {
+                m_plhs[0] = mxCreateString( SQLstack.m_db[m_dbid].isOpen() ? "OPEN" : "CLOSED" );
+            }
+        }
         
         return true;
     }
@@ -1382,6 +1414,8 @@ public:
             return false;
         }
 
+        SQLstack.switchTo( m_dbid-1 );
+
         // database must be open to change settings
         if( !ensureDbIsOpen() )
         {
@@ -1398,6 +1432,7 @@ public:
             return false;
         }
 
+        // Check if database name is given (for attached databases)
         if( m_narg == 1 )
         {
             if( !mxIsChar( m_parg[0] ) )
