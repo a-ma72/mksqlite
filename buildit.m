@@ -82,7 +82,7 @@ modules = [sqlite, blosc, md5, uuid];
 
 % get the mex arguments
 if buildrelease
-    buildargs = ['-DNDEBUG#1 -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O '];
+    buildargs = ['-DNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O '];
 else
     buildargs = ['-UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v '];
 end
@@ -186,7 +186,19 @@ else
 end
 
 % do the compile via mex
-eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', modules]);
+if exist( './obj', 'file' ) ~= 7
+  % create object folder
+  mkdir( './obj' );
+end
+
+% compile C sources
+eval (['mex -c -outdir ./obj ', mexargs, buildargs, modules]);
+obj = dir( './obj/*.o*' );
+obj = fullfile( './obj/', {obj.name} );
+obj = obj(:)';
+obj(2,:) = deal( {' '} );
+% compile C++ source and link
+eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', obj{:}]);
 
 % back to the start directory
 cd (mksqlite_compile_currdir);

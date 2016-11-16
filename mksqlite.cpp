@@ -1557,16 +1557,20 @@ public:
             return false;
         }
         
-        // No arguments, then report current state
+        // No arguments, then serve current state
         if( !m_narg )
         {
-            const char* errid = NULL;
-            /*
-             * Print current result type
-             */
-            PRINTF( "%s\"%s\"\n", ::getLocaleMsg( MSG_RESULTTYPE ) );
-            m_err.set( m_interface->getErr(&errid), errid );
-            return false;
+            if( !m_nlhs )
+            {
+               // Print current result type
+                PRINTF( "%s(%d)\n", ::getLocaleMsg( MSG_RESULTTYPE ), g_result_type );
+            } 
+            else 
+            {
+               // Return current result type
+                m_plhs[0] = mxCreateDoubleScalar( g_result_type );
+            }
+            return true;
         }
         
         // next parameter must be on/off flag
