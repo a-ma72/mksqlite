@@ -194,7 +194,8 @@ end
 % compile C sources
 eval (['mex -c -outdir ./obj ', mexargs, buildargs, modules]);
 obj = dir( './obj/*.o*' );
-obj = fullfile( './obj/', {obj.name} );
+% obj = fullfile( './obj/', {obj.name} );  % Only available in newer MATLAB versions
+obj = cellfun( @(c) fullfile( './obj/', c ), {obj.name}, 'UniformOutput', 0 );
 obj = obj(:)';
 obj(2,:) = deal( {' '} );
 % compile C++ source and link
