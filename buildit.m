@@ -89,9 +89,9 @@ end
 
 % additional libraries
 if ispc
-    buildargs = [buildargs ' user32.lib advapi32.lib'];
+    buildargs = [buildargs ' user32.lib advapi32.lib libut.lib'];
 else
-    buildargs = [buildargs ' -ldl'];
+    buildargs = [buildargs ' -ldl -lut'];
 end
 
 arch = computer('arch');

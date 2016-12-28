@@ -208,9 +208,9 @@ void mex_module_deinit()
  */
 void mex_module_init()
 {
-    static bool init_once = false;  // only one initialization per module
+    static bool is_initialized = false;  // only one initialization per module
     
-    if( !init_once )
+    if( !is_initialized )
     {
         mxArray *plhs[3] = {0};
 
@@ -228,7 +228,7 @@ void mex_module_init()
                     TBH_platform, 
                     TBH_endian[0] == 'L' ? "little endian" : "big endian" );
 
-            init_once = true;
+            is_initialized = true;
         }
         else
         {

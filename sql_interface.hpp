@@ -27,6 +27,9 @@
 #include <map>
 
 
+extern "C" bool utIsInterruptPending();
+extern "C" bool utSetInterruptEnabled( bool );
+
 /// type for column container
 typedef vector<ValueSQLCol> ValueSQLCols;
 
@@ -352,7 +355,7 @@ class SQLstackitem
 
     sqlite3*        m_db;           ///< SQLite db object
     MexFunctorsMap  m_fcnmap;       ///< MEX function map with MATLAB functions for application-defined SQL functions
-    ValueMex        m_exception;    ///< MATALAB exception array, will be thrown when mksqlite function leaves
+    ValueMex        m_exception;    ///< MATALAB exception array, may be thrown when mksqlite function leaves
 
 public:
 
@@ -382,7 +385,7 @@ public:
     }
 
 
-    /// (Re-)Throws an exception, if any occured
+    /// (Re-)Throws an exception, if any occurred
     void throwOnException()
     {
         m_exception.Throw();
@@ -393,6 +396,28 @@ public:
     MexFunctorsMap& fcnmap()
     {
         return m_fcnmap;
+    }
+
+
+    /// Progress handler (watchdog)
+    static
+    int progressHandler( void* data )
+    {
+        // Ctrl+C pressed?
+        if( utIsInterruptPending() )
+        {
+            PRINTF( "%s", ::getLocaleMsg( MSG_ABORTED ) );
+            return 1;
+        }
+        return 0;
+    }
+
+
+    /// Installing progress handler to enable aborting by Ctrl+C
+    void setProgressHandler( bool enable = true )
+    {
+        const int N_INSTRUCTIONS = 1000;
+        sqlite3_progress_handler( m_db, enable ? N_INSTRUCTIONS : 0, &SQLstackitem::progressHandler, NULL );
     }
 
 
@@ -441,6 +466,8 @@ public:
 
             sqlite3_extended_result_codes( m_db, true );
             attachBuiltinFunctions();
+            utSetInterruptEnabled( true );
+            setProgressHandler( true );
         }
 
         MEM_FREE( filename_utf8 );

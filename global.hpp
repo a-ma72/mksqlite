@@ -257,7 +257,7 @@ const double    g_NaN                   = DBL_NAN;
 /// MATALAB specific globals
 #if defined( MATLAB_MEX_FILE )
     /// Max. length for fieldnames in MATLAB 
-    int             g_namelengthmax         = 63;
+    int             g_namelengthmax         = 63;  // (mxMAXNAM-1)
 
     /// Flag: return NULL as NaN
     int             g_NULLasNaN             = CONFIG_NULL_AS_NAN;

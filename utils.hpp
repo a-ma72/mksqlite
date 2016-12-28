@@ -34,7 +34,7 @@ template<class T> void    utils_free_ptr          ( T *&pmxarr );
                   char*   utils_strnewdup         ( const char* s, int flagConvertUTF8 );
                   double  utils_get_wall_time     ();
                   double  utils_get_cpu_time      ();
-                  char*   utils_strlwr            (char*);
+                  char*   utils_strlwr            ( char* );
 
 
 #ifdef MAIN_MODULE
