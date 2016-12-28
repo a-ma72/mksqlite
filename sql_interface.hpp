@@ -29,6 +29,7 @@
 
 extern "C" bool utIsInterruptPending();
 extern "C" bool utSetInterruptEnabled( bool );
+extern "C" bool utSetInterruptHandled( bool );
 
 /// type for column container
 typedef vector<ValueSQLCol> ValueSQLCols;
@@ -406,7 +407,8 @@ public:
         // Ctrl+C pressed?
         if( utIsInterruptPending() )
         {
-            PRINTF( "%s", ::getLocaleMsg( MSG_ABORTED ) );
+            utSetInterruptHandled( true );
+            PRINTF( "%s\n", ::getLocaleMsg( MSG_ABORTED ) );
             return 1;
         }
         return 0;

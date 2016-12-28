@@ -105,6 +105,7 @@ int           getLocale     ();
 #define MSG_INVALIDFUNCTION             50
 #define MSG_ERRNULLDBID                 51
 #define MSG_ERRINTERNAL                 52
+#define MSG_ABORTED                     53
 /** @}  */
 
 
@@ -368,6 +369,7 @@ static const char* messages_0[] =
 /* 50*/    "invalid function!",
 /* 51*/    "dbid of 0 only allowed for commands 'open' and 'close'!",
 /* 52*/    "Internal error!",
+/* 53*/    "Aborted (Ctrl+C)!"
 };
 
 
@@ -438,6 +440,7 @@ static const char* messages_1[] =
 /* 50*/    "ungueltige Funktion! ",
 /* 51*/    "0 als dbid ist nur fuer die Befehle 'open' und 'close' erlaubt! ",
 /* 52*/    "Interner Fehler! ",
+/* 53*/    "Ausfuehrung abgebrochen (Ctrl+C)!",
 };
 
 /**
