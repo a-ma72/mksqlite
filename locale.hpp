@@ -311,7 +311,7 @@ static const char* messages_0[] =
     "(c) 2008-2016 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
-    "mksqlite uses further:\n"
+    "mksqlite utilizes:\n"
     " - DEELX perl compatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
@@ -369,7 +369,7 @@ static const char* messages_0[] =
 /* 50*/    "invalid function!",
 /* 51*/    "dbid of 0 only allowed for commands 'open' and 'close'!",
 /* 52*/    "Internal error!",
-/* 53*/    "Aborted (Ctrl+C)!"
+/* 53*/    "Aborted (Ctrl+C)!",
 };
 
 
@@ -382,7 +382,7 @@ static const char* messages_1[] =
     "(c) 2008-2016 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
-    "mksqlite verwendet darueber hinaus:\n"
+    "mksqlite nutzt:\n"
     " - DEELX perl kompatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
