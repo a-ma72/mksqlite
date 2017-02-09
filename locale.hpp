@@ -7,8 +7,8 @@
  *             for the case of further translations.
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.4
- *  @date      2008-2016
+ *  @version   2.5
+ *  @date      2008-2017
  *  @copyright Distributed under LGPL
  *  @pre       
  *  @warning   
@@ -308,7 +308,7 @@ public:
 static const char* messages_0[] = 
 {
     "mksqlite Version " CONFIG_MKSQLITE_VERSION_STRING " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008-2016 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2017 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite utilizes:\n"
@@ -379,10 +379,10 @@ static const char* messages_0[] =
 static const char* messages_1[] = 
 {
     "mksqlite Version " CONFIG_MKSQLITE_VERSION_STRING " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008-2016 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2017 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
-    "mksqlite nutzt:\n"
+    "mksqlite verwendet:\n"
     " - DEELX perl kompatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"

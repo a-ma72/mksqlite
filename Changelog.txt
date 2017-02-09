@@ -1,4 +1,4 @@
-Version 2.5 (build ...)
+Version 2.5 (build 133 - 9. Feb. 2017)
 - Changes on non-SQL commands:
   -- 'filename':
      Bugfix, ignored the given database id (always returned the name of the first database)
@@ -16,6 +16,7 @@ Version 2.5 (build ...)
 - Bugfix: Bind array with empty fields (GitHub issue #6, thx to Knut Voigtlaender)
 - Fixed: Building mksqlite with buildit.m failed on linux using newer MATLAB versions.
 - Long running calls of mksqlite may be aborted by pressing Ctrl+C now.
+- SQLite3 update (3.16.2)
 
 Version 2.4 (build 123 - 29. Aug. 2016)
 - Removed some typos
