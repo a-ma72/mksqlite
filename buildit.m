@@ -257,7 +257,6 @@ copyfile('Changelog.txt',           reldir);
 copyfile('mksqlite.m',              reldir);
 copyfile('mksqlite_en.m',           reldir);
 copyfile('sql.m',                   reldir);
-copyfile('doxy/chm/mksqlite*.chm',  reldir);
 
 % x86 32-bit version (MSVC 2010 / Win7) / MATLAB Version 7.7.0.471 (R2008b)
 if exist( 'mksqlite.mexw32', 'file' )

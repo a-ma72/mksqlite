@@ -237,7 +237,7 @@
 % So koennen MATLAB Funktionen ueber deren Handle in SQL zugaenglich gemacht werden.
 %
 %
-% (c) 2008-2016 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2017 by Martin Kortmann <mail@kortmann.de>
 %                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 
