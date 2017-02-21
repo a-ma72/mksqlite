@@ -101,7 +101,7 @@
  \section detail_desc_sec3 Parameter binding
  The SQL syntax allows the use of parameters, which are identified
  by placeholders, and then filled with contents by trailing arguments.\n
- Allowed placeholders in SQLlite are: ?, ?NNN, :NNN, \$NAME, \@NAME
+ Allowed placeholders in SQLlite are: ?, ?NNN, :NAME, \$NAME, \@NAME
  A placeholder can only stand for one value, not for a command,
  split-name, or table, etc.
  \n
@@ -128,13 +128,13 @@
   mksqlite( 'param_wrapping', 1 ); 
 
   % Insert 2 new datasets with named parameters
-  mksqlite( 'insert firstName, lastName, city into AddressBook values (?city,?lastName,?firstName)', ...
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (:city,:lastName,:firstName)', ...
             'Munich', 'Meyer', 'Gunther', ...
             'Frankfurt', 'Graf', 'Thomas' );
 
   % Insert 2 new datasets with named parameters and arguments as cell array
   data = {'Munich', 'Meyer', 'Gunther', 'Frankfurt', 'Graf', 'Thomas'};
-  mksqlite( 'insert firstName, lastName, city into AddressBook values (?city,?lastName,?firstName)', ...
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (:city,:lastName,:firstName)', ...
             data );
 
   % Insert 2 new datasets with named parameters and arguments as struct array
@@ -145,7 +145,7 @@
   data(2).city = 'Frankfurt';
   data(2).firstName = 'Thomas';
   data(2).lastName = 'Graf';
-  mksqlite( 'insert firstName, lastName, city into AddressBook values (?city,?lastName,?firstName)', ...
+  mksqlite( 'insert firstName, lastName, city into AddressBook values (:city,:lastName,:firstName)', ...
             data );
  \endcode
  An argument may be a real value (scalar or array) or a string.  

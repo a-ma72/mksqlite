@@ -20,7 +20,7 @@
 #define BOOL_TRUE  1
 #define BOOL_FALSE 0
 
-#define CONFIG_USE_HEAP_CHECK         BOOL_FALSE     ///< false=standard allocators, true=usage of heap_check.hpp
+#define CONFIG_USE_HEAP_CHECK         BOOL_FALSE    ///< false=standard allocators, true=usage of heap_check.hpp
 #define CONFIG_NULL_AS_NAN            BOOL_FALSE    ///< use NaN instead of NULL values by default
 #define CONFIG_BUSYTIMEOUT            1000          ///< default SQL busy timeout in milliseconds (1000)
 

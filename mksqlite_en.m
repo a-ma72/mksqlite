@@ -6,16 +6,16 @@
 % General calling sequence:
 %  dbid = mksqlite([dbid, ] SQLCommand [, Argument])
 %   The parameter dbid is optional and is only necessary if one is
-%   working with multiple databases at once.  If dbid is left out, then 
+%   working with multiple databases at once.  If dbid is left out, then
 %   database number 1 is used.
-% 
+%
 % Function Calls:
 %  mksqlite('open', 'dataBaseName')
 % or
 %  dbid = mksqlite(0, 'open', 'dataBaseName')
 % Opens the database with name "dataBaseName".  If the database does
-% not exist, an empty one will be created.  If a dbid is given that is 
-% already open, it will be closed before opening again.  Providing a dbid 
+% not exist, an empty one will be created.  If a dbid is given that is
+% already open, it will be closed before opening again.  Providing a dbid
 % of 0 will return the next free dbid.
 %
 %  mksqlite('close')
@@ -67,16 +67,16 @@
 %  mksqlite( 'insert firstName, lastName, city into AddressBook values (?,?,?)', ...
 %            'Paul', 'Meyer', 'Munich' );
 %
-% Instead of a listing of arguments, a cell array can be provided that 
+% Instead of a listing of arguments, a cell array can be provided that
 % contains the arguments.
-% If fewer arguments are given then required, the remaining parameters are 
+% If fewer arguments are given then required, the remaining parameters are
 % filled with NULLs.  If more arguments are given than necessary, the
-% function reports an error.  
+% function reports an error.
 % If it is intended, that implicit calls with the same command and the remaining
 % arguments shall be done, so called parameter wrapping must be activated:
 % mksqlite('param_wrapping', 0|1)
-% An argument may be a real value (scalar or array) or a string.  
-% Non-scalar values are treated as a BLOB (unit8) SQL datatype. 
+% An argument may be a real value (scalar or array) or a string.
+% Non-scalar values are treated as a BLOB (unit8) SQL datatype.
 % ( BLOB = (B)inary (L)arge (OB)ject) )
 %
 % Example:
@@ -94,19 +94,19 @@
 % The indicated post-processing is then no longer necessary, but the
 % database is then no longer compatible with other software!
 % The typecasting conversion can be activated/deactivated with:
-%   
+%
 %   mksqlite( 'typedBLOBs', 1 ); % activate
 %   mksqlite( 'typedBLOBs', 0 ); % deactivate
 %
-% (see also the example "sqlite_test_bind_typed.m") 
+% (see also the example "sqlite_test_bind_typed.m")
 % Type conversion only works with numeric arrays and vectors.  structs,
 % cell arrays and complex data must be converted beforehand.  Matlab
 % can do this conversion through undocumented functions:
-% getByteStreamFromArray() and getArrayFromByteStream(). 
+% getByteStreamFromArray() and getArrayFromByteStream().
 % This functionality is activated by following command:
 %
-%   mksqlite ( 'typedBLOBs', 2); % expanded activation
-% 
+%   mksqlite ( 'typedBLOBs', 2); % extended activation
+%
 % The data in a BLOB is stored either uncompressed (standard) or
 % compressed.  Automatic compression of the data is only necessary for
 % typed BLOBs, but must be activated:
@@ -115,24 +115,24 @@
 %
 % (See also examples "sqlite_test_bind_typed_compressed.m" and
 % "sqlite_test_md5_and_packaging.m")
-% 
+%
 % The compression uses BLOSC (http://blosc.pytabales.org/trac)
 % After compression, the data is unpacked and compared with the original.
-% If there is a difference, an error report is given.  If this 
-% functionality is not desirable, it can be deactivated (data is 
+% If there is a difference, an error report is given.  If this
+% functionality is not desirable, it can be deactivated (data is
 % stored without verification).
 %
 %   mksqlite( 'compression_check', 0 ); % deactive the check (1=activate)
 %
-% 
+%
 % Compatibility:
 %  Stored compressed blobs cannot be retrieved with older versions of mqslite,
-%  this will trigger an error report.  In contrast, uncompressed BLOBS can be 
+%  this will trigger an error report.  In contrast, uncompressed BLOBS can be
 %  retrieved with older versions.  Of course BLOBs stored with older versions
 %  can be retrieved with this version.
 %
 % Remarks on compression rate:
-%   The achievable compression rates depend strongly on the contents of the 
+%   The achievable compression rates depend strongly on the contents of the
 %   variables.  Although BLOSC is equipped to handle numeric data, its
 %   performance on randomized numbers (double) is poor (~95%).  If there are
 %   many identical values, for example from quantization, the compression rate
@@ -145,13 +145,13 @@
 % can also be used, as they are stored as special values (65529...65535).
 % Differing compression rates are not supported, so this compressor should
 % always be set to 1.
-% 
+%
 % "QLOG16":
 % Works like QLIN16, except that the quantization uses logarithmic
 % scaling, therefore storage of negative values is not allowed, but
 % NULL, Nan, and infinity are still accepted.  Similarly, differing
 % compression rates are not supported, so should always be set to 1.
-% 
+%
 % =======================================================================
 %
 % Control the format of result for queries
@@ -221,14 +221,14 @@
 % Application-defined functions:
 % You can register your own MATLAB functions as SQL functions with one of
 % the following calls:
-% 
+%
 %   mksqlite( 'create function', <name>, function_handle );
 %   mksqlite( 'create aggregation', <name>, step_function_handle, final_function_handle );
 %
 % So you can access your MATLAB code from within SQL queries.
 %
 %
-% (c) 2008-2015 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2017 by Martin Kortmann <mail@kortmann.de>
 %                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 
