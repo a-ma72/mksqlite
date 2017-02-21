@@ -56,8 +56,8 @@ function varargout = sql( first_arg, varargin )
 
       args = [ dbid, {query}, varargin ];
 
-      % Get bind names starting with ":" as cell array. (Colon is not part of the names taken)
-      binds = regexp( query, ':(\w*)', 'tokens' );
+      % Get bind names starting with ":", "$" or "@" as cell array. (Character is not part of the names taken)
+      binds = regexp( query, '[:\$\@](\w*)', 'tokens' );
       binds = [binds{:}]; % resolve nested cells
       if isempty( binds )
           % No named bind names, discard struct argument!
