@@ -2236,10 +2236,16 @@ public:
         // m_query can be already set i.e. in case of command 'show tables'
         if( !m_query )
         {
-            // Append a semicolon
+            // Do the charset conversion and append a semicolon
             char* new_command = NULL;
+            int cmd_length = ::utils_latin2utf( (const unsigned char*)m_command );
             
-            new_command = (char*)MEM_ALLOC( (int)strlen( m_command ) + 2, 1 );
+            if( cmd_length < strlen( m_command ) )
+            {
+                cmd_length = strlen( m_command );
+            }
+            
+            new_command = (char*)MEM_ALLOC( cmd_length + 2, 1 );
             
             if( !new_command )
             {
@@ -2247,7 +2253,15 @@ public:
                 return false;
             }
             
-            sprintf( new_command, "%s;", m_command );
+            if( g_convertUTF8 )
+            {
+                ::utils_latin2utf( (const unsigned char*)m_command, (unsigned char*)new_command );
+                sprintf( new_command + strlen( new_command ), ";" );
+            }
+            else
+            {
+                sprintf( new_command, "%s;", m_command );
+            }
             ::utils_free_ptr( m_command );
             m_command = new_command;
             
