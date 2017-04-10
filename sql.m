@@ -47,7 +47,7 @@ function varargout = sql( first_arg, varargin )
   args = [ dbid, {query}, varargin ];
 
   % kv69 support named binding (only non-extended typedBLOBs)
-  if isstruct(args{end}) && mksqlite( 'typedBLOBs' ) < 2
+  if isstruct( args{end} )
       % Replace special tokens [#], [:#], [=#], [+#] and [-#] referencing struct argument
       [match, tokens] = regexp( query, '\[(.?)#\]', 'match', 'tokens' );
       for i = 1:numel( match )
@@ -57,11 +57,15 @@ function varargout = sql( first_arg, varargin )
       args = [ dbid, {query}, varargin ];
 
       % Get bind names starting with ":", "$" or "@" as cell array. (Character is not part of the names taken)
-      binds = regexp( query, '[\$\:\@](\w*)', 'tokens' );
+      binds = regexp( query, '\<[\$\:\@](\w*)', 'tokens' );
       binds = [binds{:}]; % resolve nested cells
       if isempty( binds )
-          % No named bind names, discard struct argument!
-          args(end) = [];
+          % When using typed BLOBs (type 2), user might store the struct
+          % itself, otherwise the is no chance to use the struct in any way.
+          if mksqlite( 'typedBLOBs' ) < 2
+              % No named bind names, discard struct argument!
+              args(end) = [];
+          end
       else
         mex_ver = mksqlite( 'version mex' );
         mex_ver_dot = strfind( mex_ver, '.' );

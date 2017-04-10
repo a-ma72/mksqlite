@@ -1,3 +1,11 @@
+Version 2.6 (build ???)
+- Bugfix: Charset conversion was not done for query string itself.
+          Queries like mksqlite( 'SELECT * FROM tbl WHERE name="Dünn"') failed, 
+          whereas mksqlite( 'SELECT * FROM tbl WHERE name=?', 'Dünn' ) succeeded.
+- sql.m changed: When streaming (option 'typed_BLOBs'=2) and parameter wrapping
+  (option 'param_wrapping'=1) are set, it is now possible to pass a single struct
+  array for binding.
+
 Version 2.5 (build 133 - 9. Feb. 2017)
 - Changes on non-SQL commands:
   -- 'filename':

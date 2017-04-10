@@ -1306,7 +1306,11 @@ public:
       /// Functor
       char operator()( char a )
       {
-          return ::isalnum(a) ? a : '_';
+          if( a >= 'a' && a <= 'z' ) return a;
+          if( a >= 'A' && a <= 'Z' ) return a;
+          if( a >= '0' && a <= '9' ) return a;
+
+          return '_';
       }
   };
   

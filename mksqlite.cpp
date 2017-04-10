@@ -2295,9 +2295,12 @@ public:
         // parameter wrapping         | off            | on               | off           | on              |
         // ---------------------------+----------------+------------------+---------------+-----------------+
         // 'SELECT ?',   {1,2,3,4}    | fail=> 4>1     | ok=> 4 stmts     | ok=> 1 stmt   | ??              |
-        // 'SELECT ?,?', {1,2,3,4}    | fail=> 4>2     | ok=> 2 stmt      | ??            | ??              |
-        // 'SELECT ?',   struct(2)    | fail=> 2>1     | ok=> 2 stmt      | ok=> 1 stmt   | ??              |
-        // 'SELECT ?,?', struct(2)    | fail=> 2>1     | ok=> 2 stmt      | ??            | ??              |
+        // 'SELECT ?,?', {1,2,3,4}    | fail=> 4>2     | ok=> 2 stmts     | ??            | ??              |
+        // 'SELECT ?',   struct(2)    | fail=> 2>1     | ok=> 2 stmts     | ok=> 1 stmt   | ??              |
+        // 'SELECT ?,?', struct(2)    | fail=> 2>1     | ok=> 2 stmts     | ??            | ok=> 2 stmts    |
+        //
+        // ( struct(2) is a struct array of size 2 )
+
 
         // Check if a single cell argument is passed
         if( countBindParam == 1 && ValueMex(*nextBindParam).IsCell() )
@@ -2333,12 +2336,16 @@ public:
             // handle the struct argument to any parameter
             if( g_streaming )
             {
-                if( g_param_wrapping || (argsNeeded > 1) )
+                if( g_param_wrapping && (argsNeeded > 1) )
+                {
+                    // allowed
+                }
+                else if( g_param_wrapping || (argsNeeded > 1) )
                 {
                     m_err.set( MSG_SINGLESTRUCTNOTALLOWED );
                     goto finalize;
                 }
-                haveParamStruct = false;
+                else haveParamStruct = false;
             }
             
             if( haveParamStruct )
