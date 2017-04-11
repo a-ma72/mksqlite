@@ -67,30 +67,30 @@ function varargout = sql( first_arg, varargin )
               args(end) = [];
           end
       else
-        mex_ver = mksqlite( 'version mex' );
-        mex_ver_dot = strfind( mex_ver, '.' );
-        mex_ver_major = int16( str2double( mex_ver(1:mex_ver_dot-1) ) );
-        mex_ver_minor = int16( str2double( mex_ver(mex_ver_dot+1:end) ) );
-        % Since version 2.1 mksqlite handles named bindings with a struct
-        % argument. For versions prior a cell argument have to be built for
-        % compatibility reasons:
-        if mex_ver_major < 2 || ( mex_ver_major == 2 && mex_ver_minor <= 1 )
-            [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
-            binds = binds( sort(idx) ); % get unique elements, preserving order
-            dataset = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
-            dataset = orderfields( dataset, binds ); % order remaining fields to match occurence in sql statement
-            dataset = struct2cell( dataset(:) ); % retrieve data from structure (column-wise datasets)
-            args = [args(1:end-1), dataset(:)'];
-        end
+          mex_ver = mksqlite( 'version mex' );
+          mex_ver_dot = strfind( mex_ver, '.' );
+          mex_ver_major = int16( str2double( mex_ver(1:mex_ver_dot-1) ) );
+          mex_ver_minor = int16( str2double( mex_ver(mex_ver_dot+1:end) ) );
+          % Since version 2.1 mksqlite handles named bindings with a struct
+          % argument. For versions prior a cell argument have to be built for
+          % compatibility reasons:
+          if mex_ver_major < 2 || ( mex_ver_major == 2 && mex_ver_minor <= 1 )
+              [~, idx, ~] = unique(binds, 'first'); % Get the indexes of all elements excluding duplicates
+              binds = binds( sort(idx) ); % get unique elements, preserving order
+              dataset = rmfield( args{end}, setdiff( fieldnames(args{end}), binds ) ); % remove unused fields
+              dataset = orderfields( dataset, binds ); % order remaining fields to match occurence in sql statement
+              dataset = struct2cell( dataset(:) ); % retrieve data from structure (column-wise datasets)
+              args = [args(1:end-1), dataset(:)'];
+          end
       end
   end
 
 
   % remaining arguments are for SQL parameter binding
   if ~nargout
-    mksqlite( args{:} );
+      mksqlite( args{:} );
   else
-    [varargout{1:nargout}] = mksqlite( args{:} );
+      [varargout{1:nargout}] = mksqlite( args{:} );
   end
 
 end
@@ -101,9 +101,9 @@ function list = field_list( struct_var, mode )
   assert( isstruct( struct_var ), '<struct_var must> be a structure type variable' );
 
   if ~exist( 'mode', 'var' )
-    mode = '';
+      mode = '';
   else
-    assert( ischar( mode ) && numel( mode ) < 2, '<mode> must be a char type variable' );
+      assert( ischar( mode ) && numel( mode ) < 2, '<mode> must be a char type variable' );
   end
 
   fnames = fieldnames( struct_var );
