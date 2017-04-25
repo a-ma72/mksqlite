@@ -7,9 +7,9 @@ Simply enter the command `mksqlite('SELECT * FROM database')` and you get an arr
 ## Why using *mksqlite*?
 Since MATLAB(R) version 2016a the is a `sqlite(...)` function for easy access to SQLite databases.  
 *mksqlite* on the other hand serves the facility to...
-* Handle BLOB data type
-* Save numerical arrays as (compressed) BLOB
-* Save complex data structures (struct, cell, ...) as BLOB
+* Handle BLOB data type (uint8 array)
+* Save numerical arrays as (compressed) BLOB (shadowed)
+* Save complex data structures (struct, cell, ...) as BLOB (shadowed)
 * Define your own SQLite functions in terms of MATLAB(R) function callbacks
 Additionally *mksqlite* has some nice features like for example bulk insertion and named parameter binding:
 ```
