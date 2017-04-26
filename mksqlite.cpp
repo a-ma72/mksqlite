@@ -2242,7 +2242,7 @@ public:
             
             if( cmd_length < strlen( m_command ) )
             {
-                cmd_length = strlen( m_command );
+                cmd_length = (int)strlen( m_command );
             }
             
             new_command = (char*)MEM_ALLOC( cmd_length + 2, 1 );

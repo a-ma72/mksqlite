@@ -583,20 +583,20 @@ public:
      */
     char *GetString( bool flagUTF = false, const char* format = NULL ) const
     {
-        size_t      count;
-        char*       result          = NULL;
-        mxArray*    new_string      = NULL;
-        mxArray*    org_string      = m_pcItem;
+                size_t      count;
+                char*       result          = NULL;
+                mxArray*    new_string      = NULL;
+        const   mxArray*    org_string      = m_pcItem;
         
         // reformat original string with MATLAB function "sprintf" into new string
         if( format )
         {
-            mxArray* args[2] = { mxCreateString( format ), org_string };
+            mxArray* args[2] = { mxCreateString( format ), const_cast<mxArray*>(org_string) };
 
             mexCallMATLAB( 1, &new_string, 2, args, "sprintf" );
             mxDestroyArray( args[0] );  // destroy format string
             
-            org_string = new_string;
+            org_string = new_string; // Override (but don't free!) org_string
         }
         
         // get character stream from original string (MATLAB array)
@@ -619,18 +619,16 @@ public:
             }
         }
 
+        // reformatted string is no longer needed
+        ::utils_destroy_array( new_string );
+
         // try to retrieve the character stream
         if( !result )
         {
             // free memory and return with error
-            ::utils_free_ptr( result );
-            ::utils_destroy_array( new_string );
             mexErrMsgTxt( getLocaleMsg( MSG_CANTCOPYSTRING ) );
         }
         
-        // reformatted string is no longer needed
-        ::utils_destroy_array( new_string );
-
         // convert to UFT
         if( flagUTF )
         {
