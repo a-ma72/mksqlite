@@ -4,6 +4,8 @@ You can use the command `mksqlite` to benefit from all features of SQLite.
 
 Simply enter the command `mksqlite('SELECT * FROM database')` and you get an array of structures with the results of the query.
 
+For a more detailed documentation visit the project home page: http://mksqlite.sourceforge.net.
+
 ## Why using *mksqlite*?
 Since MATLAB(R) version 2016a the is a `sqlite(...)` function for easy access to SQLite databases.  
 *mksqlite* on the other hand serves the facility to...
