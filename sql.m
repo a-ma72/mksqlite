@@ -27,22 +27,19 @@ function varargout = sql( first_arg, varargin )
   while i < length(query)
       if query(i) == '%'
           nParams = nParams + 1;
-          % check for '%%', which is no sprintf placeholder
+          % Don't count '%%' occurences
           if query(i+1) == '%'
-              query(i+1) = [];
+              i = i + 1;
               nParams = nParams - 1;
           end
       end
       i = i + 1;
   end
 
-  % if there are placeholders in SQL string, build
-  % the SQL query by sprintf() first.
+  % Build the SQL query by sprintf() first.
   % First nParams parameters are taken as sprintf parameter list.
-  if nParams > 0
-      query = sprintf( query, varargin{1:nParams} );
-      varargin(1:nParams) = []; % remove sprintf parameters
-  end
+  query = sprintf( query, varargin{1:nParams} );
+  varargin(1:nParams) = []; % remove sprintf parameters
 
   args = [ dbid, {query}, varargin ];
 
