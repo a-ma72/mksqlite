@@ -633,7 +633,7 @@ public:
       if( !isOpen() )
       {
           assert( false );
-          return false;
+          return NULL;
       }
 
       return sqlite3_db_filename( m_db, database ? database : "MAIN" );
