@@ -121,9 +121,10 @@ switch arch
         % zznaki proposal, 2016-02-03 ( OSX El Capitan version 10.11.3, Xcode Version 7.2.1 (7C1002) )
         mexargs = '';
         buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
+        buildargs_clang = [buildargs ' -mmacosx-version-min=10.9'];
         for srcFile = strsplit( strtrim(modules) )
             clangStr = ['clang -o ', strrep( srcFile{1}, '.c', '.o' ),  ...
-                        ' -c -arch x86_64 ', strrep( buildargs, ' -ldl ', ' ' ),' ', srcFile{1}];
+                        ' -c -arch x86_64 ', strrep( buildargs_clang, ' -ldl ', ' ' ),' ', srcFile{1}];
             disp( clangStr )
             [status,result] = system( clangStr, '-echo' );
             assert( status == 0 );
@@ -193,6 +194,10 @@ end
 
 % compile C sources
 eval (['mex -c -outdir ./obj ', mexargs, buildargs, modules]);
+%if mac just copy the modules
+if strcmp(arch, 'maci64')
+    system(['cp ' modules ' ./obj'])
+end
 obj = dir( './obj/*.o*' );
 % obj = fullfile( './obj/', {obj.name} );  % Only available in newer MATLAB versions
 obj = cellfun( @(c) fullfile( './obj/', c ), {obj.name}, 'UniformOutput', 0 );
