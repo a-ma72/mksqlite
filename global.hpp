@@ -22,6 +22,16 @@
 
 /* Common global definitions */
 
+// Is NOEXCEPT supported?
+#if defined(_MSC_VER) && defined(_NOEXCEPT)
+  // MSVC
+  #define NOEXCEPT _NOEXCEPT
+#elif __cplusplus > 199711L
+  #define NOEXCEPT NOEXCEPT
+#else
+  #define NOEXCEPT
+#endif
+
 #if defined( MATLAB_MEX_FILE ) /* MATLAB MEX file */
   /* solve the 'error C2371: 'char16_t' : redefinition; different basic types' problem */
   /* ref: http://www.mathworks.com/matlabcentral/newsreader/view_thread/281754 */
