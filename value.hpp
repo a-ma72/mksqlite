@@ -83,21 +83,21 @@ public:
 protected:
     
     /// Standard ctor
-    ValueBase()  noexcept 
+    ValueBase()  NOEXCEPT 
     : m_isConst(true),
       m_largest_field(0)
     {
     }
     
     /// Copy ctor for constant objects
-    ValueBase( const ValueBase& other )  noexcept 
+    ValueBase( const ValueBase& other )  NOEXCEPT 
     {
         m_isConst   = true;
         *this       = other;
     }
     
     /// Move ctor for lvalues
-    ValueBase( ValueBase& other ) noexcept 
+    ValueBase( ValueBase& other ) NOEXCEPT 
     {
         m_isConst       = true;
         *this           = other;
@@ -105,7 +105,7 @@ protected:
     }
     
     /// Move ctor for rvalues (temporary objects)
-    ValueBase( ValueBase&& other ) noexcept 
+    ValueBase( ValueBase&& other ) NOEXCEPT 
     {
         m_isConst       = true;
         *this           = other;
@@ -113,7 +113,7 @@ protected:
     }
     
     /// Assignment operator 
-    ValueBase& operator=( const ValueBase& other ) noexcept 
+    ValueBase& operator=( const ValueBase& other ) NOEXCEPT 
     {
         // checking self assignment
         if( this != &other )
@@ -127,7 +127,7 @@ protected:
     }
     
     /// Move assignment operator for lvalues
-    ValueBase& operator=( ValueBase& other ) noexcept 
+    ValueBase& operator=( ValueBase& other ) NOEXCEPT 
     {
         // checking self assignment
         if( this != &other )
@@ -143,7 +143,7 @@ protected:
     }
     
     /// Move assignment operator for rvalues (temporary objects)
-    ValueBase& operator=( ValueBase&& other ) noexcept 
+    ValueBase& operator=( ValueBase&& other ) NOEXCEPT 
     {
         // checking self assignment
         if( this != &other )
@@ -207,41 +207,41 @@ public:
     
     
     /// Standard ctor
-    ValueMex() noexcept : ValueBase()
+    ValueMex() NOEXCEPT : ValueBase()
     {
     }
     
     /// Copy ctor for const objects
-    ValueMex( const ValueMex& other ) noexcept : ValueBase( other )
+    ValueMex( const ValueMex& other ) NOEXCEPT : ValueBase( other )
     {
     }
     
     /// Move ctor for lvalues
-    ValueMex( ValueMex& other ) noexcept : ValueBase( other )
+    ValueMex( ValueMex& other ) NOEXCEPT : ValueBase( other )
     {
     }
     
     /// Move ctor for rvalues (temporary objects)
-    ValueMex( ValueMex&& other ) noexcept : ValueBase( other )
+    ValueMex( ValueMex&& other ) NOEXCEPT : ValueBase( other )
     {
     }
     
     /// Assignment operator for const objects
-    ValueMex& operator=( const ValueMex& other ) noexcept
+    ValueMex& operator=( const ValueMex& other ) NOEXCEPT
     {
         ValueBase::operator=( other );
         return *this;
     }
     
     /// Move assignment operator for lvalues
-    ValueMex& operator=( ValueMex& other ) noexcept 
+    ValueMex& operator=( ValueMex& other ) NOEXCEPT 
     {
         ValueBase::operator=( other );
         return *this;
     }
     
     /// Move assignment operator for rvalues (temporary objects)
-    ValueMex& operator=( ValueMex&& other ) noexcept 
+    ValueMex& operator=( ValueMex&& other ) NOEXCEPT 
     {
         ValueBase::operator=( other );
         return *this;
@@ -872,35 +872,35 @@ public:
     }
 
     /// Standard ctor
-    ValueSQL() noexcept 
+    ValueSQL() NOEXCEPT 
     {
         m_blobsize = 0;
         m_typeID   = SQLITE_NULL;
     }
     
     /// Copy ctor for constant objects
-    ValueSQL( const ValueSQL& other )  noexcept : ValueBase( other )
+    ValueSQL( const ValueSQL& other )  NOEXCEPT : ValueBase( other )
     {
         m_typeID   = other.m_typeID;
         m_blobsize = other.m_blobsize;
     }
     
     /// Move ctor for lvalues
-    ValueSQL( ValueSQL& other ) noexcept : ValueBase( other )
+    ValueSQL( ValueSQL& other ) NOEXCEPT : ValueBase( other )
     {
         m_typeID   = other.m_typeID;
         m_blobsize = other.m_blobsize;
     }
     
     /// Move ctor for rvalues (temporary objects)
-    ValueSQL( ValueSQL&& other ) noexcept : ValueBase( other )
+    ValueSQL( ValueSQL&& other ) NOEXCEPT : ValueBase( other )
     {
         m_typeID   = other.m_typeID;
         m_blobsize = other.m_blobsize;
     }
     
     /// Assignment operator for constant objects
-    ValueSQL& operator=( const ValueSQL& other )  noexcept 
+    ValueSQL& operator=( const ValueSQL& other )  NOEXCEPT 
     {
         ValueBase::operator=(other);
         m_typeID      = other.m_typeID;
@@ -909,7 +909,7 @@ public:
     }
 
     /// Move assignment operator for lvalues
-    ValueSQL& operator=( ValueSQL& other )  noexcept 
+    ValueSQL& operator=( ValueSQL& other )  NOEXCEPT 
     {
         ValueBase::operator=(other);
         m_typeID      = other.m_typeID;
@@ -918,7 +918,7 @@ public:
     }
 
     /// Move assignment operator for rvalues (temporary objects)
-    ValueSQL& operator=( ValueSQL&& other ) noexcept 
+    ValueSQL& operator=( ValueSQL&& other ) NOEXCEPT 
     {
         ValueBase::operator=(other);
         m_typeID      = other.m_typeID;
