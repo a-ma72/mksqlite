@@ -1,3 +1,8 @@
+% File              : buildit.m
+% Author            : Pradeep Rajendran <pradeepunique1989@gmail.com>
+% Date              : 17.10.2018
+% Last Modified Date: 17.10.2018
+% Last Modified By  : Pradeep Rajendran <pradeepunique1989@gmail.com>
 % BUILDIT - builds mksqlite
 %
 % possible commands:
@@ -113,7 +118,7 @@ switch arch
   case {'glnx86', 'glnxa32', 'glnxa64'}
     % Enable C++11 standard (gcc 4.4.7)
     buildargs = [ buildargs, ' -', arch ];
-    compvars  = ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x" ';
+    compvars  = ' CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS -std=gnu++0x" ';
   case {'win32', 'win64'}
     buildargs = [ buildargs, ' -', arch ];
     compvars  = ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS" ';
