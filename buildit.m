@@ -80,6 +80,17 @@ uuid   = [];
 modules = [sqlite, blosc, md5, uuid];
 
 
+% Save the current directory and change to sources
+% folder ( = location of this script )
+mksqlite_compile_currdir = pwd;
+cd (fileparts(mfilename('fullpath')));
+
+% Create object folder for compiled modules
+outdir = './obj';
+if exist( outdir, 'file' ) ~= 7
+  mkdir( outdir );
+end
+
 % get the mex arguments
 if buildrelease
     buildargs = ['-DNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O '];
@@ -87,44 +98,45 @@ else
     buildargs = ['-UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v '];
 end
 
-% additional libraries
+% additional libraries:
+% (libut for ctrl-c detection, libdl for dynamic linkage on linux machines)
 if ispc
     buildargs = [buildargs ' user32.lib advapi32.lib libut.lib'];
 else
     buildargs = [buildargs ' -ldl -lut'];
 end
 
+% Get computer architecture
 arch = computer('arch');
 
 switch arch
   case {'glnx86', 'glnxa32', 'glnxa64'}
     % Enable C++11 standard (gcc 4.4.7)
     buildargs = [ buildargs, ' -', arch ];
-    mexargs = ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x" ';
+    compvars  = ' CFLAGS="\$CFLAGS" CXXFLAGS="\$CXXFLAGS -std=gnu++0x" ';
   case {'win32', 'win64'}
     buildargs = [ buildargs, ' -', arch ];
-    mexargs = ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS" ';
+    compvars  = ' LINKFLAGS="$LINKFLAGS" COMPFLAGS="$COMPFLAGS" ';
   case {'maci64'}
     if 0
         % Perhaps someone can resolve this to work anytime...
         % (Mac OS 10.11.2 and Xcode 7.1.1)
         buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
-        mexargs = ['CXX="/usr/bin/clang++" ',                 ... % Override C++ compiler
-                   'CXXFLAGS="-std=c++11 -stdlib=libc++ ',    ... % Override C++ compiler flags
-                             '-fno-common -fexceptions ',     ...
-                             '-v -Winvalid-source-encoding ', ...
-                             '-arch x86_64 " ',               ...
-                   'CC="/usr/bin/clang" ',                    ... % Override C compiler
-                   'CFLAGS="-arch x86_64 " '];                    % Override C compiler flags
+        compvars = ['CXX="/usr/bin/clang++" ',                 ... % Override C++ compiler
+                    'CXXFLAGS="-std=c++11 -stdlib=libc++ ',    ... % Override C++ compiler flags
+                              '-fno-common -fexceptions ',     ...
+                              '-v -Winvalid-source-encoding ', ...
+                              '-arch x86_64 " ',               ...
+                    'CC="/usr/bin/clang" ',                    ... % Override C compiler
+                    'CFLAGS="-arch x86_64 " '];                    % Override C compiler flags
     else
         % Precompile C-modules for mex
         % zznaki proposal, 2016-02-03 ( OSX El Capitan version 10.11.3, Xcode Version 7.2.1 (7C1002) )
-        mexargs = '';
+        compvars = '';
         buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
-        buildargs_clang = [buildargs ' -mmacosx-version-min=10.9'];
         for srcFile = strsplit( strtrim(modules) )
             clangStr = ['clang -o ', strrep( srcFile{1}, '.c', '.o' ),  ...
-                        ' -c -arch x86_64 ', strrep( buildargs_clang, ' -ldl ', ' ' ),' ', srcFile{1}];
+                        ' -c -arch x86_64 ', strrep( buildargs, ' -ldl ', ' ' ),' ', srcFile{1}];
             disp( clangStr )
             [status,result] = system( clangStr, '-echo' );
             assert( status == 0 );
@@ -133,10 +145,6 @@ switch arch
     end
 end
 
-
-% save the current directory and get the version information
-mksqlite_compile_currdir = pwd;
-cd (fileparts(mfilename('fullpath')));
 
 if 0  % set to 1 if you prefer using Windows and TortoiseSVN only...
     mksqlite_compile_subwcrev = [getenv('ProgramFiles') '\TortoiseSVN\bin\SubWCRev.exe'];
@@ -186,25 +194,15 @@ else
     end
 end
 
-% do the compile via mex
-if exist( './obj', 'file' ) ~= 7
-  % create object folder
-  mkdir( './obj' );
-end
-
 % compile C sources
-eval (['mex -c -outdir ./obj ', mexargs, buildargs, modules]);
-%if mac just copy the modules
-if strcmp(arch, 'maci64')
-    system(['cp ' modules ' ./obj'])
-end
+eval (['mex -c -outdir ./obj ', compvars, buildargs, modules]);
 obj = dir( './obj/*.o*' );
 % obj = fullfile( './obj/', {obj.name} );  % Only available in newer MATLAB versions
 obj = cellfun( @(c) fullfile( './obj/', c ), {obj.name}, 'UniformOutput', 0 );
 obj = obj(:)';
 obj(2,:) = deal( {' '} );
 % compile C++ source and link
-eval (['mex -output mksqlite ', mexargs, buildargs, ' mksqlite.cpp ', obj{:}]);
+eval (['mex -output mksqlite ', compvars, buildargs, ' mksqlite.cpp ', obj{:}]);
 
 % back to the start directory
 cd (mksqlite_compile_currdir);
