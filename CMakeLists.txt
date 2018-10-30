@@ -7,7 +7,7 @@
 # cmake -G "Visual Studio 14 2015 Win64" ..
 
 macro(SET_OPTION option value)
-  set(${option} ${value} CACHE INTERNAL "" FORCE)
+	set(${option} ${value} CACHE INTERNAL "" FORCE)
 endmacro()
 
 
@@ -36,10 +36,12 @@ INCLUDE_DIRECTORIES( ${Matlab_INCLUDE_DIRS} c-blosc )
 
 matlab_add_mex( NAME mksqlite SRC mksqlite.cpp )
 target_link_libraries( mksqlite ${Matlab_LIBRARIES} md5 sqlite blosc_static )
+get_filename_component( Matlab_MX_LIBRARY_PATH ${Matlab_MX_LIBRARY} DIRECTORY )
+target_link_libraries( mksqlite ${Matlab_MX_LIBRARY_PATH}/libut${CMAKE_LINK_LIBRARY_SUFFIX} )
 
 SET_OPTION( BUILD_BENCHMARKS OFF )
 SET_OPTION( BUILD_SHARED     OFF )
-SET_OPTION( BUILD_STATIC     ON )
+SET_OPTION( BUILD_STATIC     ON  )
 SET_OPTION( BUILD_TESTS      OFF )
 add_subdirectory( c-blosc )
 add_subdirectory( sqlite )
