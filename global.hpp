@@ -256,13 +256,13 @@ typedef unsigned char byte;  ///< byte type
  *
  * @{
  */
-int             g_compression_level     = CONFIG_COMPRESSION_LEVEL;    
-const char*     g_compression_type      = CONFIG_COMPRESSION_TYPE; 
-int             g_compression_check     = CONFIG_COMPRESSION_CHECK;
+int             g_compression_level     = MKSQLITE_CONFIG_COMPRESSION_LEVEL;    
+const char*     g_compression_type      = MKSQLITE_CONFIG_COMPRESSION_TYPE;
+int             g_compression_check     = MKSQLITE_CONFIG_COMPRESSION_CHECK;
 /** @} */
 
 /// Flag: String representation (utf8 or ansi)
-int             g_convertUTF8           = CONFIG_CONVERT_UTF8;
+int             g_convertUTF8           = MKSQLITE_CONFIG_CONVERT_UTF8;
 /// global NaN representation
 const double    g_NaN                   = DBL_NAN;
 
@@ -272,19 +272,19 @@ const double    g_NaN                   = DBL_NAN;
     int             g_namelengthmax         = 63;  // (mxMAXNAM-1)
 
     /// Flag: return NULL as NaN
-    int             g_NULLasNaN             = CONFIG_NULL_AS_NAN;
+    int             g_NULLasNaN             = MKSQLITE_CONFIG_NULL_AS_NAN;
 
     /// Flag: Check for unique fieldnames
-    int             g_check4uniquefields    = CONFIG_CHECK_4_UNIQUE_FIELDS;
+    int             g_check4uniquefields    = MKSQLITE_CONFIG_CHECK_4_UNIQUE_FIELDS;
 
     /// Flag: Allow streaming
-    int             g_streaming             = CONFIG_STREAMING;
+    int             g_streaming             = MKSQLITE_CONFIG_STREAMING;
 
     /// Data organisation of returning query results
-    int             g_result_type           = CONFIG_RESULT_TYPE;
+    int             g_result_type           = MKSQLITE_CONFIG_RESULT_TYPE;
 
     /// Wrap parameters
-    int             g_param_wrapping        = CONFIG_PARAM_WRAPPING;
+    int             g_param_wrapping        = MKSQLITE_CONFIG_PARAM_WRAPPING;
 
 #endif  // defined( MATLAB_MEX_FILE )
 

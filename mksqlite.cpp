@@ -71,7 +71,7 @@ static class SQLstack
 {
 public:
     /// Stack size
-    enum { COUNT_DB = CONFIG_MAX_NUM_OF_DBS };
+    enum { COUNT_DB = MKSQLITE_CONFIG_MAX_NUM_OF_DBS };
     
     SQLstackitem m_db[COUNT_DB];     ///< SQLite database slots
     int          m_dbid;             ///< recent selected database id, base 0
@@ -872,11 +872,11 @@ public:
             {
                 if( m_nlhs == 0 )
                 {
-                    PRINTF( "mksqlite Version %s\n", CONFIG_MKSQLITE_VERSION_STRING );
+                    PRINTF( "mksqlite Version %s\n", MKSQLITE_CONFIG_VERSION_STRING );
                 } 
                 else
                 {
-                    m_plhs[0] = mxCreateString( CONFIG_MKSQLITE_VERSION_STRING );
+                    m_plhs[0] = mxCreateString(MKSQLITE_CONFIG_VERSION_STRING);
                 }
             }
             return true;
@@ -1867,7 +1867,7 @@ public:
             delete m_interface;
             m_interface = SQLstack.createInterface();
 
-            if( !m_interface->setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
+            if( !m_interface->setBusyTimeout( MKSQLITE_CONFIG_BUSYTIMEOUT ) )
             {
                 PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
                 m_err.set( m_interface->getErr(&errid), errid );
