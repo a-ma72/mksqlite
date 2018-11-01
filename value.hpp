@@ -501,7 +501,7 @@ public:
     inline
     int NumDims() const
     {
-        return m_pcItem ? mxGetNumberOfDimensions( m_pcItem ) : 0;
+        return m_pcItem ? (int)mxGetNumberOfDimensions( m_pcItem ) : 0;
     }
       
     /**

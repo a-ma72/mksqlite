@@ -30,7 +30,7 @@
 #if MKSQLITE_CONFIG_USE_BLOSC
 extern "C"
 {
-  #include "blosc/blosc.h"
+  #include "c-blosc/blosc/blosc.h"
 }
 #endif
 //#include "global.hpp"
@@ -49,7 +49,7 @@ extern "C"
 /** @} */
 
 /// Which compression method is to use, if its name is empty
-#define COMPRESSOR_DEFAULT_ID   BLOSC_DEFAULT_ID
+#define COMPRESSOR_DEFAULT_ID   NULL
 
 /// compressor class
 class NumberCompressor 

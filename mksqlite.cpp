@@ -1252,6 +1252,7 @@ public:
             {
                 m_err.set( MSG_INVALIDARG );
             }
+#if MKSQLITE_CONFIG_USE_BLOSC
             else if( STRMATCH( new_compressor, BLOSC_LZ4_ID ) )
             {
                 new_compression_type = BLOSC_LZ4_ID;
@@ -1266,7 +1267,8 @@ public:
             {
                 new_compression_type = BLOSC_DEFAULT_ID;
                 is_blosc = true;
-            } 
+            }
+#endif
             else if( STRMATCH( new_compressor, QLIN16_ID ) )
             {
                 new_compression_type = QLIN16_ID;

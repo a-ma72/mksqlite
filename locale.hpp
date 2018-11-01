@@ -21,10 +21,13 @@
 //#include "global.hpp"
 #include "svn_revision.h" /* get the SVN revision number */
 #include <cstdarg>
+
+#if MKSQLITE_CONFIG_USE_BLOSC
 extern "C"
 {
-  #include "blosc/blosc.h"
+  #include "c-blosc/blosc/blosc.h"
 }
+#endif
 
 /* Localization, declaration */
 
@@ -313,7 +316,9 @@ static const char* messages_0[] =
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite utilizes:\n"
     " - DEELX perl compatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
+#if MKSQLITE_CONFIG_USE_BLOSC  
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
+#endif
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
     "   \n",
     
@@ -384,7 +389,9 @@ static const char* messages_1[] =
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite verwendet:\n"
     " - DEELX perl kompatible regex engine Version " DEELX_VERSION_STRING " (Sswater@gmail.com)\n"
+#if MKSQLITE_CONFIG_USE_BLOSC
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
+#endif
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
     "   \n",
     
