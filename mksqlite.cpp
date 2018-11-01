@@ -196,8 +196,9 @@ void mex_module_deinit()
          */
         mexWarnMsgTxt( ::getLocaleMsg( MSG_CLOSINGFILES ) );
     }
-    
+#if MKSQLITE_CONFIG_USE_BLOSC
     blosc_destroy();
+#endif
 }
 
 
@@ -216,8 +217,10 @@ void mex_module_init()
 
         if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
         {
+#if MKSQLITE_CONFIG_USE_BLOSC
             g_compression_type = BLOSC_DEFAULT_ID;
             blosc_init();
+#endif
             mexAtExit( mex_module_deinit );
             typed_blobs_init();
 
@@ -1219,8 +1222,10 @@ public:
 
         if(1)
         {
-            int new_compression_level = 0;
-            char* new_compressor = NULL;
+            char*       new_compressor        = NULL;
+            const char* new_compression_type  = NULL;
+            int         new_compression_level = 0;
+            bool        is_blosc              = false;
 
             if( m_narg < 2 ) 
             {
@@ -1246,29 +1251,30 @@ public:
             if( new_compression_level < 0 || new_compression_level > 9 )
             {
                 m_err.set( MSG_INVALIDARG );
-                return false;
             }
-
-            if( STRMATCH( new_compressor, BLOSC_LZ4_ID ) )
+            else if( STRMATCH( new_compressor, BLOSC_LZ4_ID ) )
             {
-                g_compression_type = BLOSC_LZ4_ID;
+                new_compression_type = BLOSC_LZ4_ID;
+                is_blosc = true;
             } 
             else if( STRMATCH( new_compressor, BLOSC_LZ4HC_ID ) )
             {
-                g_compression_type = BLOSC_LZ4HC_ID;
+                new_compression_type = BLOSC_LZ4HC_ID;
+                is_blosc = true;
             } 
             else if( STRMATCH( new_compressor, BLOSC_DEFAULT_ID ) )
             {
-                g_compression_type = BLOSC_DEFAULT_ID;
+                new_compression_type = BLOSC_DEFAULT_ID;
+                is_blosc = true;
             } 
             else if( STRMATCH( new_compressor, QLIN16_ID ) )
             {
-                g_compression_type = QLIN16_ID;
+                new_compression_type = QLIN16_ID;
                 new_compression_level = ( new_compression_level > 0 ); // only 0 or 1
             } 
             else if( STRMATCH( new_compressor, QLOG16_ID ) )
             {
-                g_compression_type = QLOG16_ID;
+                new_compression_type = QLOG16_ID;
                 new_compression_level = ( new_compression_level > 0 ); // only 0 or 1
             } 
             else 
@@ -1276,10 +1282,16 @@ public:
                 m_err.set( MSG_INVALIDARG );
             }
 
-            ::utils_free_ptr( new_compressor );
-            
+#if !MKSQLITE_CONFIG_USE_BLOSC
+            if( is_blosc )
+            {
+                m_err.set( MSG_INVALIDARG );
+            }
+#endif
+
             if( !errPending() )
             {
+                g_compression_type  = new_compression_type;
                 g_compression_level = new_compression_level;
             }
         }
