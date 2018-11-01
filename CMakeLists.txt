@@ -40,7 +40,7 @@ find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY )
 
 if( MATLAB_FOUND )
     message( STATUS "MATLAB Found, MATLAB MEX will be compiled." )
-    message( STATUS ${Matlab_LIBRARIES} )
+    # message( STATUS ${Matlab_LIBRARIES} )
 else()
     message( FATAL_ERROR "MATLAB not found...nothing will be built." )
 endif()
@@ -51,16 +51,20 @@ add_definitions( -DMATLAB_MEX_FILE )
 include_directories( ${Matlab_INCLUDE_DIRS} c-blosc )
 
 # Parse mksqlite Version
-execute_process( COMMAND git describe --tags
-                 WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+if( WIN32 )
+    set( CMD_PREFIX CMD /c )
+endif()
+execute_process( COMMAND ${CMD_PREFIX} git describe --tags
+                 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                  OUTPUT_VARIABLE MKSQLITE_VERSION_STRING
-                 OUTPUT_QUIET
                  ERROR_QUIET
                  OUTPUT_STRIP_TRAILING_WHITESPACE )
 if( NOT ${MKSQLITE_VERSION_STRING} STREQUAL "" )
     string( REGEX REPLACE "([0-9]+)\.([0-9]+).*" "\\1" MKSQLITE_VERSION_MAJOR  ${MKSQLITE_VERSION_STRING} )
     string( REGEX REPLACE "([0-9]+)\.([0-9]+).*" "\\2" MKSQLITE_VERSION_MINOR  ${MKSQLITE_VERSION_STRING} )
     configure_file( ${CMAKE_SOURCE_DIR}/git_revision.h.in ${CMAKE_SOURCE_DIR}/git_revision.h )
+else()
+    message( "Didn't got revision information, using previous information!" )
 endif()
 configure_file( ${CMAKE_SOURCE_DIR}/config.h.in ${CMAKE_SOURCE_DIR}/config.h )
 
@@ -80,24 +84,30 @@ target_link_libraries( mksqlite ${Matlab_LIBRARIES} ${src} )
 get_filename_component( Matlab_MX_LIBRARY_PATH ${Matlab_MX_LIBRARY} DIRECTORY )
 target_link_libraries( mksqlite ${Matlab_MX_LIBRARY_PATH}/libut${CMAKE_LINK_LIBRARY_SUFFIX} )
 
-# install to /mex by default
-add_custom_command( TARGET mksqlite POST_BUILD 
-                    COMMAND ${CMAKE_COMMAND} -E make_directory               ${CMAKE_INSTALL_PREFIX}/mex/$<CONFIG>/
-                    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:mksqlite> ${CMAKE_INSTALL_PREFIX}/mex/$<CONFIG>/ )
+# install to /bin and /share by default
+if( 1 )
+    install( TARGETS mksqlite RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
+    install( FILES LICENSE README.MD DESTINATION ${CMAKE_INSTALL_PREFIX}/share/doc/mksqlite )
+    if( MKSQLITE_CONFIG_USE_BLOSC )
+        install( DIRECTORY c-blosc/LICENSES DESTINATION ${CMAKE_INSTALL_PREFIX}/share/doc/mksqlite/blosc )
+    endif()
+endif()
 
-include(InstallRequiredSystemLibraries)
+# CPack
+
+# include( InstallRequiredSystemLibraries )
 
 set( CPACK_GENERATOR TGZ ZIP )
 set( CPACK_SOURCE_GENERATOR TGZ ZIP )
-set( CPACK_PACKAGE_VERSION_MAJOR MKSQLITE_VERSION_MAJOR )
-set( CPACK_PACKAGE_VERSION_MINOR MKSQLITE_VERSION_MINOR )
+set( CPACK_PACKAGE_VERSION_MAJOR ${MKSQLITE_VERSION_MAJOR} )
+set( CPACK_PACKAGE_VERSION_MINOR ${MKSQLITE_VERSION_MINOR} )
 set( CPACK_PACKAGE_VERSION_PATCH 0 )
-set( CPACK_PACKAGE_VERSION MKSQLITE_VERSION_STRING )
+set( CPACK_PACKAGE_VERSION ${MKSQLITE_VERSION_STRING} )
 set( CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.MD" )
-set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "SQLite for MATLAB" )
-set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/c-blosc/LICENSES/BLOSC.txt" )
-set( CPACK_SOURCE_IGNORE_FILES "/build.*;.*~;\\\\.git.*;\\\\.DS_Store" )
-set( CPACK_STRIP_FILES TRUE )
-set( CPACK_SOURCE_STRIP_FILES TRUE )
+set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "A MATLAB(R) Mex-DLL to SQLite Databases" )
+set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" )
+#set( CPACK_SOURCE_IGNORE_FILES "/build.*;/c-blosc.*;.*~;\\\\.git.*;\\\\.DS_Store" )
+#set( CPACK_STRIP_FILES 0 )
+#set( CPACK_SOURCE_STRIP_FILES 0 )
 
 include( CPack )
