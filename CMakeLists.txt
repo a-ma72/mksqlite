@@ -15,6 +15,8 @@ cmake_minimum_required( VERSION 3.2 )
 set( CMAKE_CONFIGURATION_TYPES Release Debug )
 project( mksqlite )
 
+set(BLOSC_DEFAULT_BUILD_TYPE Release)
+
 option( MKSQLITE_CONFIG_USE_HEAP_CHECK "Internal heap checking" OFF )
 option( MKSQLITE_CONFIG_NULL_AS_NAN "Use NaN instead of NULL values by default" OFF )
 option( MKSQLITE_CONFIG_COMPRESSION_CHECK "Always check compressed data (slower)" OFF )
@@ -33,7 +35,14 @@ else()
 endif()
 
 set( CMAKE_POSITION_INDEPENDENT_CODE ON )
-set( CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/build )
+
+if( MSVC )
+    # Turn off misguided "secure CRT" warnings in MSVC.
+    # Microsoft wants people to use the MS-specific <function>_s
+    # versions of certain C functions but this is difficult to do
+    # in platform-independent code.
+    add_definitions( -D_CRT_SECURE_NO_WARNINGS )
+endif( MSVC )
 
 set( MATLAB_FIND_DEBUG 1 )
 find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY )
@@ -50,8 +59,9 @@ add_definitions( -DMATLAB_MEX_FILE )
 # set up matlab libraries
 include_directories( ${Matlab_INCLUDE_DIRS} c-blosc )
 
-# Parse mksqlite Version
+# Parse mksqlite version when creating makefiles
 if( WIN32 )
+    # Windows needs an extra prefix!
     set( CMD_PREFIX CMD /c )
 endif()
 execute_process( COMMAND ${CMD_PREFIX} git describe --tags
@@ -59,15 +69,21 @@ execute_process( COMMAND ${CMD_PREFIX} git describe --tags
                  OUTPUT_VARIABLE MKSQLITE_VERSION_STRING
                  ERROR_QUIET
                  OUTPUT_STRIP_TRAILING_WHITESPACE )
-if( NOT ${MKSQLITE_VERSION_STRING} STREQUAL "" )
-    string( REGEX REPLACE "([0-9]+)\.([0-9]+).*" "\\1" MKSQLITE_VERSION_MAJOR  ${MKSQLITE_VERSION_STRING} )
-    string( REGEX REPLACE "([0-9]+)\.([0-9]+).*" "\\2" MKSQLITE_VERSION_MINOR  ${MKSQLITE_VERSION_STRING} )
-    configure_file( ${CMAKE_SOURCE_DIR}/git_revision.h.in ${CMAKE_SOURCE_DIR}/git_revision.h )
-else()
-    message( "Didn't got revision information, using previous information!" )
+if( MKSQLITE_VERSION_STRING STREQUAL "" )
+    message( "Didn't got git revision information, using local information (git_revision.h)!" )
+    file( READ ${CMAKE_SOURCE_DIR}/git_revision.h MKSQLITE_REVISION_H_CONTENT )
+    string( REGEX REPLACE ".*#define[ \t\r\n]+MKSQLITE_VERSION_STRING[ \t\r\n]+\"([^\"]*)\".*" "\\1" MKSQLITE_VERSION_STRING ${MKSQLITE_REVISION_H_CONTENT} )
 endif()
+if( MKSQLITE_VERSION_STRING STREQUAL "" )
+    message( FATAL_ERROR "No " ${CMAKE_PROJECT_NAME} " revision information available!" )
+endif()
+string( REGEX REPLACE "([0-9]+)\.([0-9]+).*" "\\1" MKSQLITE_VERSION_MAJOR  ${MKSQLITE_VERSION_STRING} )
+string( REGEX REPLACE "([0-9]+)\.([0-9]+).*" "\\2" MKSQLITE_VERSION_MINOR  ${MKSQLITE_VERSION_STRING} )
+configure_file( ${CMAKE_SOURCE_DIR}/git_revision.h.in ${CMAKE_SOURCE_DIR}/git_revision.h )
 configure_file( ${CMAKE_SOURCE_DIR}/config.h.in ${CMAKE_SOURCE_DIR}/config.h )
+message( STATUS ${CMAKE_PROJECT_NAME} " revision is " ${MKSQLITE_VERSION_MAJOR}.${MKSQLITE_VERSION_MINOR} )
 
+# Add dependencies
 set( src md5 sqlite )
 
 add_subdirectory( sqlite )
@@ -79,35 +95,40 @@ if( MKSQLITE_CONFIG_USE_BLOSC )
     set( src ${src} blosc_static )
 endif()
 
-matlab_add_mex( NAME mksqlite SRC mksqlite.cpp )
-target_link_libraries( mksqlite ${Matlab_LIBRARIES} ${src} )
+# Main source file and libraries
+matlab_add_mex( NAME ${CMAKE_PROJECT_NAME} SRC mksqlite.cpp )
+target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_LIBRARIES} ${src} )
 get_filename_component( Matlab_MX_LIBRARY_PATH ${Matlab_MX_LIBRARY} DIRECTORY )
-target_link_libraries( mksqlite ${Matlab_MX_LIBRARY_PATH}/libut${CMAKE_LINK_LIBRARY_SUFFIX} )
+target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_MX_LIBRARY_PATH}/libut${CMAKE_LINK_LIBRARY_SUFFIX} )
+set_target_properties( ${CMAKE_PROJECT_NAME} PROPERTIES VERSION ${MKSQLITE_VERSION_STRING} )
 
 # install to /bin and /share by default
-if( 1 )
-    install( TARGETS mksqlite RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin )
-    install( FILES LICENSE README.MD DESTINATION ${CMAKE_INSTALL_PREFIX}/share/doc/mksqlite )
-    if( MKSQLITE_CONFIG_USE_BLOSC )
-        install( DIRECTORY c-blosc/LICENSES DESTINATION ${CMAKE_INSTALL_PREFIX}/share/doc/mksqlite/blosc )
-    endif()
+file( GLOB MKSQLITE_DOC_FILES doxy/chm/* docs/* )
+file( GLOB MKSQLITE_TEST_FILES test/* )
+install( TARGETS ${CMAKE_PROJECT_NAME} ARCHIVE DESTINATION bin )
+install( FILES LICENSE README.MD DESTINATION share/doc/mksqlite )
+install( FILES ${MKSQLITE_DOC_FILES} DESTINATION share/doc/mksqlite )
+install( FILES ${MKSQLITE_TEST_FILES} DESTINATION share/doc/mksqlite/examples )
+if( MKSQLITE_CONFIG_USE_BLOSC )
+    install( DIRECTORY c-blosc/LICENSES DESTINATION share/doc/mksqlite/blosc )
 endif()
 
-# CPack
 
-# include( InstallRequiredSystemLibraries )
+# CPack
+include( InstallRequiredSystemLibraries )
 
 set( CPACK_GENERATOR TGZ ZIP )
 set( CPACK_SOURCE_GENERATOR TGZ ZIP )
+set( CPACK_PACKAGE_DIRECTORY package )
 set( CPACK_PACKAGE_VERSION_MAJOR ${MKSQLITE_VERSION_MAJOR} )
 set( CPACK_PACKAGE_VERSION_MINOR ${MKSQLITE_VERSION_MINOR} )
-set( CPACK_PACKAGE_VERSION_PATCH 0 )
-set( CPACK_PACKAGE_VERSION ${MKSQLITE_VERSION_STRING} )
-set( CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.MD" )
-set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "A MATLAB(R) Mex-DLL to SQLite Databases" )
-set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" )
-#set( CPACK_SOURCE_IGNORE_FILES "/build.*;/c-blosc.*;.*~;\\\\.git.*;\\\\.DS_Store" )
-#set( CPACK_STRIP_FILES 0 )
-#set( CPACK_SOURCE_STRIP_FILES 0 )
+set( CPACK_PACKAGE_VERSION_PATCH "" )
+# set( CPACK_PACKAGE_VERSION ${MKSQLITE_VERSION_STRING} )
+# set( CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.MD" )
+# set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "A MATLAB(R) Mex-DLL to SQLite Databases" )
+# set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" )
+# set( CPACK_SOURCE_IGNORE_FILES "/build.*;/c-blosc.*;.*~;\\\\.git.*;\\\\.DS_Store" )
+# set(CPACK_STRIP_FILES TRUE)
+# set(CPACK_SOURCE_STRIP_FILES TRUE)
 
 include( CPack )
