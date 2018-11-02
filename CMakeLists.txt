@@ -97,13 +97,13 @@ endif()
 matlab_add_mex( NAME ${CMAKE_PROJECT_NAME} SRC mksqlite.cpp )
 target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_LIBRARIES} ${src} )
 get_filename_component( Matlab_MX_LIBRARY_PATH ${Matlab_MX_LIBRARY} DIRECTORY )
-target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_MX_LIBRARY_PATH}/libut${CMAKE_LINK_LIBRARY_SUFFIX} )
-set_target_properties( ${CMAKE_PROJECT_NAME} PROPERTIES VERSION ${MKSQLITE_VERSION_STRING} )
+get_filename_component( Matlab_MX_LIBRARY_EXT ${Matlab_MX_LIBRARY} EXT )
+target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_MX_LIBRARY_PATH}/libut${Matlab_MX_LIBRARY_EXT} )
 
 # install to /bin and /share by default
 file( GLOB MKSQLITE_DOC_FILES doxy/chm/* docs/* )
 file( GLOB MKSQLITE_TEST_FILES test/* )
-install( TARGETS ${CMAKE_PROJECT_NAME} RUNTIME DESTINATION bin )
+install( TARGETS ${CMAKE_PROJECT_NAME} DESTINATION bin )
 install( FILES LICENSE README.MD DESTINATION share/doc/mksqlite )
 install( FILES ${MKSQLITE_DOC_FILES} DESTINATION share/doc/mksqlite )
 install( FILES ${MKSQLITE_TEST_FILES} DESTINATION share/doc/mksqlite/examples )
@@ -121,12 +121,19 @@ set( CPACK_PACKAGE_DIRECTORY ${CMAKE_BINARY_DIR}/package )
 set( CPACK_PACKAGE_VERSION_MAJOR ${MKSQLITE_VERSION_MAJOR} )
 set( CPACK_PACKAGE_VERSION_MINOR ${MKSQLITE_VERSION_MINOR} )
 set( CPACK_PACKAGE_VERSION_PATCH "" )
-set( CPACK_PACKAGE_VERSION ${MKSQLITE_VERSION_STRING} )
+set( CPACK_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR} )
 set( CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.MD" )
 set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "A MATLAB(R) Mex-DLL to SQLite Databases" )
 set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" )
-set( CPACK_SOURCE_IGNORE_FILES "/build.*;/c-blosc.*;.*~;\\\\.git.*;\\\\.DS_Store" )
-# set(CPACK_STRIP_FILES TRUE)
-# set(CPACK_SOURCE_STRIP_FILES TRUE)
+set( CPACK_SOURCE_IGNORE_FILES 
+     "/build.*"
+     "/c-blosc.*"
+     ".*~"
+     "\\\.git.*"
+     "\\\.DS_Store"
+     ".*\.mex.*"
+     "obj.*" )
+set( CPACK_STRIP_FILES TRUE )
+set( CPACK_SOURCE_STRIP_FILES TRUE )
 
 include( CPack )
