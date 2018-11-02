@@ -1268,6 +1268,26 @@ public:
                 new_compression_type = BLOSC_DEFAULT_ID;
                 is_blosc = true;
             }
+            else if( STRMATCH( new_compressor, BLOSC_BLOSCLZ_COMPNAME ) )
+            {
+                new_compression_type = BLOSC_BLOSCLZ_COMPNAME;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_SNAPPY_ID ) )
+            {
+                new_compression_type = BLOSC_SNAPPY_ID;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_ZLIB_ID ) )
+            {
+                new_compression_type = BLOSC_ZLIB_ID;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_ZSTD_ID ) )
+            {
+                new_compression_type = BLOSC_ZSTD_ID;
+                is_blosc = true;
+            }
 #endif
             else if( STRMATCH( new_compressor, QLIN16_ID ) )
             {

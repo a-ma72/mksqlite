@@ -38,12 +38,17 @@ extern "C"
 
 /**
  * \name blosc IDs
+ * Names for the different compressors shipped with Blosc
  *
  * @{
  */
+#define BLOSC_BLOSCLZ_ID        BLOSC_BLOSCLZ_COMPNAME
 #define BLOSC_LZ4_ID            BLOSC_LZ4_COMPNAME
 #define BLOSC_LZ4HC_ID          BLOSC_LZ4HC_COMPNAME
 #define BLOSC_DEFAULT_ID        BLOSC_BLOSCLZ_COMPNAME
+#define BLOSC_SNAPPY_ID         BLOSC_SNAPPY_COMPNAME
+#define BLOSC_ZLIB_ID           BLOSC_ZLIB_COMPNAME
+#define BLOSC_ZSTD_ID           BLOSC_ZSTD_COMPNAME
 #define QLIN16_ID               "QLIN16"
 #define QLOG16_ID               "QLOG16"
 /** @} */
@@ -210,6 +215,22 @@ public:
         {
             eCompressorType = CT_BLOSC;
         }
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_BLOSCLZ_ID ) )
+        {
+            eCompressorType = CT_BLOSC;
+        }
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_SNAPPY_ID ) )
+        {
+            eCompressorType = CT_BLOSC;
+        }
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_ZLIB_ID ) )
+        {
+            eCompressorType = CT_BLOSC;
+        }
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_ZSTD_ID ) )
+        {
+            eCompressorType = CT_BLOSC;
+        }
 #endif
 
         // check and acquire valid settings
@@ -231,7 +252,11 @@ public:
 #if MKSQLITE_CONFIG_USE_BLOSC
             if( m_eCompressorType == CT_BLOSC )
             {
-                blosc_set_compressor( m_strCompressorType );
+                if( blosc_set_compressor( m_strCompressorType ) == -1 )
+                {
+                    /* -1 means non-existent compressor */
+                    return false;
+                }
             }
 #endif
 
