@@ -6,9 +6,9 @@
  *  @details   class implementations (SQLstack and Mksqlite)
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.5
- *  @date      2008-2017
- *  @copyright Distributed under LGPL
+ *  @version   2.7
+ *  @date      2008-2018
+ *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
  *  @bug       
@@ -71,7 +71,7 @@ static class SQLstack
 {
 public:
     /// Stack size
-    enum { COUNT_DB = CONFIG_MAX_NUM_OF_DBS };
+    enum { COUNT_DB = MKSQLITE_CONFIG_MAX_NUM_OF_DBS };
     
     SQLstackitem m_db[COUNT_DB];     ///< SQLite database slots
     int          m_dbid;             ///< recent selected database id, base 0
@@ -196,8 +196,9 @@ void mex_module_deinit()
          */
         mexWarnMsgTxt( ::getLocaleMsg( MSG_CLOSINGFILES ) );
     }
-    
+#if MKSQLITE_CONFIG_USE_BLOSC
     blosc_destroy();
+#endif
 }
 
 
@@ -216,8 +217,10 @@ void mex_module_init()
 
         if( 0 == mexCallMATLAB( 3, plhs, 0, NULL, "computer" ) )
         {
+#if MKSQLITE_CONFIG_USE_BLOSC
             g_compression_type = BLOSC_DEFAULT_ID;
             blosc_init();
+#endif
             mexAtExit( mex_module_deinit );
             typed_blobs_init();
 
@@ -872,11 +875,11 @@ public:
             {
                 if( m_nlhs == 0 )
                 {
-                    PRINTF( "mksqlite Version %s\n", CONFIG_MKSQLITE_VERSION_STRING );
+                    PRINTF( "mksqlite Version %s\n", MKSQLITE_CONFIG_VERSION_STRING );
                 } 
                 else
                 {
-                    m_plhs[0] = mxCreateString( CONFIG_MKSQLITE_VERSION_STRING );
+                    m_plhs[0] = mxCreateString(MKSQLITE_CONFIG_VERSION_STRING);
                 }
             }
             return true;
@@ -1219,8 +1222,10 @@ public:
 
         if(1)
         {
-            int new_compression_level = 0;
-            char* new_compressor = NULL;
+            char*       new_compressor        = NULL;
+            const char* new_compression_type  = NULL;
+            int         new_compression_level = 0;
+            bool        is_blosc              = false;
 
             if( m_narg < 2 ) 
             {
@@ -1246,29 +1251,52 @@ public:
             if( new_compression_level < 0 || new_compression_level > 9 )
             {
                 m_err.set( MSG_INVALIDARG );
-                return false;
             }
-
-            if( STRMATCH( new_compressor, BLOSC_LZ4_ID ) )
+#if MKSQLITE_CONFIG_USE_BLOSC
+            else if( STRMATCH( new_compressor, BLOSC_LZ4_ID ) )
             {
-                g_compression_type = BLOSC_LZ4_ID;
+                new_compression_type = BLOSC_LZ4_ID;
+                is_blosc = true;
             } 
             else if( STRMATCH( new_compressor, BLOSC_LZ4HC_ID ) )
             {
-                g_compression_type = BLOSC_LZ4HC_ID;
+                new_compression_type = BLOSC_LZ4HC_ID;
+                is_blosc = true;
             } 
             else if( STRMATCH( new_compressor, BLOSC_DEFAULT_ID ) )
             {
-                g_compression_type = BLOSC_DEFAULT_ID;
-            } 
+                new_compression_type = BLOSC_DEFAULT_ID;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_BLOSCLZ_COMPNAME ) )
+            {
+                new_compression_type = BLOSC_BLOSCLZ_COMPNAME;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_SNAPPY_ID ) )
+            {
+                new_compression_type = BLOSC_SNAPPY_ID;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_ZLIB_ID ) )
+            {
+                new_compression_type = BLOSC_ZLIB_ID;
+                is_blosc = true;
+            }
+            else if( STRMATCH( new_compressor, BLOSC_ZSTD_ID ) )
+            {
+                new_compression_type = BLOSC_ZSTD_ID;
+                is_blosc = true;
+            }
+#endif
             else if( STRMATCH( new_compressor, QLIN16_ID ) )
             {
-                g_compression_type = QLIN16_ID;
+                new_compression_type = QLIN16_ID;
                 new_compression_level = ( new_compression_level > 0 ); // only 0 or 1
             } 
             else if( STRMATCH( new_compressor, QLOG16_ID ) )
             {
-                g_compression_type = QLOG16_ID;
+                new_compression_type = QLOG16_ID;
                 new_compression_level = ( new_compression_level > 0 ); // only 0 or 1
             } 
             else 
@@ -1276,10 +1304,16 @@ public:
                 m_err.set( MSG_INVALIDARG );
             }
 
-            ::utils_free_ptr( new_compressor );
-            
+#if !MKSQLITE_CONFIG_USE_BLOSC
+            if( is_blosc )
+            {
+                m_err.set( MSG_INVALIDARG );
+            }
+#endif
+
             if( !errPending() )
             {
+                g_compression_type  = new_compression_type;
                 g_compression_level = new_compression_level;
             }
         }
@@ -1867,7 +1901,7 @@ public:
             delete m_interface;
             m_interface = SQLstack.createInterface();
 
-            if( !m_interface->setBusyTimeout( CONFIG_BUSYTIMEOUT ) )
+            if( !m_interface->setBusyTimeout( MKSQLITE_CONFIG_BUSYTIMEOUT ) )
             {
                 PRINTF( "%s\n", ::getLocaleMsg( MSG_BUSYTIMEOUTFAIL ) );
                 m_err.set( m_interface->getErr(&errid), errid );
@@ -2218,6 +2252,7 @@ public:
      * @returns true when SQLite accepted and proceeded the command.
      *
      * The mksqlite command string will be delegated to the SQLite engine.
+     * (Handle all queries such as SELECT, INSERT, ...)
      */
     bool cmdHandleSQLStatement()
     {

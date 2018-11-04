@@ -10,6 +10,8 @@
 function buildit(varargin)
 clc
 
+warning( 'buildit is deprecated, use CMake toolchain instead! ' )
+
 switch nargin
 
     case 0
@@ -67,11 +69,15 @@ fprintf ('compiling %s version of mksqlite...\n', buildtype);
 
 sqlite = [' sqlite/sqlite3.c '];
 
-blosc  = [' blosc/blosc.c', ...
-          ' blosc/blosclz.c', ...
-          ' blosc/shuffle.c', ...
-          ' blosc/lz4.c', ...
-          ' blosc/lz4hc.c'];
+lz_src = 'c-blosc/internal-complibs/lz4-1.8.1.2/';
+blosc  = [' c-blosc/blosc/blosc.c', ...
+          ' c-blosc/blosc/blosclz.c', ...
+          ' c-blosc/blosc/shuffle.c', ...
+          ' c-blosc/blosc/shuffle-generic.c', ...
+          ' c-blosc/blosc/bitshuffle-generic.c', ...
+          ' c-blosc/blosc/fastcopy.c', ...
+          [' ', lz_src, 'lz4.c'], ...
+          [' ', lz_src, 'lz4hc.c'] ];
 
 md5    = [' md5/md5.c '];
 
@@ -91,11 +97,15 @@ if exist( outdir, 'file' ) ~= 7
   mkdir( outdir );
 end
 
-% get the mex arguments
+copyfile( [lz_src, 'lz4.h'], 'c-blosc/blosc' );
+copyfile( [lz_src, 'lz4hc.h'], 'c-blosc/blosc' );
+
+% set macros
+buildargs = ['-DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4'];
 if buildrelease
-    buildargs = ['-DNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -O '];
+    buildargs = [buildargs, ' -DNDEBUG -O '];
 else
-    buildargs = ['-UNDEBUG -DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -g -v '];
+    buildargs = [buildargs, '-UNDEBUG -g -v '];
 end
 
 % additional libraries:
@@ -255,7 +265,7 @@ fprintf ('packing mksqlite release files\n');
 
 % copy files
 % release
-copyfile('README.TXT',              reldir);
+copyfile('README.MD',               reldir);
 copyfile('Changelog.txt',           reldir);
 copyfile('mksqlite.m',              reldir);
 copyfile('mksqlite_en.m',           reldir);
@@ -309,7 +319,6 @@ copyfile('typed_blobs.hpp',         srcdir);
 copyfile('utils.hpp',               srcdir);
 copyfile('value.hpp',               srcdir);
 copyfile('sqlite/',                [srcdir '/sqlite']);
-copyfile('blosc/',                 [srcdir '/blosc']);
 copyfile('deelx/',                 [srcdir '/deelx']);
 copyfile('md5/',                   [srcdir '/md5']);
 copyfile('docs/',                  [srcdir '/docs']);

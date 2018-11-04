@@ -10,9 +10,9 @@
  *             - ValueSQLCol holding a complete table column
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.5
- *  @date      2008-2017
- *  @copyright Distributed under LGPL
+ *  @version   2.7
+ *  @date      2008-2018
+ *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
  *  @bug       
@@ -501,7 +501,7 @@ public:
     inline
     int NumDims() const
     {
-        return m_pcItem ? mxGetNumberOfDimensions( m_pcItem ) : 0;
+        return m_pcItem ? (int)mxGetNumberOfDimensions( m_pcItem ) : 0;
     }
       
     /**

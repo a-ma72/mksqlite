@@ -1,7 +1,20 @@
-Version 2.6 (build ???)
-- Bugfix: Charset conversion was not done for query string itself.
-          Queries like mksqlite( 'SELECT * FROM tbl WHERE name="Dünn"') failed, 
-          whereas mksqlite( 'SELECT * FROM tbl WHERE name=?', 'Dünn' ) succeeded.
+Version 2.7 (4. November 2018)
+- Changed license to LGPLv3
+- CMake toolchain support. (buildit.m is deprecated now!)
+- Separated C-Blosc as optional submodule. mksqlite supports all compression
+  types now.
+  C-Blosc is integrated as "submodule" in the mksqlite git repository and
+  is not part of the mksqlite sources anymore.
+  You may compile mksqlite without C-Blosc as required, adjustable per 
+  MKSQLITE_CONFIG_USE_BLOSC define.
+- Updated MD5 source
+  [http://openwall.info/wiki/people/solar/software/public-domain-source-code/md5] 
+- SQLite update to V3.25.2
+  
+Version 2.6 (build 138 - 27. Jun. 2018)
+- Bugfix: Charset conversion now for query string itself, not for arguments only.
+  Queries like mksqlite( 'SELECT * FROM tbl WHERE name="Dünn"') failed, 
+  whereas mksqlite( 'SELECT * FROM tbl WHERE name=?', 'Dünn' ) succeeded.
 - sql.m changed: When streaming (option 'typed_BLOBs'=2) and parameter wrapping
   (option 'param_wrapping'=1) are set, it is now possible to pass a single struct
   array for binding.

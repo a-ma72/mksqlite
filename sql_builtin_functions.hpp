@@ -7,9 +7,9 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.5
- *  @date      2008-2017
- *  @copyright Distributed under LGPL
+ *  @version   2.7
+ *  @date      2008-2018
+ *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
  *  @bug       
@@ -780,7 +780,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
             TypedBLOBHeaderV2* tbh2 = NULL;
             
             // discard data if it exeeds max allowd size by sqlite
-            if( *pBlob_size > CONFIG_MKSQLITE_MAX_BLOB_SIZE )
+            if( *pBlob_size > MKSQLITE_CONFIG_MAX_BLOB_SIZE )
             {
                 err.set( MSG_BLOBTOOBIG );
                 goto finalize;
@@ -846,7 +846,7 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
         /* Without compression, raw data is copied into blob structure as is */
         *pBlob_size = TypedBLOBHeaderV1::dataOffset( value.NumDims() ) + value.ByData();
 
-        if( *pBlob_size > CONFIG_MKSQLITE_MAX_BLOB_SIZE )
+        if( *pBlob_size > MKSQLITE_CONFIG_MAX_BLOB_SIZE )
         {
             err.set( MSG_BLOBTOOBIG );
             goto finalize;

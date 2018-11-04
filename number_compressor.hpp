@@ -6,9 +6,9 @@
  *  @details   Using "blosc" as lossless compressor and a lossy quantising compressor
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.5
- *  @date      2008-2017
- *  @copyright Distributed under LGPL
+ *  @version   2.7
+ *  @date      2008-2018
+ *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
  *  @bug       
@@ -27,27 +27,34 @@
  * algorithms do not!
  */
 
+#if MKSQLITE_CONFIG_USE_BLOSC
 extern "C"
 {
-  #include "blosc/blosc.h"
+  #include "c-blosc/blosc/blosc.h"
 }
+#endif
 //#include "global.hpp"
 #include "locale.hpp"
 
 /**
  * \name blosc IDs
+ * Names for the different compressors shipped with Blosc
  *
  * @{
  */
+#define BLOSC_BLOSCLZ_ID        BLOSC_BLOSCLZ_COMPNAME
 #define BLOSC_LZ4_ID            BLOSC_LZ4_COMPNAME
 #define BLOSC_LZ4HC_ID          BLOSC_LZ4HC_COMPNAME
 #define BLOSC_DEFAULT_ID        BLOSC_BLOSCLZ_COMPNAME
+#define BLOSC_SNAPPY_ID         BLOSC_SNAPPY_COMPNAME
+#define BLOSC_ZLIB_ID           BLOSC_ZLIB_COMPNAME
+#define BLOSC_ZSTD_ID           BLOSC_ZSTD_COMPNAME
 #define QLIN16_ID               "QLIN16"
 #define QLOG16_ID               "QLOG16"
 /** @} */
 
 /// Which compression method is to use, if its name is empty
-#define COMPRESSOR_DEFAULT_ID   BLOSC_DEFAULT_ID
+#define COMPRESSOR_DEFAULT_ID   NULL
 
 /// compressor class
 class NumberCompressor 
@@ -194,8 +201,9 @@ public:
             iCompressionLevel = 0;
         }
         
+#if MKSQLITE_CONFIG_USE_BLOSC
         // checking compressor names
-        if( 0 == _strcmpi( strCompressorType, BLOSC_LZ4_ID ) )
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_LZ4_ID ) )
         {
             eCompressorType = CT_BLOSC;
         }
@@ -207,29 +215,57 @@ public:
         {
             eCompressorType = CT_BLOSC;
         }
-        else if( 0 == _strcmpi( strCompressorType, QLIN16_ID ) )
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_BLOSCLZ_ID ) )
         {
-            eCompressorType = CT_QLIN16;
+            eCompressorType = CT_BLOSC;
         }
-        else if( 0 == _strcmpi( strCompressorType, QLOG16_ID ) )
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_SNAPPY_ID ) )
         {
-            eCompressorType = CT_QLOG16;
-        } 
+            eCompressorType = CT_BLOSC;
+        }
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_ZLIB_ID ) )
+        {
+            eCompressorType = CT_BLOSC;
+        }
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_ZSTD_ID ) )
+        {
+            eCompressorType = CT_BLOSC;
+        }
+#endif
 
         // check and acquire valid settings
         if( CT_NONE != eCompressorType )
         {
+            if( 0 == _strcmpi( strCompressorType, QLIN16_ID ) )
+            {
+                eCompressorType = CT_QLIN16;
+            }
+            else if( 0 == _strcmpi( strCompressorType, QLOG16_ID ) )
+            {
+                eCompressorType = CT_QLOG16;
+            } 
+        }
+
+        // check and acquire valid settings
+        if( CT_NONE != eCompressorType )
+        {
+#if MKSQLITE_CONFIG_USE_BLOSC
+            if( m_eCompressorType == CT_BLOSC )
+            {
+                if( blosc_set_compressor( m_strCompressorType ) == -1 )
+                {
+                    /* -1 means non-existent compressor */
+                    return false;
+                }
+            }
+#endif
+
             m_strCompressorType = strCompressorType;
             m_eCompressorType   = eCompressorType;
 
             if( iCompressionLevel >= 0 )
             {
                 m_iCompressionLevel = iCompressionLevel;
-            }
-
-            if( m_eCompressorType == CT_BLOSC )
-            {
-                blosc_set_compressor( m_strCompressorType );
             }
 
             return true;
@@ -366,6 +402,7 @@ private:
      */
     bool bloscCompress()
     {
+#if MKSQLITE_CONFIG_USE_BLOSC
         assert( m_rdata && !m_cdata );
         
         // BLOSC grants for that compressed data never 
@@ -390,6 +427,9 @@ private:
           /*destsize*/   m_cdata_size );
         
         return NULL != m_cdata;
+#else
+        return false;
+#endif
     }
     
     
@@ -403,6 +443,7 @@ private:
      */
     bool bloscDecompress()
     {
+#if MKSQLITE_CONFIG_USE_BLOSC
         assert( m_rdata && m_cdata );
         
         size_t blosc_nbytes, blosc_cbytes, blosc_blocksize; 
@@ -425,6 +466,9 @@ private:
         } 
         
         return true;
+#else
+        return false;
+#endif
     }
     
     
