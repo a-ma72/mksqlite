@@ -36,13 +36,14 @@ function sqlite_test_bind_typed_compressed
 
         data = [];
 
-        % randomly generate 3 types of data:
+        % randomly generate 4 types of data:
         % 1: NxN matrix with N is 1..10 with random numbers
         % 2: vector with length 10000..20000 with random numbers
         % 3: like type 2, but as cumulated sum
+        % 4: vector with length 10000..20000 with unique numbers
 
         while isempty( data )
-          type = randi(3);
+          type = randi(4);
           switch type
             case 1
               if use_typed_blobs % Arrays assume typed blobs
@@ -52,7 +53,9 @@ function sqlite_test_bind_typed_compressed
               data = randn( 1e4 + randi(1e4), 1);
             case 3
               data = cumsum( randn( 1e4 + randi(1e4), 1) );
-          end
+            case 4
+              data = ones( 1e4 + randi(1e4), 1) * randn( 1 );
+         end
         end
 
         nElements = numel( data );
@@ -61,6 +64,7 @@ function sqlite_test_bind_typed_compressed
         mksqlite( 'typedBLOBs', use_typed_blobs ); % Using typed BLOBs
         
         % Set compression for typed BLOBs
+        % ('blosclz', 'lz4', 'lz4hc', 'snappy', 'zlib' or 'zstd')
         mksqlite( 'compression', 'blosclz', compression_level ); 
 
         % insert data
@@ -89,6 +93,7 @@ function sqlite_test_bind_typed_compressed
                      
     % show histogram 
     figure, hist( [query.pack_ratio]', 50 )
+    title( 'Compression ratio for "real" random numbers' )
 
     % "natural" series, as in a measurement are slightly  
     % better to compress
@@ -98,7 +103,17 @@ function sqlite_test_bind_typed_compressed
                        'WHERE type=3 AND level>?'], min_level );
 
     figure, hist( [query.pack_ratio]', 50 )
+    title( 'Compression ratio for "natural" random numbers' )
     
+    % Compression of unique numbers is generally best:
+    query = mksqlite( ['SELECT type, size, level, pack_ratio, ', ...Compression ratio
+                       'pack_time, unpack_time FROM demo ', ...
+                       'WHERE type=4 AND level>0'] );
+                     
+    % show histogram 
+    figure, hist( [query.pack_ratio]', 50 )
+    title( 'Compression ratio for unique numbers' )
+
     % by the way: "lossy" compressors (QLIN16 and QLOG16) have a 
     % constant compression rate of 25%
 

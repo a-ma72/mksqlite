@@ -6,9 +6,9 @@
  *  @details   Using "blosc" as lossless compressor and a lossy quantising compressor
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.5
- *  @date      2008-2017
- *  @copyright Distributed under LGPL
+ *  @version   2.7
+ *  @date      2008-2018
+ *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
  *  @bug       
@@ -203,7 +203,7 @@ public:
         
 #if MKSQLITE_CONFIG_USE_BLOSC
         // checking compressor names
-        if( 0 == _strcmpi( strCompressorType, BLOSC_LZ4_ID ) )
+        else if( 0 == _strcmpi( strCompressorType, BLOSC_LZ4_ID ) )
         {
             eCompressorType = CT_BLOSC;
         }

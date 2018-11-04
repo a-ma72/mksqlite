@@ -103,7 +103,7 @@ target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_MX_LIBRARY_PATH}/libut${Ma
 # install to /bin and /share by default
 file( GLOB MKSQLITE_DOC_FILES doxy/chm/* docs/* )
 file( GLOB MKSQLITE_TEST_FILES test/* )
-install( TARGETS ${CMAKE_PROJECT_NAME} DESTINATION bin )
+install( TARGETS ${CMAKE_PROJECT_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION bin )
 install( FILES LICENSE README.MD DESTINATION share/doc/mksqlite )
 install( FILES ${MKSQLITE_DOC_FILES} DESTINATION share/doc/mksqlite )
 install( FILES ${MKSQLITE_TEST_FILES} DESTINATION share/doc/mksqlite/examples )

@@ -1,4 +1,4 @@
-%MKSQLITE A MATLAB interface to SQLite
+%MKSQLITE A MATLAB(R) interface to SQLite
 %  SQLite is an embedded SQL Engine, which can be used to access SQL
 %  databases without a server.  MKSQLITE offers an interface to this
 %  database engine.
@@ -228,7 +228,7 @@
 % So you can access your MATLAB code from within SQL queries.
 %
 %
-% (c) 2008-2017 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2018 by Martin Kortmann <mail@kortmann.de>
 %                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 

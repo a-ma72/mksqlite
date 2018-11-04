@@ -28,7 +28,7 @@ mksqlite( 'INSERT INTO tbl (ID, Type, name) VALUES (:ID, :Type; :Name)', s );
 mksqlite( 'COMMIT' );
 ```
 ## Prerequisites
-*mksqlite* is build on top of SQLite and tested on various MATLAB(R) versions (R13SP1, R14SP2, 2006a, 2008b, 2009a, 2010a..2016b).
+*mksqlite* is build on top of SQLite and tested on various MATLAB(R) versions (R13SP1, R14SP2, 2006a, 2008b, 2009a, 2010a..2018b).
 You can use *mksqlite* on Windows, Linux and MAC OS-X systems.  
 The precompiled windows binaries are available from https://sourceforge.net/projects/mksqlite/files.  
 Unzip the contents of the ZIP file into a directory and insert this directory to the MATLAB search path.
@@ -38,7 +38,7 @@ addpath('path-to-mksqlite');
 You can create other versions of *mksqlite* via the source package.
 ## Using *mksqlite* source code
 You can find the sourcecode of *mksqlite* also at https://sourceforge.net/projects/mksqlite/files.
-The Microsoft Visual C++ Compiler version 2003, 2005, 2010 or 2014 is needed to compile *mksqlite* on windows systems.
+The Microsoft Visual C++ Compiler version 2003, 2005, 2010..2017 is needed to compile *mksqlite* on windows systems.
 Just use the MATLAB(R) script "buildit.m" to compile them to a MEX-DLL.
 ## Online help
 There is a small help available, just type `help mksqlite` in the MATLAB(R) command window.  
@@ -129,7 +129,7 @@ or I can give you a hint how you can work with the current functionality.
 Sure, documentation, translation, extensions, give me notes about errors, ...
 Or just give me a note how do you use *mksqlite*.
 ## License
-*mksqlite* is distributed under the GNU Library or Lesser General Public License version 2.0 (LGPLv2) 
+*mksqlite* is distributed under the GNU Library or Lesser General Public License version 3.0 (LGPLv3) 
 ## Contact
 Andreas Martin, andimartin@users.sourceforge.net  
 Martin Kortmann, mail@kortmann.de

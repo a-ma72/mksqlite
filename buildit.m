@@ -10,7 +10,7 @@
 function buildit(varargin)
 clc
 
-warning( 'buildit will be deprecated in future, think about using CMake instead! ' )
+warning( 'buildit is deprecated, use CMake toolchain instead! ' )
 
 switch nargin
 
@@ -265,7 +265,7 @@ fprintf ('packing mksqlite release files\n');
 
 % copy files
 % release
-copyfile('README.TXT',              reldir);
+copyfile('README.MD',               reldir);
 copyfile('Changelog.txt',           reldir);
 copyfile('mksqlite.m',              reldir);
 copyfile('mksqlite_en.m',           reldir);
@@ -319,7 +319,6 @@ copyfile('typed_blobs.hpp',         srcdir);
 copyfile('utils.hpp',               srcdir);
 copyfile('value.hpp',               srcdir);
 copyfile('sqlite/',                [srcdir '/sqlite']);
-copyfile('blosc/',                 [srcdir '/blosc']);
 copyfile('deelx/',                 [srcdir '/deelx']);
 copyfile('md5/',                   [srcdir '/md5']);
 copyfile('docs/',                  [srcdir '/docs']);

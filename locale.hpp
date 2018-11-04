@@ -7,9 +7,9 @@
  *             for the case of further translations.
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.5
- *  @date      2008-2017
- *  @copyright Distributed under LGPL
+ *  @version   2.7
+ *  @date      2008-2018
+ *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
  *  @bug       
@@ -310,8 +310,8 @@ public:
  */
 static const char* messages_0[] = 
 {
-    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " " SVNREV ", an interface from MATLAB to SQLite\n"
-    "(c) 2008-2017 by Martin Kortmann <mail@kortmann.de>\n"
+    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " " SVNREV ", an interface from MATLAB(R) to SQLite\n"
+    "(c) 2008-2018 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite utilizes:\n"
@@ -383,8 +383,8 @@ static const char* messages_0[] =
  */
 static const char* messages_1[] = 
 {
-    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " " SVNREV ", ein MATLAB Interface zu SQLite\n"
-    "(c) 2008-2017 by Martin Kortmann <mail@kortmann.de>\n"
+    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " " SVNREV ", ein MATLAB(R) Interface zu SQLite\n"
+    "(c) 2008-2018 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite verwendet:\n"
