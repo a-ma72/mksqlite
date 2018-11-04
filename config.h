@@ -30,7 +30,7 @@
 
 /// compression level: Using compression on typed blobs when > 0
 #define MKSQLITE_CONFIG_COMPRESSION_LEVEL      0      ///< no compression by default
-#define MKSQLITE_CONFIG_COMPRESSION_TYPE       NULL   ///< "blosc", "blosclz", "qlin16", "qlog16" or NULL (for default)
+#define MKSQLITE_CONFIG_COMPRESSION_TYPE       NULL   ///< "blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd", "qlin16", "qlog16" or NULL (for default)
 
 /// Flag: check compressed against original data
 #define MKSQLITE_CONFIG_COMPRESSION_CHECK      OFF    ///< check is on by default

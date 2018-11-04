@@ -310,7 +310,7 @@ public:
  */
 static const char* messages_0[] = 
 {
-    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " " SVNREV ", an interface from MATLAB(R) to SQLite\n"
+    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " (ID: " MKSQLITE_VERSION_STRING "), an interface from MATLAB(R) to SQLite\n"
     "(c) 2008-2018 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
@@ -383,7 +383,7 @@ static const char* messages_0[] =
  */
 static const char* messages_1[] = 
 {
-    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " " SVNREV ", ein MATLAB(R) Interface zu SQLite\n"
+    "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " (ID: " MKSQLITE_VERSION_STRING "), ein MATLAB(R) Interface zu SQLite\n"
     "(c) 2008-2018 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"

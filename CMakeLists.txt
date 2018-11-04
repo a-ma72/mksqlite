@@ -62,7 +62,7 @@ if( WIN32 )
     # Windows needs an extra prefix!
     set( CMD_PREFIX CMD /c )
 endif()
-execute_process( COMMAND ${CMD_PREFIX} git describe --tags
+execute_process( COMMAND ${CMD_PREFIX} git describe --tags --abbrev=4
                  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                  OUTPUT_VARIABLE MKSQLITE_VERSION_STRING
                  ERROR_QUIET
@@ -102,8 +102,9 @@ target_link_libraries( ${CMAKE_PROJECT_NAME} ${Matlab_MX_LIBRARY_PATH}/libut${Ma
 
 # install to /bin and /share by default
 file( GLOB MKSQLITE_DOC_FILES doxy/chm/* docs/* )
-file( GLOB MKSQLITE_TEST_FILES test/* )
+file( GLOB MKSQLITE_TEST_FILES test/*.m )
 install( TARGETS ${CMAKE_PROJECT_NAME} RUNTIME DESTINATION bin LIBRARY DESTINATION bin )
+install( FILES sql.m mksqlite.m mksqlite_en.m DESTINATION bin )
 install( FILES LICENSE README.MD DESTINATION share/doc/mksqlite )
 install( FILES ${MKSQLITE_DOC_FILES} DESTINATION share/doc/mksqlite )
 install( FILES ${MKSQLITE_TEST_FILES} DESTINATION share/doc/mksqlite/examples )
