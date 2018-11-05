@@ -252,7 +252,7 @@ public:
 #if MKSQLITE_CONFIG_USE_BLOSC
             if( m_eCompressorType == CT_BLOSC )
             {
-                if( blosc_set_compressor( m_strCompressorType ) == -1 )
+                if( blosc_set_compressor( strCompressorType ) == -1 )
                 {
                     /* -1 means non-existent compressor */
                     return false;

@@ -26,7 +26,7 @@ function sqlite_test_blosc
                '   unpack_time '     , ...  % decompression time
                ' )'] );
              
-    compressors = { 'lz4', 'lz4hc', 'blosclz' };  % lossless compressors
+    compressors = { 'lz4', 'lz4hc', 'blosclz', 'snappy', 'zlib', 'zstd' };  % lossless compressors
 
     typed_blob_mode   = 2; % Use typed BLOBs with compression feature
     compression_level = 9; % level, range from 0=off to 9=max

@@ -1,5 +1,6 @@
 # First set Matlab_ROOT_DIR environment variable to your installed matlab path,
 # such as 'export Matlab_ROOT_DIR=/usr/local/MATLAB/R2017b'!
+# (GNUC: gcc for C file, g++ for CXX files)
 
 # Building makefiles:
 # mkdir build
@@ -92,6 +93,11 @@ if( MKSQLITE_CONFIG_USE_BLOSC )
     include_directories( c-blosc )
     set( src ${src} blosc_static )
 endif()
+
+# C++11
+set( CMAKE_CXX_STANDARD 11 )
+set( CMAKE_CXX_STANDARD_REQUIRED ON )
+set( CMAKE_CXX_EXTENSIONS OFF )
 
 # Main source file and libraries
 matlab_add_mex( NAME ${CMAKE_PROJECT_NAME} SRC mksqlite.cpp )
