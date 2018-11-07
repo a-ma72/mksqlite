@@ -133,13 +133,24 @@ set( CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.MD" )
 set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "A MATLAB(R) Mex-DLL to SQLite Databases" )
 set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" )
 set( CPACK_SOURCE_IGNORE_FILES 
-     "/build.*"
-     "/c-blosc.*"
-     ".*~"
-     "\\\.git.*"
-     "\\\.DS_Store"
-     ".*\.mex.*"
-     "obj.*" )
+     # Files specific to version control.
+     "/\\\\.git/"
+     "/\\\\.gitattributes$"
+     "/\\\\.github/"
+     "/\\\\.gitignore$"
+     "/\\\\.hooks-config$"
+
+     # Package build.
+     "/\\\\.build/"
+     
+     # Blosc submodule
+     "/c-blosc/"
+
+     # Temporary files.
+     "\\\\.#"
+     "/#"
+     "~$"
+    )
 set( CPACK_STRIP_FILES TRUE )
 set( CPACK_SOURCE_STRIP_FILES TRUE )
 
