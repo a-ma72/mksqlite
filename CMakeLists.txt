@@ -41,10 +41,14 @@ if( MSVC )
     # versions of certain C functions but this is difficult to do
     # in platform-independent code.
     add_definitions( -D_CRT_SECURE_NO_WARNINGS )
-endif( MSVC )
+endif()
+
+if( UNIX )
+    set( MATH_LIB m )
+endif()
 
 set( MATLAB_FIND_DEBUG 1 )
-find_package( Matlab REQUIRED COMPONENTS MX_LIBRARY )
+find_package( Matlab QUIET REQUIRED COMPONENTS MX_LIBRARY )
 
 if( MATLAB_FOUND )
     message( STATUS "MATLAB Found, MATLAB MEX will be compiled." )
