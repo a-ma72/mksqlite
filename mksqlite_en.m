@@ -228,7 +228,7 @@
 % So you can access your MATLAB code from within SQL queries.
 %
 %
-% (c) 2008-2018 by Martin Kortmann <mail@kortmann.de>
+% (c) 2008-2020 by Martin Kortmann <mail@kortmann.de>
 %                  Andreas Martin  <andimartin@users.sourceforge.net>
 %
 
