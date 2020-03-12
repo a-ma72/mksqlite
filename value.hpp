@@ -10,8 +10,8 @@
  *             - ValueSQLCol holding a complete table column
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.7
- *  @date      2008-2018
+ *  @version   2.8
+ *  @date      2008-2020
  *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   

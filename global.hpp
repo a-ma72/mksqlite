@@ -6,8 +6,8 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.7
- *  @date      2008-2018
+ *  @version   2.8
+ *  @date      2008-2020
  *  @copyright Distributed under LGPLv3
  *  @pre       
  *  @warning   
@@ -123,7 +123,7 @@
 #undef  MEM_REALLOC
 #undef  MEM_FREE
 
-#if 0
+#if 1
     // mxCalloc() and mxFree() are extremely slow!
     #define MEM_ALLOC( count, bytes )   ((void*)mxMalloc( (count) * (bytes) ))
     #define MEM_FREE( ptr )             mxFree( (void*)ptr )

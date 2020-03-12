@@ -20,7 +20,7 @@ option( MKSQLITE_CONFIG_USE_HEAP_CHECK "Internal heap checking" OFF )
 option( MKSQLITE_CONFIG_NULL_AS_NAN "Use NaN instead of NULL values by default" OFF )
 option( MKSQLITE_CONFIG_COMPRESSION_CHECK "Always check compressed data (slower)" OFF )
 option( MKSQLITE_CONFIG_CONVERT_UTF8 "Text interchange with MATLAB in UTF8 char format" ON )
-set( MKSQLITE_CONFIG_MAX_NUM_OF_DBS 10 CACHE STRING "Maximum number of databases opened at once" )
+set( MKSQLITE_CONFIG_MAX_NUM_OF_DBS 20 CACHE STRING "Maximum number of databases opened at once" )
 set( MKSQLITE_CONFIG_BUSYTIMEOUT 1000 CACHE STRING "Default SQL busy timeout in milliseconds (1000)" )
 
 if( EXISTS ${CMAKE_SOURCE_DIR}/c-blosc )
