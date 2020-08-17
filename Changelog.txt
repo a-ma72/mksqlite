@@ -1,4 +1,8 @@
-﻿Version 2.8 (12. March 2020)
+﻿Version 2.9 (31. July 2020)
+- Updated sqlite to version 3.32.3
+- Changed license to BSD-2
+
+Version 2.8 (12. March 2020)
 - Updated sqlite to version 3.31.1
 - Increased default value for MKSQLITE_CONFIG_MAX_NUM_OF_DBS from 10 to 20
 

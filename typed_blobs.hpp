@@ -6,9 +6,9 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.8
+ *  @version   2.9
  *  @date      2008-2020
- *  @copyright Distributed under LGPLv3
+ *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
  *  @bug       

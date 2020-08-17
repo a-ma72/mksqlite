@@ -129,7 +129,7 @@ or I can give you a hint how you can work with the current functionality.
 Sure, documentation, translation, extensions, give me notes about errors, ...
 Or just give me a note how do you use *mksqlite*.
 ## License
-*mksqlite* is distributed under the GNU Library or Lesser General Public License version 3.0 (LGPLv3) 
+*mksqlite* is distributed under the BSD-2 license (see LICENSE file)
 ## Contact
 Andreas Martin, andimartin@users.sourceforge.net  
 Martin Kortmann, mail@kortmann.de
