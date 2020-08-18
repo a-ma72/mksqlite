@@ -7,7 +7,7 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.9
+ *  @version   2.10
  *  @date      2008-2020
  *  @copyright Distributed under BSD-2
  *  @pre       
@@ -34,6 +34,8 @@ extern "C"
 }
 
 /* SQLite function extensions by mksqlite */
+void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void lg_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
@@ -60,6 +62,82 @@ void blob_free    ( void** pBlob );
 #ifdef MAIN_MODULE
 
 /* sqlite builtin functions, implementations */
+
+/**
+ * \brief Ceil function implementation
+ *
+ * Computes the equation result = ceil( value )\n
+ * Rounds x upward, returning the smallest integral value that is not less than x.
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
+void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
+    assert( argc == 1 );
+    double value, result;
+    
+    // Check "value" parameter (handles NULL and double types)
+    switch( sqlite3_value_type( argv[0] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            value = sqlite3_value_double( argv[0] );
+    }
+    
+    try
+    {
+        result = ceil( value );
+    }
+    catch( ... )
+    {
+        sqlite3_result_error( ctx, "ceil(): evaluation error", -1 );
+        return;
+    }
+    
+    sqlite3_result_double( ctx, result );
+}
+
+
+/**
+ * \brief Ceil function implementation
+ *
+ * Computes the equation result = floor( value )\n
+ * Rounds x downward, returning the largest integral value that is not greater than x.
+ *
+ * \param[in] ctx SQL context parameter
+ * \param[in] argc Argument count
+ * \param[in] argv SQL argument values
+ */
+void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
+    assert( argc == 1 );
+    double value, result;
+    
+    // Check "value" parameter (handles NULL and double types)
+    switch( sqlite3_value_type( argv[0] ) )
+    {
+        case SQLITE_NULL:
+            sqlite3_result_null( ctx );
+            return;
+        default:
+            value = sqlite3_value_double( argv[0] );
+    }
+    
+    try
+    {
+        result = floor( value );
+    }
+    catch( ... )
+    {
+        sqlite3_result_error( ctx, "floor(): evaluation error", -1 );
+        return;
+    }
+    
+    sqlite3_result_double( ctx, result );
+}
+
 
 /**
  * \brief Power function implementation
