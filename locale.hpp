@@ -7,8 +7,8 @@
  *             for the case of further translations.
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.10
- *  @date      2008-2020
+ *  @version   2.11
+ *  @date      2008-2021
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
@@ -311,7 +311,7 @@ public:
 static const char* messages_0[] = 
 {
     "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " (ID: " MKSQLITE_VERSION_STRING "), an interface from MATLAB(R) to SQLite\n"
-    "(c) 2008-2020 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2021 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "based on SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite utilizes:\n"
@@ -320,6 +320,7 @@ static const char* messages_0[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
 #endif
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
+    " - RFC-4122 UUID extension (sqlite.org)\n"
     "   \n",
     
 /*  1*/    "invalid database handle",
@@ -384,7 +385,7 @@ static const char* messages_0[] =
 static const char* messages_1[] = 
 {
     "mksqlite Version " MKSQLITE_CONFIG_VERSION_STRING " (ID: " MKSQLITE_VERSION_STRING "), ein MATLAB(R) Interface zu SQLite\n"
-    "(c) 2008-2020 by Martin Kortmann <mail@kortmann.de>\n"
+    "(c) 2008-2021 by Martin Kortmann <mail@kortmann.de>\n"
     "                 Andreas Martin  <andimartin@users.sourceforge.net>\n"
     "basierend auf SQLite Version %s - http://www.sqlite.org\n"
     "mksqlite verwendet:\n"

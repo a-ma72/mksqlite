@@ -7,15 +7,18 @@
 # cd build
 # cmake -G "Visual Studio 14 2015 Win64" ..
 
+#set(CMAKE_VERBOSE_MAKEFILE ON)
+
 # Superseed options from other modules
 macro(SET_OPTION option value)
   set(${option} ${value} CACHE INTERNAL "" FORCE)
 endmacro()
 
-cmake_minimum_required( VERSION 3.2 )
+cmake_minimum_required( VERSION 3.19 )
 set( CMAKE_CONFIGURATION_TYPES Release Debug )
 project( mksqlite )
 
+option( MKSQLITE_CONFIG_USE_UUID "UUID extension" ON )
 option( MKSQLITE_CONFIG_USE_HEAP_CHECK "Internal heap checking" OFF )
 option( MKSQLITE_CONFIG_NULL_AS_NAN "Use NaN instead of NULL values by default" OFF )
 option( MKSQLITE_CONFIG_COMPRESSION_CHECK "Always check compressed data (slower)" OFF )
@@ -95,6 +98,14 @@ add_subdirectory( md5 )
 if( MKSQLITE_CONFIG_USE_BLOSC )
     add_subdirectory( c-blosc )
     include_directories( c-blosc )
+    if( MINGW )
+        # Workaround for compile error with MinGW
+        # [https://github.com/Blosc/bcolz], issue #405
+        set_source_files_properties( ${CMAKE_SOURCE_DIR}/c-blosc/blosc/shuffle.c DIRECTORY ${CMAKE_SOURCE_DIR}/c-blosc/blosc PROPERTIES COMPILE_FLAGS -mxsave )
+        get_source_file_property( test ${CMAKE_SOURCE_DIR}/c-blosc/blosc/shuffle.c DIRECTORY ${CMAKE_SOURCE_DIR}/c-blosc/blosc COMPILE_FLAGS )
+        message( STATUS ${test} )
+        #target_compile_options( blosc_static PUBLIC -mxsave )
+    endif()
     set( src ${src} blosc_static )
 endif()
 

@@ -8,8 +8,8 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.9
- *  @date      2008-2020
+ *  @version   2.11
+ *  @date      2008-2021
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   

@@ -1,4 +1,9 @@
 project( sqlite )
 
 #add_compiler_option( -fPIC )
-add_library( sqlite STATIC sqlite3.c shell.c )
+if( MKSQLITE_CONFIG_USE_UUID )
+	message( STATUS "Using UUID extension" )
+	add_library( sqlite STATIC sqlite3.c shell.c uuid.c )
+else()
+	add_library( sqlite STATIC sqlite3.c shell.c )
+endif()
