@@ -1,5 +1,8 @@
 ﻿Version 2.11 (30. Jan. 2021)
 - Added buildin functions uuid(), uuid_str(X), uuid_blob(X) from uuid.c (sqlite.org)
+- c-blosc update to version 1.21.0
+- SQLite update to version 3.34.1
+- Bugfix: Some error messages weren't displayed
 
 Version 2.10 (18. Aug. 2020)
 - Added buildin functions ceil() and floor()
