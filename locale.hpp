@@ -161,8 +161,12 @@ public:
             m_msgId       = MSG_PURESTRING;
             m_static_msg  = strMsg;
             m_err_id      = strId;
-            *m_shared_msg = 0;     // not used and thus emptied
             m_isPending   = true;
+
+            if( m_shared_msg != strMsg )
+            {
+                *m_shared_msg = 0;     // not used and thus emptied
+            }
         }
     }
     
@@ -174,8 +178,6 @@ public:
      */
     void set( char* strMsg, const char* strId = NULL )
     {
-        m_err_id = strId;
-        
         if( !strMsg ) 
         { 
             clear();
@@ -184,9 +186,13 @@ public:
         {
             m_msgId       = MSG_PURESTRING;
             m_static_msg  = m_shared_msg;
+            m_err_id      = strId;
             m_isPending   = true;
-            
-            _snprintf( m_shared_msg, sizeof(m_shared_msg), "%s", strMsg );
+
+            if( m_shared_msg != strMsg )
+            {
+                _snprintf( m_shared_msg, sizeof(m_shared_msg), "%s", strMsg );
+            }
         }
     }
     
