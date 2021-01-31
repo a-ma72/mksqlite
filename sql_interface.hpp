@@ -7,8 +7,8 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.10
- *  @date      2008-2020
+ *  @version   2.11
+ *  @date      2008-2021
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
@@ -16,6 +16,7 @@
  */
 
 #pragma once
+
 
 //#include "config.h"
 //#include "global.hpp"
@@ -30,6 +31,11 @@
 extern "C" bool utIsInterruptPending();
 extern "C" bool utSetInterruptEnabled( bool );
 extern "C" bool utSetInterruptHandled( bool );
+
+#if MKSQLITE_CONFIG_USE_UUID
+// sqlite/uuid.c
+extern "C" int  sqlite3_uuid_init( sqlite3 *db );
+#endif
 
 /// type for column container
 typedef vector<ValueSQLCol> ValueSQLCols;
@@ -543,6 +549,11 @@ public:
             sqlite3_create_function( m_db, "bdcpacktime", 1, SQLITE_UTF8, NULL, BDC_pack_time_func, NULL, NULL );     // compression time (blob data compression)
             sqlite3_create_function( m_db, "bdcunpacktime", 1, SQLITE_UTF8, NULL, BDC_unpack_time_func, NULL, NULL ); // decompression time (blob data compression)
             sqlite3_create_function( m_db, "md5", 1, SQLITE_UTF8, NULL, MD5_func, NULL, NULL );                       // Message-Digest (RSA)
+            
+#if MKSQLITE_CONFIG_USE_UUID
+            // uuid.c (sqlite.org)
+            sqlite3_uuid_init( m_db );
+#endif
         }
     }
 };

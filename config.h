@@ -6,8 +6,8 @@
  *  @details   Configuration file for settings and defaults
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.10
- *  @date      2008-2020
+ *  @version   2.11
+ *  @date      2008-2021
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
@@ -21,22 +21,23 @@
 /// Common configurations
 #define BOOL_TRUE  1
 #define BOOL_FALSE 0
-#define ON         1
+#define ON         1 
 #define OFF        0
 
-#define MKSQLITE_CONFIG_USE_HEAP_CHECK         OFF    ///< false=standard allocators, true=usage of heap_check.hpp
-#define MKSQLITE_CONFIG_NULL_AS_NAN            OFF    ///< use NaN instead of NULL values by default
-#define MKSQLITE_CONFIG_BUSYTIMEOUT            1000   ///< default SQL busy timeout in milliseconds (1000)
+#define MKSQLITE_CONFIG_USE_UUID               ON          ///< true=use uuid extension
+#define MKSQLITE_CONFIG_USE_HEAP_CHECK         OFF         ///< false=standard allocators, true=usage of heap_check.hpp
+#define MKSQLITE_CONFIG_NULL_AS_NAN            OFF         ///< use NaN instead of NULL values by default
+#define MKSQLITE_CONFIG_BUSYTIMEOUT            1000        ///< default SQL busy timeout in milliseconds (1000)
 
 /// compression level: Using compression on typed blobs when > 0
-#define MKSQLITE_CONFIG_COMPRESSION_LEVEL      0      ///< no compression by default
+#define MKSQLITE_CONFIG_COMPRESSION_LEVEL      0           ///< no compression by default
 #define MKSQLITE_CONFIG_COMPRESSION_TYPE       "blosclz"   ///< "blosclz", "lz4", "lz4hc", "snappy", "zlib", "zstd", "qlin16", "qlog16"
 
 /// Flag: check compressed against original data
-#define MKSQLITE_CONFIG_COMPRESSION_CHECK      OFF    ///< check is on by default
+#define MKSQLITE_CONFIG_COMPRESSION_CHECK      OFF         ///< check is on by default
 
 /// Convert UTF-8 to ascii, otherwise set slCharacterEncoding('UTF-8')
-#define MKSQLITE_CONFIG_CONVERT_UTF8           ON     ///< use UTF8 encoding by default
+#define MKSQLITE_CONFIG_CONVERT_UTF8           ON          ///< use UTF8 encoding by default
 
 
 /// MATLAB specific configurations
@@ -57,7 +58,7 @@
 
     #define MKSQLITE_CONFIG_VERSION_STRING           MKSQLITE_VERSION_MAJOR "." MKSQLITE_VERSION_MINOR    /**< mksqlite version string */
     
-    #define MKSQLITE_CONFIG_MAX_NUM_OF_DBS           10                          ///< maximum number of databases, simultaneous open
+    #define MKSQLITE_CONFIG_MAX_NUM_OF_DBS           20                          ///< maximum number of databases, simultaneous open
     #define MKSQLITE_CONFIG_CHECK_4_UNIQUE_FIELDS    ON                          ///< ensure unique fields in query return structure by default
 
     /// Allow streaming to convert MATLAB variables into byte streams
