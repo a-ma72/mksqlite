@@ -59,6 +59,9 @@
   #include <windows.h>
   #undef min
   #undef max
+  #if( __GNUC__ )
+    #define _copysign copysign
+  #endif
 #else  // linux
   #include <string.h>
   #include <ctype.h>
