@@ -1,4 +1,7 @@
-﻿Version 2.9 (31. July 2020)
+﻿Version 2.10 (18. Aug. 2020)
+- Added buildin functions ceil() and floor()
+
+Version 2.9 (31. July 2020)
 - Updated sqlite to version 3.32.3
 - Changed license to BSD-2
 

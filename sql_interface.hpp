@@ -7,7 +7,7 @@
  *  @see       http://undocumentedmatlab.com/blog/serializing-deserializing-matlab-data
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.9
+ *  @version   2.10
  *  @date      2008-2020
  *  @copyright Distributed under BSD-2
  *  @pre       
@@ -531,6 +531,8 @@ public:
         else
         {
             // attach new SQL commands to opened database
+            sqlite3_create_function( m_db, "ceil", 1, SQLITE_UTF8, NULL, ceil_func, NULL, NULL );                     // ceil function (math)
+            sqlite3_create_function( m_db, "floor", 1, SQLITE_UTF8, NULL, floor_func, NULL, NULL );                   // floor function (math)
             sqlite3_create_function( m_db, "pow", 2, SQLITE_UTF8, NULL, pow_func, NULL, NULL );                       // power function (math)
             sqlite3_create_function( m_db, "lg", 1, SQLITE_UTF8, NULL, lg_func, NULL, NULL );                         // power function (math)
             sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                         // power function (math)

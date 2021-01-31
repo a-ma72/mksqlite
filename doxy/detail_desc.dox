@@ -260,6 +260,12 @@
  mksqlite offers additional SQL functions besides the known "core functions"
  like replace, trim, abs, round, ...
  This version offers 10 additional functions:
+ \li ceil(x):
+     Rounds x upward, returning the smallest integral value that is not less than x. If the result is not representable
+     the return value is NULL
+ \li floor(x):
+     Rounds x downward, returning the largest integral value that is not greater than x. If the result is not representable
+     the return value is NULL
  \li pow(x,y):
      Calculates x raised to exponent y. If the result is not representable
      the return value is NULL
