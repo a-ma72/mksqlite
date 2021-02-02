@@ -757,7 +757,7 @@ public:
 
             if( !SQLstack.isValidId( m_dbid++ ) )
             {
-              m_dbid = 0;  // No free slot
+                m_dbid = 0;  // No free slot
             }
         } else {
             // select database id or default (1) if no one is given 
@@ -1371,7 +1371,7 @@ public:
             }
             else
             {
-                m_plhs[0] = mxCreateString( SQLstack.m_db[m_dbid].isOpen() ? "OPEN" : "CLOSED" );
+                m_plhs[0] = mxCreateString( SQLstack.m_db[m_dbid-1].isOpen() ? "OPEN" : "CLOSED" );
             }
         }
         
