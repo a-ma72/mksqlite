@@ -326,7 +326,9 @@ static const char* messages_0[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " compression algorithm (Francesc Alted / Yann Collett) \n"
 #endif
     " - MD5 Message-Digest Algorithm (RFC 1321) implementation by Alexander Peslyak\n"
+#if MKSQLITE_CONFIG_USE_UUID
     " - RFC-4122 UUID extension (sqlite.org)\n"
+#endif
     "   \n",
     
 /*  1*/    "invalid database handle",
@@ -400,6 +402,9 @@ static const char* messages_1[] =
     " - BLOSC/LZ4 " BLOSC_VERSION_STRING " zur Datenkompression (Francesc Alted / Yann Collett) \n"
 #endif
     " - MD5 Message-Digest Algorithm (RFC 1321) Implementierung von Alexander Peslyak\n"
+#if MKSQLITE_CONFIG_USE_UUID
+    " - RFC-4122 UUID extension (sqlite.org)\n"
+#endif
     "   \n",
     
 /*  1*/    "ungueltiger Datenbankhandle",
