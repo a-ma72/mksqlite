@@ -69,7 +69,7 @@ fprintf ('compiling %s version of mksqlite...\n', buildtype);
 
 sqlite = [' sqlite/sqlite3.c '];
 
-lz_src = 'c-blosc/internal-complibs/lz4-1.8.1.2/';
+lz_src = 'c-blosc/internal-complibs/lz4-1.9.3/';
 blosc  = [' c-blosc/blosc/blosc.c', ...
           ' c-blosc/blosc/blosclz.c', ...
           ' c-blosc/blosc/shuffle.c', ...
@@ -81,7 +81,7 @@ blosc  = [' c-blosc/blosc/blosc.c', ...
 
 md5    = [' md5/md5.c '];
 
-uuid   = [];
+uuid   = [' sqlite/uuid.c '];
 
 modules = [sqlite, blosc, md5, uuid];
 
@@ -101,7 +101,7 @@ copyfile( [lz_src, 'lz4.h'], 'c-blosc/blosc' );
 copyfile( [lz_src, 'lz4hc.h'], 'c-blosc/blosc' );
 
 % set macros
-buildargs = ['-DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4'];
+buildargs = ['-DSQLITE_ENABLE_RTREE=1 -DSQLITE_THREADSAFE=2 -DHAVE_LZ4 -DMKSQLITE_CONFIG_USE_UUID'];
 if buildrelease
     buildargs = [buildargs, ' -DNDEBUG -O '];
 else
