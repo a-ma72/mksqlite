@@ -583,11 +583,11 @@ private:
                 // special values for zero, infinity and nan
                 if( fabs( rdata[i] ) == 0.0 )
                 {
-                    *pUintData++ = 0xFFF8u + 1 + ( _copysignf( 1.0, rdata[i] ) < 0.0 );
+                    *pUintData++ = 0xFFF8u + 1 + ( _copysign( 1.0, rdata[i] ) < 0.0 );
                 }
                 else if( DBL_ISINF( rdata[i] ) )
                 {
-                    *pUintData++ = 0xFFF8u + 3 + ( _copysignf( 1.0, rdata[i] ) < 0.0 );
+                    *pUintData++ = 0xFFF8u + 3 + ( _copysign( 1.0, rdata[i] ) < 0.0 );
                 }
                 else if( DBL_ISNAN( rdata[i] ) )
                 {
