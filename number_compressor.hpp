@@ -6,7 +6,7 @@
  *  @details   Using "blosc" as lossless compressor and a lossy quantising compressor
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.11
+ *  @version   2.12
  *  @date      2008-2021
  *  @copyright Distributed under BSD-2
  *  @pre       
@@ -42,6 +42,7 @@ extern "C"
  *
  * @{
  */
+#if MKSQLITE_CONFIG_USE_BLOSC
 #define BLOSC_BLOSCLZ_ID        BLOSC_BLOSCLZ_COMPNAME
 #define BLOSC_LZ4_ID            BLOSC_LZ4_COMPNAME
 #define BLOSC_LZ4HC_ID          BLOSC_LZ4HC_COMPNAME
@@ -49,6 +50,7 @@ extern "C"
 #define BLOSC_SNAPPY_ID         BLOSC_SNAPPY_COMPNAME
 #define BLOSC_ZLIB_ID           BLOSC_ZLIB_COMPNAME
 #define BLOSC_ZSTD_ID           BLOSC_ZSTD_COMPNAME
+#endif
 #define QLIN16_ID               "QLIN16"
 #define QLOG16_ID               "QLOG16"
 /** @} */
@@ -63,10 +65,11 @@ public:
     /// supported compressor types
     typedef enum
     {
-        CT_NONE = 0,   ///< no compression
-        CT_BLOSC,      ///< using BLOSC compressor (lossless)
-        CT_QLIN16,     ///< using linear quantization (lossy)
-        CT_QLOG16,     ///< using logarithmic quantization (lossy)
+        CT_UNKNOWN = -1,  ///< only used during initialization
+        CT_NONE    =  0,  ///< no compression
+        CT_BLOSC,         ///< using BLOSC compressor (lossless)
+        CT_QLIN16,        ///< using linear quantization (lossy)
+        CT_QLOG16,        ///< using logarithmic quantization (lossy)
     } compressor_type_e;
     
     bool                    m_result_is_const;        ///< true, if result is const type
@@ -121,10 +124,11 @@ public:
         if( m_result && !m_result_is_const )
         {
             m_DeAllocator( m_result );
-            m_result            = NULL;
-            m_result_size       = 0;
-            m_result_is_const   = true;
         }
+
+        m_result            = NULL;
+        m_result_size       = 0;
+        m_result_is_const   = true;
     }            
 
     
@@ -133,6 +137,7 @@ public:
     {
         m_rdata                 = NULL;
         m_rdata_size            = 0;
+        m_rdata_element_size    = 0;
         m_cdata                 = NULL;
         m_cdata_size            = 0;
         m_rdata_is_double_type  = false;
@@ -189,18 +194,29 @@ public:
      */
     bool setCompressor( const char *strCompressorType, int iCompressionLevel = -1 )
     {
-        compressor_type_e eCompressorType = CT_NONE;
+        compressor_type_e eCompressorType = CT_UNKNOWN;
         
         m_err.clear();
         
         // if no compressor or compression is specified, use standard compressor
         // which leads to no compression
-        if( 0 == iCompressionLevel || !strCompressorType || !*strCompressorType )
+        if( !strCompressorType || !*strCompressorType )
         {
             strCompressorType = COMPRESSOR_DEFAULT_ID;
-            iCompressionLevel = 0;
         }
-        
+
+        if( !strCompressorType )
+        {
+            eCompressorType = CT_NONE;
+        }        
+        else if( 0 == _strcmpi( strCompressorType, QLIN16_ID ) )
+        {
+            eCompressorType = CT_QLIN16;
+        }
+        else if( 0 == _strcmpi( strCompressorType, QLOG16_ID ) )
+        {
+            eCompressorType = CT_QLOG16;
+        } 
 #if MKSQLITE_CONFIG_USE_BLOSC
         // checking compressor names
         else if( 0 == _strcmpi( strCompressorType, BLOSC_LZ4_ID ) )
@@ -231,37 +247,26 @@ public:
         {
             eCompressorType = CT_BLOSC;
         }
-#endif
 
-        // check and acquire valid settings
-        if( CT_NONE != eCompressorType )
+        if( m_eCompressorType == CT_BLOSC )
         {
-            if( 0 == _strcmpi( strCompressorType, QLIN16_ID ) )
+            if( blosc_set_compressor( strCompressorType ) == -1 )
             {
-                eCompressorType = CT_QLIN16;
+                /* -1 means non-existent compressor */
+                return false;
             }
-            else if( 0 == _strcmpi( strCompressorType, QLOG16_ID ) )
-            {
-                eCompressorType = CT_QLOG16;
-            } 
         }
-
-        // check and acquire valid settings
-        if( CT_NONE != eCompressorType )
-        {
-#if MKSQLITE_CONFIG_USE_BLOSC
-            if( m_eCompressorType == CT_BLOSC )
-            {
-                if( blosc_set_compressor( strCompressorType ) == -1 )
-                {
-                    /* -1 means non-existent compressor */
-                    return false;
-                }
-            }
 #endif
 
+        if( CT_UNKNOWN != eCompressorType )
+        {
             m_strCompressorType = strCompressorType;
             m_eCompressorType   = eCompressorType;
+
+            if( CT_NONE == eCompressorType )
+            {
+                iCompressionLevel = 0;
+            }
 
             if( iCompressionLevel >= 0 )
             {
@@ -270,7 +275,8 @@ public:
 
             return true;
         }
-        else return false;
+
+        return false;
     }
     
     

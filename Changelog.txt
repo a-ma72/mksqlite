@@ -1,4 +1,10 @@
-﻿Version 2.11 (2. Feb. 2021)
+﻿Version 2.12 (18. Dec. 2021)
+- Bugfix:
+  Since V2.7 (SHA-1 d9c3ea5f5536b24fab78b9fc214ce538f8e540ca), compression 
+  methods QLIN16 and QLOG16 have no effect (data stored uncompressed).
+- SQLite update to version 3.37.0
+
+Version 2.11 (2. Feb. 2021)
 - Added buildin functions uuid(), uuid_str(X), uuid_blob(X) from uuid.c (sqlite.org)
 - c-blosc update to version 1.21.0
 - SQLite update to version 3.34.1
