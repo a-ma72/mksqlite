@@ -34,18 +34,19 @@ extern "C"
 }
 
 /* SQLite function extensions by mksqlite */
-void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
-void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
-void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void lg_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
-void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
-void exp_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void regex_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void BDC_ratio_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void BDC_pack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void BDC_unpack_time_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
 void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
-
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
+void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void exp_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv );
+#endif
 
 // Forward declarations
 int  blob_pack    ( const mxArray* pcItem, bool bStreamable, 
@@ -73,6 +74,7 @@ void blob_free    ( void** pBlob );
  * \param[in] argc Argument count
  * \param[in] argv SQL argument values
  */
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
 void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     double value, result;
@@ -99,6 +101,7 @@ void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     
     sqlite3_result_double( ctx, result );
 }
+#endif
 
 
 /**
@@ -111,6 +114,7 @@ void ceil_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
  * \param[in] argc Argument count
  * \param[in] argv SQL argument values
  */
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
 void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     double value, result;
@@ -137,7 +141,7 @@ void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     
     sqlite3_result_double( ctx, result );
 }
-
+#endif
 
 /**
  * \brief Power function implementation
@@ -149,6 +153,7 @@ void floor_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
  * \param[in] argc Argument count
  * \param[in] argv SQL argument values
  */
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
 void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 2 ) ;
     double base, exponent, result;
@@ -185,6 +190,7 @@ void pow_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     
     sqlite3_result_double( ctx, result );
 }
+#endif
 
 
 /* sqlite builtin functions, implementations */
@@ -237,6 +243,7 @@ void lg_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
  * \param[in] argc Argument count
  * \param[in] argv SQL argument values
  */
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
 void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     double value, result;
@@ -263,6 +270,7 @@ void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     
     sqlite3_result_double( ctx, result );
 }
+#endif
 
 
 /**
@@ -275,6 +283,7 @@ void ln_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
  * \param[in] argc Argument count
  * \param[in] argv SQL argument values
  */
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
 void exp_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     assert( argc == 1 );
     double value, result;
@@ -301,6 +310,7 @@ void exp_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     
     sqlite3_result_double( ctx, result );
 }
+#endif
 
 
 /**

@@ -6,6 +6,7 @@
 # mkdir build
 # cd build
 # cmake -G "Visual Studio 14 2015 Win64" ..
+# cmake --build . --target mksqlite --config Release -j 16
 
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -23,6 +24,7 @@ option( MKSQLITE_CONFIG_USE_HEAP_CHECK "Internal heap checking" OFF )
 option( MKSQLITE_CONFIG_NULL_AS_NAN "Use NaN instead of NULL values by default" OFF )
 option( MKSQLITE_CONFIG_COMPRESSION_CHECK "Always check compressed data (slower)" OFF )
 option( MKSQLITE_CONFIG_CONVERT_UTF8 "Text interchange with MATLAB in UTF8 char format" ON )
+option( SQLITE_ENABLE_MATH_FUNCTIONS "Enable SQLite built-in mathematical SQL functions" ON )
 set( MKSQLITE_CONFIG_MAX_NUM_OF_DBS 20 CACHE STRING "Maximum number of databases opened at once" )
 set( MKSQLITE_CONFIG_BUSYTIMEOUT 1000 CACHE STRING "Default SQL busy timeout in milliseconds (1000)" )
 

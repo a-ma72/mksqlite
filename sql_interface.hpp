@@ -537,18 +537,20 @@ public:
         else
         {
             // attach new SQL commands to opened database
-            sqlite3_create_function( m_db, "ceil", 1, SQLITE_UTF8, NULL, ceil_func, NULL, NULL );                     // ceil function (math)
-            sqlite3_create_function( m_db, "floor", 1, SQLITE_UTF8, NULL, floor_func, NULL, NULL );                   // floor function (math)
-            sqlite3_create_function( m_db, "pow", 2, SQLITE_UTF8, NULL, pow_func, NULL, NULL );                       // power function (math)
             sqlite3_create_function( m_db, "lg", 1, SQLITE_UTF8, NULL, lg_func, NULL, NULL );                         // power function (math)
-            sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                         // power function (math)
-            sqlite3_create_function( m_db, "exp", 1, SQLITE_UTF8, NULL, exp_func, NULL, NULL );                       // power function (math)
             sqlite3_create_function( m_db, "regex", 2, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (MATCH mode)
             sqlite3_create_function( m_db, "regex", 3, SQLITE_UTF8, NULL, regex_func, NULL, NULL );                   // regular expressions (REPLACE mode)
             sqlite3_create_function( m_db, "bdcratio", 1, SQLITE_UTF8, NULL, BDC_ratio_func, NULL, NULL );            // compression ratio (blob data compression)
             sqlite3_create_function( m_db, "bdcpacktime", 1, SQLITE_UTF8, NULL, BDC_pack_time_func, NULL, NULL );     // compression time (blob data compression)
             sqlite3_create_function( m_db, "bdcunpacktime", 1, SQLITE_UTF8, NULL, BDC_unpack_time_func, NULL, NULL ); // decompression time (blob data compression)
             sqlite3_create_function( m_db, "md5", 1, SQLITE_UTF8, NULL, MD5_func, NULL, NULL );                       // Message-Digest (RSA)
+#ifndef SQLITE_ENABLE_MATH_FUNCTIONS
+            sqlite3_create_function( m_db, "ceil", 1, SQLITE_UTF8, NULL, ceil_func, NULL, NULL );                     // ceil function (math)
+            sqlite3_create_function( m_db, "floor", 1, SQLITE_UTF8, NULL, floor_func, NULL, NULL );                   // floor function (math)
+            sqlite3_create_function( m_db, "pow", 2, SQLITE_UTF8, NULL, pow_func, NULL, NULL );                       // power function (math)
+            sqlite3_create_function( m_db, "exp", 1, SQLITE_UTF8, NULL, exp_func, NULL, NULL );                       // power function (math)
+            sqlite3_create_function( m_db, "ln", 1, SQLITE_UTF8, NULL, ln_func, NULL, NULL );                         // power function (math)
+#endif
             
 #if MKSQLITE_CONFIG_USE_UUID
             // uuid.c (sqlite.org)

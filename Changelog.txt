@@ -3,6 +3,7 @@
   Since V2.7 (SHA-1 d9c3ea5f5536b24fab78b9fc214ce538f8e540ca), compression 
   methods QLIN16 and QLOG16 have no effect (data stored uncompressed).
 - SQLite update to version 3.37.0
+- Supporting SQLITE_ENABLE_MATH_FUNCTIONS
 
 Version 2.11 (2. Feb. 2021)
 - Added buildin functions uuid(), uuid_str(X), uuid_blob(X) from uuid.c (sqlite.org)

@@ -1,5 +1,9 @@
 project( sqlite )
 
+if( SQLITE_ENABLE_MATH_FUNCTIONS )
+	add_definitions( -DSQLITE_ENABLE_MATH_FUNCTIONS )
+endif()
+
 #add_compiler_option( -fPIC )
 if( MKSQLITE_CONFIG_USE_UUID )
 	message( STATUS "Using UUID extension" )
