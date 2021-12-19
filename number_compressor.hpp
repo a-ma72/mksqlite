@@ -197,7 +197,11 @@ public:
         compressor_type_e eCompressorType = CT_UNKNOWN;
         
         m_err.clear();
-        
+
+#if MKSQLITE_CONFIG_USE_LOGGING
+        log_trace( "Entering setCompressor(), strCompressorType=%s, iCompressionLevel=%d", 
+            strCompressorType, iCompressionLevel );
+#endif
         // if no compressor or compression is specified, use standard compressor
         // which leads to no compression
         if( !strCompressorType || !*strCompressorType )
@@ -248,34 +252,43 @@ public:
             eCompressorType = CT_BLOSC;
         }
 
-        if( m_eCompressorType == CT_BLOSC )
+        if( CT_BLOSC == eCompressorType )
         {
             if( blosc_set_compressor( strCompressorType ) == -1 )
             {
                 /* -1 means non-existent compressor */
-                return false;
+                goto failed;
             }
         }
 #endif
 
-        if( CT_UNKNOWN != eCompressorType )
+        if( CT_UNKNOWN == eCompressorType )
         {
-            m_strCompressorType = strCompressorType;
-            m_eCompressorType   = eCompressorType;
-
-            if( CT_NONE == eCompressorType )
-            {
-                iCompressionLevel = 0;
-            }
-
-            if( iCompressionLevel >= 0 )
-            {
-                m_iCompressionLevel = iCompressionLevel;
-            }
-
-            return true;
+            goto failed;
         }
 
+        m_strCompressorType = strCompressorType;
+        m_eCompressorType   = eCompressorType;
+
+        if( CT_NONE == eCompressorType )
+        {
+            iCompressionLevel = 0;
+        }
+
+        if( iCompressionLevel >= 0 )
+        {
+            m_iCompressionLevel = iCompressionLevel;
+        }
+#if MKSQLITE_CONFIG_USE_LOGGING
+        log_trace( "Leaving, compressor set to '%s', Level %d", strCompressorType, m_iCompressionLevel );
+#endif
+        
+        return true;
+
+failed:
+#if MKSQLITE_CONFIG_USE_LOGGING
+        log_trace( "Failed setCompressor()" );
+#endif
         return false;
     }
     
@@ -310,7 +323,7 @@ public:
         free_result();
         clear_data();
         clear_err();
-        
+
         // acquire raw data
         m_rdata                 = rdata;
         m_rdata_size            = rdata_size;
@@ -321,14 +334,23 @@ public:
         switch( m_eCompressorType )
         {
           case CT_BLOSC:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "BLOSC compress %ld elements", (long)m_rdata_size );
+#endif
             status = bloscCompress();
             break;
             
           case CT_QLIN16:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "QLIN16 compress %ld elements", (long)m_rdata_size );
+#endif
             status = linlogQuantizerCompress( /* bDoLog*/ false );
             break;
             
           case CT_QLOG16:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "QLOG16 compress %ld elements", (long)m_rdata_size );
+#endif
             status = linlogQuantizerCompress( /* bDoLog*/ true );
             break;
             
@@ -376,14 +398,23 @@ public:
         switch( m_eCompressorType )
         {
           case CT_BLOSC:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "BLOSC uncompress %ld elements", (long)m_rdata_size );
+#endif
             status = bloscDecompress();
             break;
             
           case CT_QLIN16:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "QLIN16 uncompress %ld elements", (long)m_rdata_size );
+#endif
             status = linlogQuantizerDecompress( /* bDoLog*/ false );
             break;
             
           case CT_QLOG16:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "QLOG16 uncompress %ld elements", (long)m_rdata_size );
+#endif
             status = linlogQuantizerDecompress( /* bDoLog*/ true );
             break;
             
@@ -409,6 +440,9 @@ private:
     bool bloscCompress()
     {
 #if MKSQLITE_CONFIG_USE_BLOSC
+#if MKSQLITE_CONFIG_USE_LOGGING
+        log_trace( "Entering bloscCompress()" );
+#endif
         assert( m_rdata && !m_cdata );
         
         // BLOSC grants for that compressed data never 
@@ -432,6 +466,9 @@ private:
           /*dest*/       m_cdata, 
           /*destsize*/   m_cdata_size );
         
+#if MKSQLITE_CONFIG_USE_LOGGING
+        log_trace( "Leaving bloscCompress()" );
+#endif
         return NULL != m_cdata;
 #else
         return false;
@@ -493,7 +530,7 @@ private:
                 m_rdata_size % m_rdata_element_size == 0 );
         
         double    dOffset = 0.0, dScale = 1.0;
-        double    dMinVal, dMaxVal;
+        double    dMinVal = 0.0, dMaxVal= 0.0;
         bool      bMinValSet = false, bMaxValSet = false;
         double*   rdata = (double*)m_rdata;
         size_t    cntElements = m_rdata_size / sizeof(*rdata);

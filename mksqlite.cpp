@@ -2727,6 +2727,19 @@ finalize:
  */
 void mexFunction( int nlhs, mxArray* plhs[], int nrhs, const mxArray*prhs[] )
 {
+#if MKSQLITE_CONFIG_USE_LOGGING
+    static LogFile g_logFile;
+    static bool logfile_open = false;
+
+    if( !logfile_open )
+    {
+        log_add_fp( g_logFile.get_fp(), LOG_TRACE );
+        logfile_open = true;
+    }
+    log_set_level( LOG_TRACE );  // All levels below will be ignored
+    log_set_quiet( true );
+#endif
+
     /*
      * Get the current language
      * -1 means "undefined" (only one init on module load required)

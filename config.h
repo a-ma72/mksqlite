@@ -26,6 +26,7 @@
 
 #define MKSQLITE_CONFIG_USE_UUID               ON          ///< true=use uuid extension
 #define MKSQLITE_CONFIG_USE_HEAP_CHECK         OFF         ///< false=standard allocators, true=usage of heap_check.hpp
+#define MKSQLITE_CONFIG_USE_LOGGING            OFF         ///< default SQL busy timeout in milliseconds (1000)
 #define MKSQLITE_CONFIG_NULL_AS_NAN            OFF         ///< use NaN instead of NULL values by default
 #define MKSQLITE_CONFIG_BUSYTIMEOUT            1000        ///< default SQL busy timeout in milliseconds (1000)
 

@@ -453,7 +453,7 @@ void MD5_func( sqlite3_context *ctx, int argc, sqlite3_value **argv ){
     tbhv2_t* tbh2 = NULL;
     
     MD5_CTX md5_ctx; // md5 context
-    unsigned char digest[16];
+    unsigned char digest[16] = {0};
     char* str_result = NULL;
     const char hex_chars[] = "0123456789ABCDEF";
     

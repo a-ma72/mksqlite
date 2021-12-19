@@ -27,7 +27,7 @@
   #if defined(_MSC_VER) && defined(_NOEXCEPT)
     // MSVC
     #define NOEXCEPT _NOEXCEPT
-  #elif __cplusplus > 199711L
+  #elif __cplusplus >= 199711L
     #define NOEXCEPT noexcept
   #else
     #define NOEXCEPT
@@ -246,6 +246,37 @@
 #endif
 
 typedef unsigned char byte;  ///< byte type
+
+#if MKSQLITE_CONFIG_USE_LOGGING
+  extern "C"
+  {
+    #include "logging/src/log.h"
+  }
+
+  /// Logger file class. Ensure file is closed at exit
+  class LogFile
+  {
+      FILE *fp;
+
+  public:
+    
+      LogFile(const char* name = NULL)
+      {
+          // todo: Current directory?
+          fp = fopen( ( name ? name : "mksqlite.log" ), "at");
+      }
+
+      ~LogFile()
+      {
+          fclose(fp);
+      }
+
+      FILE* get_fp()
+      {
+          return fp;
+      }
+  };
+#endif
 
 
     

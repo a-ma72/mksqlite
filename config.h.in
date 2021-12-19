@@ -6,7 +6,7 @@
  *  @details   Configuration file for settings and defaults
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.11
+ *  @version   2.12
  *  @date      2008-2021
  *  @copyright Distributed under BSD-2
  *  @pre       
@@ -26,6 +26,7 @@
 
 #define MKSQLITE_CONFIG_USE_UUID               ${MKSQLITE_CONFIG_USE_UUID}          ///< true=use uuid extension
 #define MKSQLITE_CONFIG_USE_HEAP_CHECK         ${MKSQLITE_CONFIG_USE_HEAP_CHECK}         ///< false=standard allocators, true=usage of heap_check.hpp
+#define MKSQLITE_CONFIG_USE_LOGGING            ${MKSQLITE_CONFIG_USE_LOGGING}         ///< default SQL busy timeout in milliseconds (1000)
 #define MKSQLITE_CONFIG_NULL_AS_NAN            ${MKSQLITE_CONFIG_NULL_AS_NAN}         ///< use NaN instead of NULL values by default
 #define MKSQLITE_CONFIG_BUSYTIMEOUT            ${MKSQLITE_CONFIG_BUSYTIMEOUT}        ///< default SQL busy timeout in milliseconds (1000)
 
