@@ -1299,6 +1299,11 @@ public:
                 new_compression_type = QLOG16_ID;
                 new_compression_level = ( new_compression_level > 0 ); // only 0 or 1
             } 
+            else if( STRMATCH( new_compressor, FLOAT_ID ) )
+            {
+                new_compression_type = FLOAT_ID;
+                new_compression_level = ( new_compression_level > 0 ); // only 0 or 1
+            } 
             else 
             {
                 m_err.set( MSG_INVALIDARG );

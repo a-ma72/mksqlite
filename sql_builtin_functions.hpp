@@ -831,10 +831,20 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
     if( g_compression_level )
     {
         double start_time = utils_get_wall_time();
+        bool   status;
         
-        numericSequence.pack( value.Data(), value.ByData(), value.ByElement(), 
-                              value.IsDoubleClass() );  // allocates m_rdata
+#if MKSQLITE_CONFIG_USE_LOGGING
+        log_trace( "Start compression" );
+#endif
+        status = numericSequence.pack( value.Data(), value.ByData(), value.ByElement(), 
+                                       value.IsDoubleClass() );  // allocates m_rdata
         
+#if MKSQLITE_CONFIG_USE_LOGGING
+        if( !status )
+        {
+            log_trace( "Compression failed" );
+        }
+#endif
         *pdProcess_time = utils_get_wall_time() - start_time;
         
         // any compressed data omitted?
@@ -855,8 +865,14 @@ int blob_pack( const mxArray* pcItem, bool bStreamable,
             // calculate the compression ratio
             *pdRatio = (double)*pBlob_size / blob_size_uncompressed;
             
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "Compression (%ld <-- %ld)", (long)*pBlob_size, (long)blob_size_uncompressed );
+#endif
             if( *pBlob_size >= blob_size_uncompressed )
             {
+#if MKSQLITE_CONFIG_USE_LOGGING
+                log_trace( "Discard compression" );
+#endif
                 // Switch zu uncompressed blob, it's not worth the efford.
                 numericSequence.free_result();
             }

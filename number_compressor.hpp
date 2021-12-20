@@ -53,6 +53,7 @@ extern "C"
 #endif
 #define QLIN16_ID               "QLIN16"
 #define QLOG16_ID               "QLOG16"
+#define FLOAT_ID                "FLOAT"
 /** @} */
 
 /// Which compression method is to use, if its name is empty
@@ -70,6 +71,7 @@ public:
         CT_BLOSC,         ///< using BLOSC compressor (lossless)
         CT_QLIN16,        ///< using linear quantization (lossy)
         CT_QLOG16,        ///< using logarithmic quantization (lossy)
+        CT_FLOAT,         ///< using 4 byte single precision floating points (IEEE-754, lossy)
     } compressor_type_e;
     
     bool                    m_result_is_const;        ///< true, if result is const type
@@ -213,6 +215,10 @@ public:
         {
             eCompressorType = CT_NONE;
         }        
+        else if( 0 == _strcmpi( strCompressorType, FLOAT_ID ) )
+        {
+            eCompressorType = CT_FLOAT;
+        }
         else if( 0 == _strcmpi( strCompressorType, QLIN16_ID ) )
         {
             eCompressorType = CT_QLIN16;
@@ -303,7 +309,7 @@ failed:
     /// Returns true, if current compressor modifies value data
     bool isLossy()
     {
-        return m_eCompressorType == CT_QLIN16 || m_eCompressorType == CT_QLOG16;
+        return m_eCompressorType == CT_QLIN16 || m_eCompressorType == CT_QLOG16 || m_eCompressorType == CT_FLOAT;
     }
     
     
@@ -338,6 +344,13 @@ failed:
             log_trace( "BLOSC compress %ld elements", (long)m_rdata_size );
 #endif
             status = bloscCompress();
+            break;
+            
+          case CT_FLOAT:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "FLOAT compress %ld elements", (long)m_rdata_size );
+#endif
+            status = floatCompress();
             break;
             
           case CT_QLIN16:
@@ -402,6 +415,13 @@ failed:
             log_trace( "BLOSC uncompress %ld elements", (long)m_rdata_size );
 #endif
             status = bloscDecompress();
+            break;
+            
+          case CT_FLOAT:
+#if MKSQLITE_CONFIG_USE_LOGGING
+            log_trace( "FLOAT uncompress %ld elements", (long)m_rdata_size );
+#endif
+            status = floatDecompress();
             break;
             
           case CT_QLIN16:
@@ -515,6 +535,89 @@ private:
     }
     
     
+    /**
+     * \brief Lossy data compression using IEEE-754 single precision floating points
+     *
+     * Allocates \p m_cdata and use it to store compressed data from \p m_rdata.
+     * Only double types accepted! NaN, +Inf and -Inf are allowed.
+     * 
+     */
+    bool floatCompress()
+    {
+        assert( m_rdata && !m_cdata && 
+                m_rdata_element_size == sizeof( double ) && 
+                m_rdata_size % m_rdata_element_size == 0 );
+        
+        double*   rdata = (double*)m_rdata;
+        size_t    cntElements = m_rdata_size / sizeof(*rdata);
+        float*    pFloatData;
+
+        // compressor works for double type only
+        if( !m_rdata_is_double_type )
+        {
+            m_err.set( MSG_ERRCOMPRARG );
+            return false;
+        }
+        
+        // compressor converts each value to float type
+        m_cdata_size = cntElements * sizeof( float );  
+        m_cdata      = m_Allocator( m_cdata_size );
+
+        if( !m_cdata )
+        {
+            m_err.set( MSG_ERRMEMORY );
+            return false;
+        }
+        
+        pFloatData = (float*)m_cdata;
+
+        // type cast
+        for( size_t i = 0; i < cntElements; i++ )
+        {
+            *pFloatData++ = (float)*rdata++;
+        }
+        
+        return true;
+    }
+
+
+    /**
+     * \brief Lossy data compression using IEEE-754 single precision floating points
+     *
+     * \returns true on success
+     * 
+     * Uncompress compressed data \p m_cdata to data \p m_rdata.
+     * \p m_rdata must point to writable storage space and
+     * \p m_rdata_size must specify the legal space.
+     * (lossy data compression)
+     */
+    bool floatDecompress()
+    {
+        assert( m_rdata && m_cdata && 
+                m_rdata_element_size == sizeof( double ) && 
+                m_rdata_size % m_rdata_element_size == 0 );
+        
+        double*   rdata = (double*)m_rdata;
+        size_t    cntElements = m_rdata_size / sizeof(*rdata);
+        float*    pFloatData = (float*)m_cdata;
+        
+        // compressor works for double type only
+        if( m_rdata_is_double_type )
+        {
+            m_err.set( MSG_ERRCOMPRARG );
+            return false;
+        }
+        
+        // type cast
+        for( size_t i = 0; i < cntElements; i++ )
+        {
+            *rdata++ = (double)*pFloatData++;
+        }
+        
+        return true;
+    }
+
+
     /**
      * \brief Lossy data compression by linear or logarithmic quantization (16 bit)
      *

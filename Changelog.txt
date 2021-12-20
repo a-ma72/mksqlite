@@ -4,6 +4,7 @@
   methods QLIN16 and QLOG16 have no effect (data stored uncompressed).
 - SQLite update to version 3.37.0
 - Supporting SQLITE_ENABLE_MATH_FUNCTIONS
+- Added compressor "FLOAT" (cast to IEEE-754 single precision floating point)
 
 Version 2.11 (2. Feb. 2021)
 - Added buildin functions uuid(), uuid_str(X), uuid_blob(X) from uuid.c (sqlite.org)
