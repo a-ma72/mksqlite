@@ -354,7 +354,7 @@
                                                                     
                                                                     \ref example_4 "Example"</td>                               <td>0|1|2</td>                     <td>0</td></tr>                         
  <tr><td>\ref cmd_compression "'compression'"</td>              <td>Set compressor when using typedBLOBS=2\n 
-                                                                    \ref example_9 "Example"</td>                               <td>"blosc"|"blosclz"|"qlin16"|"qlog16", 0-9</td>         <td>"blosclz",0</td></tr>          
+                                                                    \ref example_9 "Example"</td>                               <td>"blosc"|"blosclz"|"qlin16"|"qlog16"|"float", 0-9</td>         <td>"blosclz",0</td></tr>          
  <tr><td>\ref cmd_compr_check "'compression_check'"</td>        <td>Enables compressor check, when set to 1.\n 
                                                                     The default decompresses immediately prior 
                                                                     to packed data to ensure by comparing 
