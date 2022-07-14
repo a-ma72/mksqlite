@@ -105,7 +105,7 @@ MATLAB(R) MEX-extensions. You can use on of the Microsoft Compiler
 on Windows, or a GNU compiler on other Systems.
 You will find the MATLAB(R) script "buildit.m" inside the source package. Just
 start it from the MATLAB(R) prompt.
->How do I build *mksqlite* on MacOS?
+>How do I build *mksqlite* on MacOS? (Must use Intel-based Mac to compile this at present.)
 
 1. Install XCode from the App Store
 2. Install XCode command line tools by typing `xcode-select --install` on the command line.
