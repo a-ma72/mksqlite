@@ -10,7 +10,7 @@
 function buildit(varargin)
 clc
 
-warning( 'buildit is deprecated, use CMake toolchain instead! ' )
+error( 'buildit is deprecated, use CMake toolchain instead! ' ) % comment out this line if you really want to use it
 
 switch nargin
 
