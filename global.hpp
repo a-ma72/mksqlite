@@ -6,8 +6,8 @@
  *  @details   
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.12
- *  @date      2008-2021
+ *  @version   2.13
+ *  @date      2008-2022
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   

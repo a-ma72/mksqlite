@@ -6,8 +6,8 @@
  *  @details   Configuration file for settings and defaults
  *  @authors   Martin Kortmann <mail@kortmann.de>,
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.12
- *  @date      2008-2021
+ *  @version   2.13
+ *  @date      2008-2022
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
@@ -59,7 +59,7 @@
 
     #define MKSQLITE_CONFIG_VERSION_STRING           MKSQLITE_VERSION_MAJOR "." MKSQLITE_VERSION_MINOR    /**< mksqlite version string */
     
-    #define MKSQLITE_CONFIG_MAX_NUM_OF_DBS           20                          ///< maximum number of databases, simultaneous open
+    #define MKSQLITE_CONFIG_MAX_NUM_OF_DBS           100                          ///< maximum number of databases, simultaneous open
     #define MKSQLITE_CONFIG_CHECK_4_UNIQUE_FIELDS    ON                          ///< ensure unique fields in query return structure by default
 
     /// Allow streaming to convert MATLAB variables into byte streams

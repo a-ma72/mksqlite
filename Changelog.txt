@@ -1,4 +1,8 @@
-﻿Version 2.12 (18. Dec. 2021)
+﻿Version 2.13 (26. Aug. 2022)
+- Update SQLite to version 3.39.2.
+- Update c-blosc to 1.21.2.dev
+
+Version 2.12 (18. Dec. 2021)
 - Bugfix:
   Since V2.7 (SHA-1 d9c3ea5f5536b24fab78b9fc214ce538f8e540ca), compression 
   methods QLIN16 and QLOG16 have no effect (data stored uncompressed).
