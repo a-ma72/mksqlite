@@ -6,8 +6,8 @@
  *  @details   Inspired by "Writing Bug-Free C Code" by Jerry Jongerius
  *  @see       http://www.duckware.com/index.html
  *  @author    Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.13
- *  @date      2008-2022
+ *  @version   2.14
+ *  @date      2008-2024
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
@@ -19,6 +19,16 @@
 #define HEAP_CHECK_HPP
 
 #include <vector>
+#include <cstdint>
+#if __cplusplus < 199711L || _MSC_VER <= 1600 /* MSVC2010 */
+#define PRIxPTR "lx"
+#else
+#include <cinttypes>
+#endif
+#include <mutex>
+
+/** printf function **/
+extern "C" int (*heapcheck_printf)(const char*, ...);
 
 #define HC_ASSERT_ERROR       _HC_DoAssert(__FILE__,__FUNCTION__,__LINE__) /**< intermediate macro for expanding __FILE__, __FUNCTION__ and __LINE__ */
 #define HC_ASSERT(exp)        if (!(exp)) {HC_ASSERT_ERROR;} else          /**< Assert condition \p exp with reporting */
@@ -34,13 +44,13 @@
 
 
 /// Macro \ref USE_HC_ASSERT must exist in every module which uses macro \ref HC_ASSERT.
-#define USE_HC_ASSERT                                                               \
-extern "C"  void  HC_ReportAssert ( const char*, const char*, long );               \
-static      int   _HC_DoAssert    ( const char* file, const char* func, int nLine ) \
-{                                                                                   \
-    HC_ReportAssert(file, func, nLine);                                             \
-    HC_ASSERT(nLine);  /* inhibit removal of unreferenced function */               \
-    return(0);                                                                      \
+#define USE_HC_ASSERT                                                                \
+extern "C"  void   HC_ReportAssert ( const char*, const char*, long );               \
+static      int   _HC_DoAssert     ( const char* file, const char* func, int nLine ) \
+{                                                                                    \
+    HC_ReportAssert(file, func, nLine);                                              \
+    HC_ASSERT(nLine);  /* inhibit removal of unreferenced function */                \
+    return(0);                                                                       \
 }  
 
 /// \cond
@@ -92,7 +102,195 @@ class HeapCheck
     
     /// Flag will be set, when the block m_mem_blocks is released and checked
     bool flag_blocks_checked;
+    int  level;
+    std::mutex mutex;
+
     
+    void _release()
+    {
+        int count = 0;
+        
+        level = 0;
+        _walk();
+        
+        for( int i = 0; i < (int)m_mem_blocks.size(); i++ )
+        {
+            if( m_mem_blocks[i] != NULL )
+            {
+                FREE_NO_HEAPCHECK(m_mem_blocks[i] );
+                m_mem_blocks[i] = NULL;
+                count++;
+            }
+        }    
+
+        m_mem_blocks.clear();
+
+        if( !count && !flag_blocks_checked && heapcheck_printf != nullptr )
+        {
+            heapcheck_printf("Heap check: ok\n" );
+        }
+        flag_blocks_checked = true;
+    }
+    
+
+    void _addptr( const tagHeader* ptr )
+    {
+        m_mem_blocks.push_back( ptr );
+        flag_blocks_checked = false;
+    }
+    
+    
+    void _removeptr( const tagHeader* ptr )
+    {
+        /// \todo SLOW (sorted list facilitates binary search)
+        for( int i = 0; i < (int)m_mem_blocks.size(); i++ )
+        {
+            if( m_mem_blocks[i] == ptr )
+            {
+                m_mem_blocks.erase( m_mem_blocks.begin() + i );
+                break;
+            }
+        }
+    }
+    
+
+    void* _new( size_t bytes, const char* file, const char* fcn, const char* notes, long nLine )
+    {
+        tagHeader*  mem_block     = NULL;
+        size_t      bytes_aligned = HC_DOALIGN( bytes );
+        
+        // Allocate memory with additional space for header and footer
+        mem_block = (tagHeader*)CALLOC_NO_HEAPCHECK(bytes_aligned + sizeof(tagHeader) + sizeof(tagFooter), 1 );
+        
+        if( mem_block != NULL )
+        {
+            mem_block->lpFooter           = (tagFooter*)((char*)(mem_block + 1) + bytes_aligned);
+            mem_block->lpFooter->lpHeader = mem_block;      // do link
+            mem_block->lpMem              = mem_block + 1;  // point to users memory block
+            mem_block->lpFilename         = file;
+            mem_block->lpFunctionName     = fcn;
+            mem_block->lpNotes            = notes;
+            mem_block->lLineNumber        = nLine;
+            
+            memset( mem_block->lpMem, 0, bytes_aligned );   // zero init
+            
+            _addptr( mem_block );  // Enqueue
+        }
+        else
+        {
+            HC_ASSERT_ERROR;
+        }
+        
+        
+        return mem_block ? (mem_block + 1) : NULL;
+    }
+    
+    
+    void* _realloc( void* ptr_old, size_t bytes,
+                   const char* file, const char* fcn, const char* notes, long nLine )
+    {
+        void*   ptr_new       = NULL;
+        size_t  bytes_aligned = HC_DOALIGN(bytes);
+
+        // Try to reallocate previously allocated space
+        if( ptr_old )
+        {
+            if( VerifyPtr(ptr_old) )
+            {
+                tagHeader* header     = (tagHeader*)ptr_old - 1;
+                tagHeader* header_new = NULL;
+                tagHeader* header_ins = NULL;
+
+                // Try to reallocate block
+                _removeptr( header );
+                memset( header->lpFooter, 0, sizeof(tagFooter) );
+                header_new = (tagHeader*)REALLOC_NO_HEAPCHECK(header, sizeof(tagHeader) + bytes_aligned + sizeof(tagFooter) );
+
+                // Add new (or failed old) back in
+                header_ins                      = header_new ? header_new : header;
+                header_ins->lpFooter            = (tagFooter*)( (char*)(header_ins+1) + bytes_aligned );
+                header_ins->lpFooter->lpHeader  = header_ins;
+                header_ins->lpMem               = header_ins + 1;
+                header_ins->lpFilename          = file  ? file  : header_ins->lpFilename;
+                header_ins->lpFunctionName      = fcn   ? fcn   : header_ins->lpFunctionName;
+                header_ins->lpNotes             = notes ? notes : header_ins->lpNotes;
+                header_ins->lLineNumber         = nLine ? nLine : header_ins->lLineNumber;
+
+                _addptr( header_ins );
+
+
+                // Finish
+                ptr_new = header_new ? (header_new + 1) : NULL;
+
+                if( !ptr_new )  
+                {
+                    // Report out of memory error
+                    HC_ASSERT_ERROR;
+                }
+            }
+        } 
+        else 
+        {
+            // Pointer was NULL, do a normal allocation
+            ptr_new = _new( bytes_aligned, file, fcn, notes, nLine );
+        }
+
+        // Return address to object
+        return ptr_new;
+    }
+    
+        
+    void _free( void* ptr )
+    {
+        if( VerifyPtr(ptr) ) 
+        {
+            tagHeader*  header        = (tagHeader*)ptr - 1;
+            size_t      bytes_aligned = (char*)(header->lpFooter+1) - (char*)header;
+#if 0
+            char        buffer[1024];
+            
+            RenderDesc( header, buffer, 1024 );
+            mexPrintf( "%s\n", buffer );
+#endif
+            
+            _removeptr( header );  // dequeue
+            memset( header, 0, sizeof(tagHeader) );  // set to zero
+            FREE_NO_HEAPCHECK(header );  // and free
+        }
+    }
+
+
+    void _updatenotes( void* ptr, const char* notes )
+    {
+        if( VerifyPtr(ptr) ) 
+        {
+            tagHeader*  header = (tagHeader*)ptr - 1;
+
+            header->lpNotes = notes;
+        }
+    }
+    
+    
+    void _walk( const char* text = NULL )
+    {
+        if( level != 0 || heapcheck_printf == nullptr ) return;
+
+        for( int i = 0; i < (int)m_mem_blocks.size(); i++ ) 
+        {
+            char buffer[1024];
+            
+            RenderDesc( m_mem_blocks[i], buffer, 1024 );
+
+            /*--- print out buffer ---*/
+            if( text )
+            {
+                heapcheck_printf("walk(%s): %s\n", text, buffer );
+            } else {
+                heapcheck_printf("walk: %s\n", buffer );
+            }
+        }
+    }
+
 public:
   
     /**
@@ -102,7 +300,9 @@ public:
     HeapCheck()
     {
         flag_blocks_checked = false;
+        level = 0;
     }
+
 
     /** 
      * \brief Destructor
@@ -113,6 +313,22 @@ public:
     ~HeapCheck()
     {
         Release();
+    }
+
+
+    void IncLevel()
+    {
+        mutex.lock();
+        level++;
+        mutex.unlock();
+    }
+
+
+    void DecLevel()
+    {
+        mutex.lock();
+        level = level > 0 ? level-1 : 0;
+        mutex.unlock();
     }
     
     
@@ -126,32 +342,20 @@ public:
      */
     void Release()
     {
-        int count = 0;
-        
-        Walk();
-        
-        for( int i = 0; i < (int)m_mem_blocks.size(); i++ )
+        mutex.lock();
+        try
         {
-            if( m_mem_blocks[i] != NULL )
-            {
-                MEM_FREE( m_mem_blocks[i] );
-                m_mem_blocks[i] = NULL;
-                count++;
-            }
-        }    
-
-        m_mem_blocks.clear();
-
-#if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
-        if( !count && !flag_blocks_checked )
-        {
-            PRINTF( "Heap check: ok\n" );
+            _release();
+            mutex.unlock();
         }
-#endif
-        flag_blocks_checked = true;
+        catch(...)
+        {
+            mutex.unlock();
+            throw;
+        }
     }
-    
-    
+
+
     /// Returns the header size in bytes
     static
     size_t GetHeaderSize()
@@ -164,12 +368,12 @@ public:
      * \brief Checks if header pointer \p ptr is well aligned
      *
      * Headers are always aligned to \a HC_ALIGNMENT. Any other alignment
-     * inidcates an error.
+     * inidicates an error.
      */
     static
     int isPtrAligned( const void* ptr )
     {
-        return ( (ptr) && (!( (long)ptr & (HC_ALIGNMENT-1) )) );
+        return ( (ptr) && (!( (uintptr_t)ptr & (HC_ALIGNMENT-1) )) );
     }
     
    
@@ -206,25 +410,36 @@ public:
     /// Enqueues new memory block by header pointer \p ptr
     void AddPtr( const tagHeader* ptr )
     {
-        m_mem_blocks.push_back( ptr );
-        flag_blocks_checked = false;
+        mutex.lock();
+        try
+        {
+            _addptr( ptr );
+            mutex.unlock();
+        }
+        catch(...)
+        {
+            mutex.unlock();
+            throw;
+        }
     }
-    
-    
+
+
     /// Removes memory block, identified by \p ptr without freeing it
     void RemovePtr( const tagHeader* ptr )
     {
-        /// \todo SLOW (sorted list facilitates binary search)
-        for( int i = 0; i < (int)m_mem_blocks.size(); i++ )
+        mutex.lock();
+        try
         {
-            if( m_mem_blocks[i] == ptr )
-            {
-                m_mem_blocks.erase( m_mem_blocks.begin() + i );
-                break;
-            }
+            _removeptr( ptr );
+            mutex.unlock();
+        }
+        catch(...)
+        {
+            mutex.unlock();
+            throw;
         }
     }
-    
+
 
     /** 
      * \brief Allocates a new block of memory with initialized header and footer.
@@ -238,36 +453,23 @@ public:
      */
     void* New( size_t bytes, const char* file, const char* fcn, const char* notes, long nLine )
     {
-        tagHeader*  mem_block     = NULL;
-        size_t      bytes_aligned = HC_DOALIGN( bytes );
-        
-        // Allocate memory with additional space for header and footer
-        mem_block = (tagHeader*)MEM_CALLOC( bytes_aligned + sizeof(tagHeader) + sizeof(tagFooter), 1 );
-        
-        if( mem_block != NULL )
+        void *ptr = NULL;
+        mutex.lock();
+        try
         {
-            mem_block->lpFooter           = (tagFooter*)((char*)(mem_block + 1) + bytes_aligned);
-            mem_block->lpFooter->lpHeader = mem_block;      // do link
-            mem_block->lpMem              = mem_block + 1;  // point to users memory block
-            mem_block->lpFilename         = file;
-            mem_block->lpFunctionName     = fcn;
-            mem_block->lpNotes            = notes;
-            mem_block->lLineNumber        = nLine;
-            
-            memset( mem_block->lpMem, 0, bytes_aligned );   // zero init
-            
-            AddPtr( mem_block );  // Enqueue
+            ptr = _new( bytes, file, fcn, notes, nLine );
+            mutex.unlock();
         }
-        else
+        catch(...)
         {
-            HC_ASSERT_ERROR;
+            mutex.unlock();
+            throw;
         }
-        
-        
-        return mem_block ? (mem_block + 1) : NULL;
+
+        return ptr;
     }
-    
-    
+
+
     /** 
      * \brief Reallocates a block of memory allocated with New()
      *
@@ -282,84 +484,56 @@ public:
     void* Realloc( void* ptr_old, size_t bytes,
                    const char* file, const char* fcn, const char* notes, long nLine )
     {
-        void*   ptr_new       = NULL;
-        size_t  bytes_aligned = HC_DOALIGN(bytes);
-
-        // Try to reallocate previously allocated space
-        if( ptr_old )
+        void *ptr = NULL;
+        mutex.lock();
+        try
         {
-            if( VerifyPtr(ptr_old) )
-            {
-                tagHeader* header     = (tagHeader*)ptr_old - 1;
-                tagHeader* header_new = NULL;
-                tagHeader* header_ins = NULL;
-
-                // Try to reallocate block
-                RemovePtr( header );
-                memset( header->lpFooter, 0, sizeof(tagFooter) );
-                header_new = (tagHeader*)MEM_REALLOC( header, sizeof(tagHeader) + bytes_aligned + sizeof(tagFooter) );
-
-                // Add new (or failed old) back in
-                header_ins                      = header_new ? header_new : header;
-                header_ins->lpFooter            = (tagFooter*)( (char*)(header_ins+1) + bytes_aligned );
-                header_ins->lpFooter->lpHeader  = header_ins;
-                header_ins->lpMem               = header_ins + 1;
-                header_ins->lpFilename          = file  ? file  : header_ins->lpFilename;
-                header_ins->lpFunctionName      = fcn   ? fcn   : header_ins->lpFunctionName;
-                header_ins->lpNotes             = notes ? notes : header_ins->lpNotes;
-                header_ins->lLineNumber         = nLine ? nLine : header_ins->lLineNumber;
-
-                AddPtr( header_ins );
-
-
-                // Finish
-                ptr_new = header_new ? (header_new + 1) : NULL;
-
-                if( !ptr_new )  
-                {
-                    // Report out of memory error
-                    HC_ASSERT_ERROR;
-                }
-            }
-        } 
-        else 
+            ptr = _realloc( ptr_old, bytes, file, fcn, notes, nLine );
+            mutex.unlock();
+        }
+        catch(...)
         {
-            // Pointer was NULL, do a normal allocation
-            ptr_new = New( bytes_aligned, file, fcn, notes, nLine );
+            mutex.unlock();
+            throw;
         }
 
-        // Return address to object
-        return ptr_new;
+        return ptr;
     }
-    
-    
+
+
     /// Freeing space returned from New() or Realloc()
     void Free( void* ptr )
     {
-        if( VerifyPtr(ptr) ) 
+        mutex.lock();
+        try
         {
-            tagHeader*  header        = (tagHeader*)ptr - 1;
-            size_t      bytes_aligned = (char*)(header->lpFooter+1) - (char*)header;
-            
-            RemovePtr( header );  // dequeue
-            memset( header, 0, sizeof(tagHeader) );  // set to zero
-            MEM_FREE( header );  // and free
+            _free( ptr );
+            mutex.unlock();
+        }
+        catch(...)
+        {
+            mutex.unlock();
+            throw;
         }
     }
-    
+
     
     /// Update "notes" field in memory block header
     void UpdateNotes( void* ptr, const char* notes )
     {
-        if( VerifyPtr(ptr) ) 
+        mutex.lock();
+        try
         {
-            tagHeader*  header = (tagHeader*)ptr - 1;
-
-            header->lpNotes = notes;
+            _updatenotes( ptr, notes );
+            mutex.unlock();
+        }
+        catch(...)
+        {
+            mutex.unlock();
+            throw;
         }
     }
-    
-    
+
     /** 
      * \brief Formatted output of memory block information (from its header)
      *
@@ -375,7 +549,7 @@ public:
         
         if( header->lpMem == &header[1] ) 
         {
-            _snprintf( lpBuffer, szBuffer, "%08lx ", (long unsigned)header );
+            _snprintf( lpBuffer, szBuffer, "%016" PRIxPTR " ", (uintptr_t)header );
             
             if( header->lpFilename && (left = (int)szBuffer - (int)strlen(lpBuffer)) > 1 )
             {
@@ -406,29 +580,24 @@ public:
      */
     void Walk( const char* text = NULL )
     {
-        for( int i = 0; i < (int)m_mem_blocks.size(); i++ ) 
+        mutex.lock();
+        try
         {
-            char buffer[1024];
-            
-            RenderDesc( m_mem_blocks[i], buffer, 1024 );
-
-#if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
-
-            /*--- print out buffer ---*/
-            if( text )
-            {
-                PRINTF( "walk(%s): %s\n", text, buffer );
-            } else {
-                PRINTF( "walk: %s\n", buffer );
-            }
-#endif
+            _walk( text );
+            mutex.unlock();
+        }
+        catch(...)
+        {
+            mutex.unlock();
+            throw;
         }
     }
 };
 
 
-/// One module must define \def MAIN_MODULE
-#if defined( MAIN_MODULE )
+/// One module must define \def HEAPCHECK_HOST_MODULE
+#if defined( HEAPCHECK_HOST_MODULE )
+#include <assert.h>
 
     /** 
      * \brief Standard assert routine used by macro \ref HC_ASSERT
@@ -437,18 +606,16 @@ public:
      * @param[in] lpFunctionName Callers function name
      * @param[in] line Callers line numer
      */
-    extern "C"
+	extern "C"
     void HC_ReportAssert( const char* file, const char* lpFunctionName, long line )
     {
         char buffer[1024];
 
-        _snprintf( buffer, 1024, "Assertion failed in %s, %s line %ld\n", file, lpFunctionName, line );
-
-    #if defined(MATLAB_MEX_FILE) /* MATLAB MEX file */
-        mxAssert( 0, buffer );
-    #else
-        assert( false );
-    #endif
+        if( heapcheck_printf != nullptr )
+        {
+            _snprintf(buffer, 1024, "Assertion failed in %s, %s line %ld\n", file, lpFunctionName, line);
+            heapcheck_printf("%s\n", buffer);
+        }
     }
 
     /// Instantiate HeapCheck object in main module

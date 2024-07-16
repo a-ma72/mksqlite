@@ -56,7 +56,7 @@ public:
 // Content
 protected:
     ELT * m_pBuffer;
-    int         m_nSize;
+    int   m_nSize;
 };
 
 //
@@ -363,7 +363,7 @@ template <class ELT> inline int CBufferT <ELT> :: Pop(ELT & el)
 
 template <class ELT> int CBufferT <ELT> :: Pop (CBufferT<ELT> & buf)
 {
-    int size, res = 1;
+    int size = 0, res = 1;
     res = res && Pop(*(ELT*)&size);
     buf.Restore(size);
 
@@ -539,7 +539,7 @@ template <class T> int CSortedBufferT <T> :: FindAs(const T & rT, int(* compare)
     const T * pT = (const T *)bsearch(&rT, CBufferRefT<T>::m_pBuffer, CBufferRefT<T>::m_nSize, sizeof(T), compare == 0 ? m_fncompare : compare);
 
     if( pT != NULL )
-        return pT - CBufferRefT<T>::m_pBuffer;
+        return (int)( pT - CBufferRefT<T>::m_pBuffer );
     else
         return -1;
 }
@@ -1323,6 +1323,11 @@ inline int _isblank(int c)
     return c == 0x20 || c == '\t';
 }
 
+template <class CHART> inline int _lt256(CHART c)
+{
+    return c >= 0 && c < 256;
+}
+
 template <class CHART> int CPosixElxT <CHART> :: Match(CContext * pContext) const
 {
     if(m_posixfun == 0) return 0;
@@ -1337,7 +1342,7 @@ template <class CHART> int CPosixElxT <CHART> :: Match(CContext * pContext) cons
 
     CHART ch = ((const CHART *)pContext->m_pMatchString)[at];
 
-    int bsucc = (*m_posixfun)(ch);
+    int bsucc = _lt256(ch) && (*m_posixfun)(ch);
 
     if( ! m_byes )
         bsucc = ! bsucc;
@@ -1779,6 +1784,7 @@ public:
 public:
     ElxInterface * Build(const CBufferRefT <CHART> & pattern, int flags);
     int GetNamedNumber(const CBufferRefT <CHART> & named) const;
+    const CBufferRefT <CHART> GetNamedName(int nnumber) const;  // added (am) 2015-10-29
     void Clear();
 
 public:
@@ -1813,9 +1819,9 @@ protected:
         int   len;
 
     public:
-        CHART_INFO(CHART c, int t, int p = 0, int l = 0) { ch = c; type = t; pos = p; len = l;    }
-        inline int operator == (const CHART_INFO & ci)   { return ch == ci.ch && type == ci.type; }
-        inline int operator != (const CHART_INFO & ci)   { return ! operator == (ci);             }
+        CHART_INFO(CHART c, int t, int p = 0, int l = 0)     { ch = c; type = t; pos = p; len = l;    }
+        inline int operator == (const CHART_INFO & ci) const { return ch == ci.ch && type == ci.type; }
+        inline int operator != (const CHART_INFO & ci) const { return ! operator == (ci);             }
     };
 
 protected:
@@ -1883,6 +1889,20 @@ template <class CHART> int CBuilderT <CHART> :: GetNamedNumber(const CBufferRefT
     }
 
     return -3;
+}
+
+// added (am) 2015-10-29
+template <class CHART> const CBufferRefT <CHART> CBuilderT <CHART> :: GetNamedName(int nnumber) const
+{
+    static const CHART _def[] = {0};
+    for(int i=0; i<m_namedlist.GetSize(); i++)
+    {
+        if( ((CBracketElx *)m_namedlist[i]->m_elxlist[0])->m_nnumber == nnumber )
+            return ((CBracketElx *)m_namedlist[i]->m_elxlist[0])->m_szNamed;
+    }
+
+    //return m_pattern.GetBuffer() + m_pattern.GetSize();
+    return _def;
 }
 
 template <class CHART> ElxInterface * CBuilderT <CHART> :: Build(const CBufferRefT <CHART> & pattern, int flags)
@@ -3051,10 +3071,10 @@ template <class CHART> ElxInterface * CBuilderT <CHART> :: BuildCharset(int & fl
                 oldcount = chars.GetSize();
                 for(i=0; i<oldcount; i++)
                 {
-                    if( isupper(chars[i]) && ! pRange->IsContainChar(tolower(chars[i])) )
+                    if(_lt256(chars[i]) && isupper(chars[i]) && ! pRange->IsContainChar(tolower(chars[i])) )
                         chars.Push(tolower(chars[i]));
 
-                    if( islower(chars[i]) && ! pRange->IsContainChar(toupper(chars[i])) )
+                    if(_lt256(chars[i]) &&  islower(chars[i]) && ! pRange->IsContainChar(toupper(chars[i])) )
                         chars.Push(toupper(chars[i]));
                 }
             }
@@ -3582,6 +3602,7 @@ public:
     CHART * Replace(const CHART * tstring, const CHART * replaceto, int start = -1, int ntimes = -1, MatchResult * result = 0, CContext * pContext = 0) const;
     CHART * Replace(const CHART * tstring, int string_length, const CHART * replaceto, int to_length, int & result_length, int start = -1, int ntimes = -1, MatchResult * result = 0, CContext * pContext = 0) const;
     int GetNamedGroupNumber(const CHART * group_name) const;
+    const CHART * GetNamedGroupName(int) const;  // added (am) 2015-10-29
 
 public:
     static void ReleaseString (CHART    * tstring );
@@ -3808,6 +3829,12 @@ template <class CHART> inline int CRegexpT <CHART> :: GetNamedGroupNumber(const 
     return m_builder.GetNamedNumber(group_name);
 }
 
+// added (am) 2015-10-29
+template <class CHART> inline const CHART * CRegexpT <CHART> :: GetNamedGroupName(int group_number) const
+{
+    return m_builder.GetNamedName(group_number).GetBuffer();
+}
+
 template <class CHART> CHART * CRegexpT <CHART> :: Replace(const CHART * tstring, const CHART * replaceto, int start, int ntimes, MatchResult * result, CContext * pContext) const
 {
     int result_length = 0;
@@ -3959,7 +3986,7 @@ template <class CHART> CHART * CRegexpT <CHART> :: Replace(const CHART * tstring
             if( distance )
             {
                 buffer.Push(tstring + result->GetEnd());
-                buffer.Push((const CHART *)distance);
+                buffer.Push((const CHART *)(ptrdiff_t)distance);
 
                 toIndex1 -= distance;
             }
@@ -3971,7 +3998,7 @@ template <class CHART> CHART * CRegexpT <CHART> :: Replace(const CHART * tstring
             if( distance )
             {
                 buffer.Push(tstring + lastIndex);
-                buffer.Push((const CHART *)distance);
+                buffer.Push((const CHART *)(ptrdiff_t)distance);
 
                 toIndex1 += distance;
             }
@@ -4029,7 +4056,7 @@ template <class CHART> CHART * CRegexpT <CHART> :: Replace(const CHART * tstring
             }
 
             buffer.Push(sub);
-            buffer.Push((const CHART *)len);
+            buffer.Push((const CHART *)(ptrdiff_t)len);
 
             toIndex1 += rightleft ? (-len) : len;
         }
@@ -4041,7 +4068,7 @@ template <class CHART> CHART * CRegexpT <CHART> :: Replace(const CHART * tstring
         if(endpos < lastIndex)
         {
             buffer.Push(tstring + endpos);
-            buffer.Push((const CHART *)(lastIndex - endpos));
+            buffer.Push((const CHART *)(ptrdiff_t)(lastIndex - endpos));
         }
     }
     else
@@ -4049,7 +4076,7 @@ template <class CHART> CHART * CRegexpT <CHART> :: Replace(const CHART * tstring
         if(lastIndex < endpos)
         {
             buffer.Push(tstring + lastIndex);
-            buffer.Push((const CHART *)(endpos - lastIndex));
+            buffer.Push((const CHART *)(ptrdiff_t)(endpos - lastIndex));
         }
     }
 

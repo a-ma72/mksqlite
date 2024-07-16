@@ -6,8 +6,8 @@
  *  @details   class implementations (SQLstack and Mksqlite)
  *  @authors   Martin Kortmann <mail@kortmann.de>, 
  *             Andreas Martin  <andimartin@users.sourceforge.net>
- *  @version   2.13
- *  @date      2008-2022
+ *  @version   2.14
+ *  @date      2008-2024
  *  @copyright Distributed under BSD-2
  *  @pre       
  *  @warning   
@@ -47,6 +47,7 @@ HC_COMP_ASSERT( sizeof( TypedBLOBHeaderV1 ) == 36 );
 
 /// MEX Entry function declared the as pure C
 extern "C" void mexFunction( int nlhs, mxArray*plhs[], int nrhs, const mxArray*prhs[] );
+extern "C" int (*heapcheck_printf)(const char*, ...) = mexPrintf;
 
 
 ///////////////////////////////////////////////////////////////////////////
