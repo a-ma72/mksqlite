@@ -105,7 +105,7 @@ MATLAB(R) MEX-extensions. You can use on of the Microsoft Compiler
 on Windows, or a GNU compiler on other Systems.
 You will find the MATLAB(R) script "buildit.m" inside the source package. Just
 start it from the MATLAB(R) prompt.
->How do I build *mksqlite* on MacOS? (Must use Intel-based Mac to compile this at present.)
+>How do I build *mksqlite* on MacOS? (Will build Intel version on Intel Macs and arm64 version on Macs running Apple Silicon.)
 
 1. Install XCode from the App Store
 2. Install XCode command line tools by typing `xcode-select --install` on the command line.
@@ -115,7 +115,8 @@ start it from the MATLAB(R) prompt.
   2. Then, type `sudo port install cmake` or `sudo /opt/local/bin/port install cmake`
   3. Edit your ~/.zshrc file to include the line `path+=('/opt/local/bin')` so that `/opt/local/bin` is on your path. This is where `cmake` was installed with MacPorts.
 5. Follow the directions in `CmakeLists.txt`. You should not use the `-G` option with `cmake` or the `Release` configuration.
-6. The file `mksqlite.mexmaci64` will be in your `build` directory. Copy it to the `mksqlite` directory. 
+6. The file `mksqlite.mexmaci64` or `mksqlite.mexmaca64` will be in your `build` directory. Copy it to the `mksqlite` directory. 
+
 > The SQLite database seems to be very slow. Can I speedup my operations?
 
 SQLite uses a journal file for every write operation. This slows down any
