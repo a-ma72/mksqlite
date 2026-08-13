@@ -2,9 +2,16 @@ name: Build & test mksqlite (macOS arm64)
 on:
   workflow_dispatch: {}
   push:
-    branches: [ macos-arm64-ci, claude/macos-arm64-matlab-mex-cw4ihg ]
+    branches: [ macos-arm64-ci ]
+  pull_request:
+    paths:                                  # run on PRs that touch the build
+      - 'buildit.m'
+      - 'mksqlite.cpp'
+      - 'tools/normalize_maca64_rpaths.sh'
+      - '.github/workflows/build-macos-arm64.yml'
+      - 'test/mksqlite_ci_smoke.m'
 permissions:
-  contents: write   # commit-binary pushes the rebuilt mexmaca64 back to the branch
+  contents: read    # default for jobs; commit-binary raises this for itself
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -44,6 +51,8 @@ jobs:
     needs: build
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # push the rebuilt mexmaca64 back to the branch
     steps:
       - uses: actions/checkout@v4
         with:
