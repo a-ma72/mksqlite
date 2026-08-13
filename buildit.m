@@ -10,7 +10,14 @@
 function buildit(varargin)
 clc
 
-error( 'buildit is deprecated, use CMake toolchain instead! ' ) % comment out this line if you really want to use it
+% buildit is deprecated in favour of the CMake toolchain, but it is still
+% used to (re)build the Apple Silicon (arm64/maca64) MEX in CI, where CMake
+% has never been wired up for that target. Allow it to run on maca64 so the
+% GitHub Actions macOS-arm64 workflow can build a portable mksqlite.mexmaca64;
+% keep the deprecation guard for every other architecture.
+if ~strcmp( computer('arch'), 'maca64' )
+    error( 'buildit is deprecated, use CMake toolchain instead! ' ) % comment out this line if you really want to use it
+end
 
 switch nargin
 
@@ -153,6 +160,25 @@ switch arch
         end
         modules = strrep( modules, '.c', '.o' );
     end
+  case {'maca64'}
+    % Precompile C-modules for mex on Apple Silicon (arm64).
+    % Mirrors the maci64 branch above, but targets -arch arm64. The
+    % min-OS floor is taken from MACOSX_DEPLOYMENT_TARGET (set to 11.0 by
+    % the CI workflow), which both clang and the mex link honour.
+    % Objects are written straight into ./obj so the shared link step
+    % below (which globs ./obj/*.o*) picks them up.
+    compvars = '';
+    buildargs = strrep( buildargs, '-DNDEBUG#1', '-DNDEBUG=1' );
+    for srcFile = strsplit( strtrim(modules) )
+        [~, objName] = fileparts( srcFile{1} );
+        objFile = fullfile( outdir, [objName, '.o'] );
+        clangStr = ['clang -o ', objFile,  ...
+                    ' -c -arch arm64 ', strrep( buildargs, ' -ldl ', ' ' ),' ', srcFile{1}];
+        disp( clangStr )
+        [status,result] = system( clangStr, '-echo' );
+        assert( status == 0 );
+    end
+    modules = '';  % C-modules are already compiled into ./obj
 end
 
 
@@ -205,14 +231,34 @@ else
 end
 
 % compile C sources
-eval (['mex -c -outdir ./obj ', compvars, buildargs, modules]);
-obj = dir( './obj/*.o*' );
-% obj = fullfile( './obj/', {obj.name} );  % Only available in newer MATLAB versions
-obj = cellfun( @(c) fullfile( './obj/', c ), {obj.name}, 'UniformOutput', 0 );
-obj = obj(:)';
-obj(2,:) = deal( {' '} );
+% (on arm64 the C-modules are precompiled with clang straight into ./obj,
+%  so there is nothing left for mex to compile here)
+if ~strcmp( arch, 'maca64' )
+    eval (['mex -c -outdir ./obj ', compvars, buildargs, modules]);
+end
+objList = dir( './obj/*.o*' );
+% objList = fullfile( './obj/', {objList.name} );  % Only available in newer MATLAB versions
+objPaths = cellfun( @(c) fullfile( './obj/', c ), {objList.name}, 'UniformOutput', 0 );
+objPaths = objPaths(:)';
+
 % compile C++ source and link
-eval (['mex -output mksqlite ', compvars, buildargs, ' mksqlite.cpp ', obj{:}]);
+if strcmp( arch, 'maca64' )
+    % Link via the functional form of mex (real string arguments) rather
+    % than eval'ing a command-syntax string: it sidesteps MATLAB's
+    % command-syntax quoting, which cannot carry an LDFLAGS="..." token.
+    % -headerpad_max_install_names reserves Mach-O header space so that
+    % tools/normalize_maca64_rpaths.sh can rewrite the rpaths in place
+    % afterwards without "larger updated load commands do not fit".
+    linkArgs = [ { '-output', 'mksqlite', ...
+                   'LDFLAGS=$LDFLAGS -Wl,-headerpad_max_install_names' }, ...
+                 strsplit( strtrim( buildargs ) ), ...
+                 { 'mksqlite.cpp' }, objPaths ];
+    mex( linkArgs{:} );
+else
+    obj = objPaths;
+    obj(2,:) = deal( {' '} );
+    eval (['mex -output mksqlite ', compvars, buildargs, ' mksqlite.cpp ', obj{:}]);
+end
 
 % back to the start directory
 cd (mksqlite_compile_currdir);
